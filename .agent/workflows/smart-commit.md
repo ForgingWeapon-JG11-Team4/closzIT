@@ -23,7 +23,7 @@ description: 변경사항 분석, 커밋, 푸시 후 PR 상태를 확인하여 �
 3.  **PR 상태 체크 및 타겟 결정**:
     - **Target Branch 결정**:
       - `hotfix/*` 브랜치인 경우 -> `main`
-      - 그 외 모든 경우 (`feature/*`, `develop` 본체 등) -> **`develop`** (기본)
+      - 그 외 모든 경우 (`feature/*`, `build/*` 등) -> **`dev`** (기본)
     - **PR 존재 확인**: `gh pr view --json url,state --jq 'select(.state == "OPEN") | .url'` 실행
 
 4.  **PR 생성 또는 최신화 (Idempotent Management)**:
