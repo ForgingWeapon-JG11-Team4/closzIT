@@ -1,5 +1,6 @@
-description
-변경사항 분석, 커밋, 푸시 후 PR 상태를 확인하여 생성하거나 최신화합니다.
+---
+description: 변경사항 분석, 커밋, 푸시 후 PR 상태를 확인하여 생성하거나 최신화합니다.
+---
 
 > **참고:** 커밋 컨벤션은 `CLAUDE.md`를 따릅니다.
 > **언어:** 모든 결과 보고 및 PR 본문은 **한글**로 작성합니다.
@@ -8,13 +9,14 @@ description
 
 1.  **현재 상태 및 변경사항 확인**:
     - 현재 브랜치명 확인: `CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)`
+    - **main 브랜치 직접 작업 금지**: `$CURRENT_BRANCH`가 `main`인 경우, "main 브랜치에서 직접 작업할 수 없습니다. feature/* 또는 develop 브랜치를 사용하세요." 경고 후 **즉시 종료**
     - `git status` 및 `git add .` (필요 시) 수행
     - 스테이징된 변경사항이 있는지 확인
 
 2.  **조건부 커밋 및 푸시**:
     - **변경사항이 있는 경우**:
       - `git diff --staged` 분석 후 Conventional Commit 메시지 생성 및 실행
-      - `git push origin $CURRENT_BRANCH` 실행
+      - `git push origin $CURRENT_BRANCH` 실행 (현재 브랜치로 푸시, main 제외)
     - **변경사항이 없는 경우**:
       - "커밋할 내용이 없습니다. PR 상태 체크로 넘어갑니다." 안내 후 바로 다음 단계 진행
 
