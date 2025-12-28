@@ -55,51 +55,172 @@ const UserProfileSetup2 = () => {
 
                 <section className="space-y-3">
                     <label className="block text-base font-semibold text-gray-800 dark:text-gray-200">
-                        어울리는 톤을 골라주세요
+                        퍼스널 컬러를 선택해주세요
                     </label>
                     <div className="grid grid-cols-2 gap-3">
+                        {/* 봄 웜톤 */}
                         <label className="cursor-pointer group">
-                            <input className="peer sr-only" name="tone" type="radio"/>
-                            <div className="p-4 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
-                                <span className="block text-sm font-medium mb-1">웜톤 (Warm)</span>
-                                <div className="flex justify-center gap-1">
-                                    <span className="w-3 h-3 rounded-full bg-orange-200"></span>
-                                    <span className="w-3 h-3 rounded-full bg-yellow-200"></span>
+                            <input className="peer sr-only" name="tone" type="radio" value="spring"/>
+                            <div className="p-4 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-orange-400 peer-checked:bg-orange-50 dark:peer-checked:bg-orange-900/20 transition-all text-center">
+                                <span className="text-2xl mb-1 block">🌸</span>
+                                <span className="block text-sm font-medium mb-1">봄 웜톤</span>
+                                <span className="block text-xs text-gray-500">따뜻함 · 밝음</span>
+                                <div className="flex justify-center gap-1 mt-2">
+                                    <span className="w-3 h-3 rounded-full bg-orange-300"></span>
+                                    <span className="w-3 h-3 rounded-full bg-yellow-300"></span>
+                                    <span className="w-3 h-3 rounded-full bg-coral-300" style={{backgroundColor: '#FF7F7F'}}></span>
                                 </div>
                             </div>
                         </label>
+                        
+                        {/* 여름 쿨톤 */}
                         <label className="cursor-pointer group">
-                            <input className="peer sr-only" name="tone" type="radio"/>
-                            <div className="p-4 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
-                                <span className="block text-sm font-medium mb-1">쿨톤 (Cool)</span>
-                                <div className="flex justify-center gap-1">
-                                    <span className="w-3 h-3 rounded-full bg-pink-200"></span>
+                            <input className="peer sr-only" name="tone" type="radio" value="summer"/>
+                            <div className="p-4 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-pink-400 peer-checked:bg-pink-50 dark:peer-checked:bg-pink-900/20 transition-all text-center">
+                                <span className="text-2xl mb-1 block">🌊</span>
+                                <span className="block text-sm font-medium mb-1">여름 쿨톤</span>
+                                <span className="block text-xs text-gray-500">시원함 · 부드러움</span>
+                                <div className="flex justify-center gap-1 mt-2">
+                                    <span className="w-3 h-3 rounded-full bg-pink-300"></span>
                                     <span className="w-3 h-3 rounded-full bg-blue-200"></span>
+                                    <span className="w-3 h-3 rounded-full bg-purple-200"></span>
+                                </div>
+                            </div>
+                        </label>
+                        
+                        {/* 가을 웜톤 */}
+                        <label className="cursor-pointer group">
+                            <input className="peer sr-only" name="tone" type="radio" value="autumn"/>
+                            <div className="p-4 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-amber-600 peer-checked:bg-amber-50 dark:peer-checked:bg-amber-900/20 transition-all text-center">
+                                <span className="text-2xl mb-1 block">🍂</span>
+                                <span className="block text-sm font-medium mb-1">가을 웜톤</span>
+                                <span className="block text-xs text-gray-500">따뜻함 · 깊음</span>
+                                <div className="flex justify-center gap-1 mt-2">
+                                    <span className="w-3 h-3 rounded-full bg-amber-600"></span>
+                                    <span className="w-3 h-3 rounded-full bg-orange-700"></span>
+                                    <span className="w-3 h-3 rounded-full bg-yellow-700"></span>
+                                </div>
+                            </div>
+                        </label>
+                        
+                        {/* 겨울 쿨톤 */}
+                        <label className="cursor-pointer group">
+                            <input className="peer sr-only" name="tone" type="radio" value="winter"/>
+                            <div className="p-4 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-blue-600 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
+                                <span className="text-2xl mb-1 block">❄️</span>
+                                <span className="block text-sm font-medium mb-1">겨울 쿨톤</span>
+                                <span className="block text-xs text-gray-500">선명함 · 차가움</span>
+                                <div className="flex justify-center gap-1 mt-2">
+                                    <span className="w-3 h-3 rounded-full bg-blue-600"></span>
+                                    <span className="w-3 h-3 rounded-full bg-fuchsia-500"></span>
+                                    <span className="w-3 h-3 rounded-full bg-gray-900"></span>
                                 </div>
                             </div>
                         </label>
                     </div>
-                    <p className="text-xs text-brand-blue hover:text-blue-600 cursor-pointer mt-1 text-right">
-                        <u>잘 모르겠어요</u>
-                    </p>
+                    
+                    {/* 퍼스널 컬러 진단 CTA */}
+                    <div className="mt-4 p-3 rounded-xl bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-900/20 dark:to-purple-900/20 border border-pink-100 dark:border-pink-800">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xl">💡</span>
+                                <span className="text-sm text-gray-700 dark:text-gray-300">내 퍼스널 컬러가 뭔지 모르겠다면?</span>
+                            </div>
+                            <button className="text-sm font-bold text-pink-500 hover:text-pink-600 flex items-center gap-1">
+                                진단받기
+                                <span className="material-icons-round text-base">arrow_forward</span>
+                            </button>
+                        </div>
+                    </div>
                 </section>
 
                 <section className="space-y-3">
-                    <label className="block text-base font-semibold text-gray-800 dark:text-gray-200" htmlFor="bodyType">
+                    <label className="block text-base font-semibold text-gray-800 dark:text-gray-200">
                         체형을 알려주세요
                     </label>
-                    <div className="relative">
-                        <select className="w-full bg-input-bg-light dark:bg-input-bg-dark border-0 rounded-xl py-4 pl-4 pr-10 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-blue appearance-none cursor-pointer" id="bodyType">
-                            <option disabled selected value="">선택해주세요</option>
-                            <option value="invertedTriangle">역삼각형 (Inverted Triangle)</option>
-                            <option value="triangle">삼각형 (Triangle)</option>
-                            <option value="rectangle">직사각형 (Rectangle)</option>
-                            <option value="hourglass">모래시계 (Hourglass)</option>
-                            <option value="oval">타원형 (Oval)</option>
-                        </select>
-                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500">
-                            <span className="material-icons-round">expand_more</span>
-                        </div>
+                    
+                    {/* 가로 스크롤 캐러셀 */}
+                    <div 
+                        className="flex gap-3 overflow-x-auto pb-2 -mx-6 px-6 hide-scrollbar"
+                        style={{ scrollSnapType: 'x mandatory' }}
+                    >
+                        {/* 잘 모르겠어요 */}
+                        <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
+                            <input className="peer sr-only" name="bodyType" type="radio" value="unknown"/>
+                            <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
+                                <img 
+                                    src={require('../../assets/bodyTypes/잘모르겠어요.png')} 
+                                    alt="잘 모르겠어요" 
+                                    className="w-full h-24 object-contain mb-2"
+                                />
+                                <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">잘 모르겠어요</span>
+                            </div>
+                        </label>
+
+                        {/* 삼각형 */}
+                        <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
+                            <input className="peer sr-only" name="bodyType" type="radio" value="triangle"/>
+                            <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
+                                <img 
+                                    src={require('../../assets/bodyTypes/삼각형.png')} 
+                                    alt="삼각형" 
+                                    className="w-full h-24 object-contain mb-2"
+                                />
+                                <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">삼각형</span>
+                            </div>
+                        </label>
+
+                        {/* 역삼각형 */}
+                        <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
+                            <input className="peer sr-only" name="bodyType" type="radio" value="invertedTriangle"/>
+                            <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
+                                <img 
+                                    src={require('../../assets/bodyTypes/역삼각형.png')} 
+                                    alt="역삼각형" 
+                                    className="w-full h-24 object-contain mb-2"
+                                />
+                                <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">역삼각형</span>
+                            </div>
+                        </label>
+
+                        {/* 둥근형 */}
+                        <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
+                            <input className="peer sr-only" name="bodyType" type="radio" value="oval"/>
+                            <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
+                                <img 
+                                    src={require('../../assets/bodyTypes/둥근형.png')} 
+                                    alt="둥근형" 
+                                    className="w-full h-24 object-contain mb-2"
+                                />
+                                <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">둥근형</span>
+                            </div>
+                        </label>
+
+                        {/* 직사각형 */}
+                        <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
+                            <input className="peer sr-only" name="bodyType" type="radio" value="rectangle"/>
+                            <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
+                                <img 
+                                    src={require('../../assets/bodyTypes/직사각형.png')} 
+                                    alt="직사각형" 
+                                    className="w-full h-24 object-contain mb-2"
+                                />
+                                <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">직사각형</span>
+                            </div>
+                        </label>
+
+                        {/* 사다리꼴형 */}
+                        <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
+                            <input className="peer sr-only" name="bodyType" type="radio" value="trapezoid"/>
+                            <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
+                                <img 
+                                    src={require('../../assets/bodyTypes/사다리꼴형.png')} 
+                                    alt="사다리꼴형" 
+                                    className="w-full h-24 object-contain mb-2"
+                                />
+                                <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">사다리꼴형</span>
+                            </div>
+                        </label>
                     </div>
                 </section>
 

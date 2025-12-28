@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import OutfitRecommender from './OutfitRecommender';
 
@@ -33,6 +33,16 @@ const MainPage = () => {
   const [activeCategory, setActiveCategory] = useState('tops');
   const [currentClothIndex, setCurrentClothIndex] = useState(0);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [userName, setUserName] = useState('');
+
+  // localStorage에서 유저 정보 불러오기
+  useEffect(() => {
+    const userProfile = localStorage.getItem('userProfile');
+    if (userProfile) {
+      const { name } = JSON.parse(userProfile);
+      setUserName(name);
+    }
+  }, []);
 
   // ... (기존 변수 및 핸들러 유지) ...
   const currentCategoryData = categories.find(c => c.id === activeCategory);
@@ -102,6 +112,15 @@ const MainPage = () => {
         ) : (
           /* Default Main UI */
           <div className="animate-fadeIn">
+            {/* Greeting */}
+            {userName && (
+              <div className="text-center mt-4 mb-6">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  반가워요, <span className="text-primary">{userName}</span>님! 👋
+                </h1>
+              </div>
+            )}
+            
             {/* Category Title */}
             <div className="flex items-center justify-center space-x-8 mt-4 mb-2">
               <button 
