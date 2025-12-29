@@ -1,5 +1,6 @@
 import logging
 import torch
+import cv2
 from ultralytics import YOLO
 # sam2와 open_clip 라이브러리의 정확한 import 경로는 설치된 패키지 버전에 따라 다를 수 있습니다.
 # 일반적인 사용법을 가정하여 작성하며, 실제 환경에 맞게 조정이 필요할 수 있습니다.
@@ -11,8 +12,13 @@ try:
     from sam2.sam2_image_predictor import SAM2ImagePredictor
 except ImportError:
     # sam2가 설치되지 않았거나 경로가 다를 경우를 대비한 더미 import
+    print("Warning: SAM2 module not found. Check installation.")
     build_sam2 = None
     SAM2ImagePredictor = None
+
+import open_clip
+from PIL import Image
+import numpy as np
 
 import open_clip
 
@@ -101,6 +107,50 @@ class ModelManager:
             
         except Exception as e:
             logger.error(f"Marqo-FashionSigLIP 모델 로딩 실패: {e}")
+
+    def extract_embedding(self, image: np.ndarray):
+        """
+        이미지(numpy array)를 받아 FashionSigLIP 모델을 통해 임베딩을 추출합니다.
+        Args:
+            image (numpy.ndarray): OpenCV 형식 (BGR) 또는 RGB numpy 배열
+        Returns:
+            list: 정규화된 임베딩 벡터 (float 리스트, 길이 768)
+        """
+        if 'fashion_siglip' not in self.models:
+            logger.error("FashionSigLIP 모델이 로드되지 않았습니다.")
+            # 더미 벡터 반환 또는 에러 처리 (여기서는 0벡터 반환)
+            return [0.0] * 768
+
+        try:
+            model_dict = self.models['fashion_siglip']
+            model = model_dict['model']
+            preprocess = model_dict['preprocess']
+
+            # OpenCV (BGR) -> PIL Image (RGB) 변환
+            # 입력이 이미 RGB인지 BGR인지 확인 필요. 보통 cv2.imread는 BGR.
+            # 하지만 utils.decode_image는 BGR을 리턴함. 
+            # safe assumption: convert convert BGR to RGB for PIL
+            if isinstance(image, np.ndarray):
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                image_pil = Image.fromarray(image)
+            else:
+                image_pil = image # 이미 PIL 이미지라면
+
+            # 전처리 및 배치 차원 추가
+            image_input = preprocess(image_pil).unsqueeze(0).to(self.device)
+
+            with torch.no_grad():
+                # 이미지 인코딩
+                image_features = model.encode_image(image_input)
+                # 정규화
+                image_features /= image_features.norm(dim=-1, keepdim=True)
+            
+            # CPU로 이동 및 리스트 변환
+            return image_features.cpu().numpy()[0].tolist()
+
+        except Exception as e:
+            logger.error(f"임베딩 추출 실패: {e}")
+            return [0.0] * 768
 
     def predict_yolo(self, image, conf=0.25):
         """

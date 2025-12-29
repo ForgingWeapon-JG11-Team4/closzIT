@@ -89,7 +89,64 @@ async def analyze_image(file: UploadFile = File(...)):
             
         return results
 
+@app.post("/analyze-all")
+async def analyze_all_images(file: UploadFile = File(...)):
+    """
+    이미지를 받아 YOLO 탐지 -> SAM2 세그멘테이션 -> FashionSigLIP 임베딩 추출을 수행하고
+    각 객체별 이미지 조각(Base64)과 임베딩 벡터를 반환합니다.
+    """
+    try:
+        # 1. 이미지 읽기 및 디코딩
+        contents = await file.read()
+        image = utils.decode_image(contents)
+        if image is None:
+            raise HTTPException(status_code=400, detail="유효하지 않은 이미지 파일입니다.")
+
+        manager = ModelManager()
+
+        # 2. YOLO 객체 탐지
+        detections = manager.predict_yolo(image)
+        if not detections:
+            return [] # 탐지된 객체 없음
+
+        # 3. 바운딩 박스 추출
+        boxes = [d['box'] for d in detections]
+
+        # 4. SAM2 세그멘테이션
+        masks = manager.predict_sam2(image, boxes)
+        
+        results = []
+        for i, detection in enumerate(detections):
+            label = detection['label']
+            confidence = detection['confidence']
+            box = detection['box']
+            
+            # 마스크 처리 및 크롭
+            if masks and len(masks) > i:
+                mask = masks[i]
+                processed_image = utils.apply_mask_and_crop(image, mask, box)
+            else:
+                x1, y1, x2, y2 = map(int, box)
+                processed_image = image[y1:y2, x1:x2]
+                logger.warning(f"마스크 생성 실패, 단순 크롭 사용: {label}")
+
+            # 5. Base64 인코딩
+            image_base64 = utils.encode_image_to_base64(processed_image)
+
+            # 6. FashionSigLIP 임베딩 추출
+            embedding = manager.extract_embedding(processed_image)
+            
+            results.append({
+                "label": label,
+                "confidence": confidence,
+                "box": box.tolist(),
+                "image_base64": image_base64,
+                "embedding": embedding
+            })
+            
+        return results
+
     except Exception as e:
-        logger.error(f"이미지 분석 중 오류 발생: {e}")
+        logger.error(f"통합 분석 중 오류 발생: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
