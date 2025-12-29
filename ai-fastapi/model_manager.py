@@ -101,3 +101,72 @@ class ModelManager:
             
         except Exception as e:
             logger.error(f"Marqo-FashionSigLIP 모델 로딩 실패: {e}")
+
+    def predict_yolo(self, image, conf=0.25):
+        """
+        YOLOv11 모델을 사용하여 이미지에서 객체를 탐지합니다.
+        Args:
+            image (numpy.ndarray): 입력 이미지
+            conf (float): 자신감 임계값
+        Returns:
+            list: 탐지된 객체 정보 리스트 (label, confidence, xyxy box)
+        """
+        if 'yolo' not in self.models:
+            logger.error("YOLO 모델이 로드되지 않았습니다.")
+            return []
+
+        try:
+            results = self.models['yolo'](image, conf=conf)
+            detections = []
+            for result in results:
+                boxes = result.boxes
+                for box in boxes:
+                    cls_id = int(box.cls[0])
+                    label = result.names[cls_id]
+                    confidence = float(box.conf[0])
+                    xyxy = box.xyxy[0].cpu().numpy() # [x1, y1, x2, y2]
+                    
+                    detections.append({
+                        "label": label,
+                        "confidence": confidence,
+                        "box": xyxy
+                    })
+            return detections
+        except Exception as e:
+            logger.error(f"YOLO 예측 실패: {e}")
+            return []
+
+    def predict_sam2(self, image, boxes):
+        """
+        SAM2 모델을 사용하여 주어진 바운딩 박스에 대한 세그멘테이션 마스크를 생성합니다.
+        Args:
+            image (numpy.ndarray): 입력 이미지 (RGB)
+            boxes (list): 바운딩 박스 리스트 (xyxy 형식)
+        Returns:
+            list: 마스크 리스트
+        """
+        if 'sam2' not in self.models:
+            logger.warning("SAM2 모델이 로드되지 않았습니다. (체크포인트 필요)")
+            return None
+        
+        try:
+            predictor = self.models['sam2']
+            predictor.set_image(image)
+            
+            masks = []
+            for box in boxes:
+                # box expects [x1, y1, x2, y2]
+                mask, _, _ = predictor.predict(
+                    point_coords=None,
+                    point_labels=None,
+                    box=box,
+                    multimask_output=False
+                )
+                # mask shape: (1, H, W) -> squeeze to (H, W)
+                masks.append(mask.squeeze())
+            
+            return masks
+        except Exception as e:
+            logger.error(f"SAM2 예측 실패: {e}")
+            return None
+

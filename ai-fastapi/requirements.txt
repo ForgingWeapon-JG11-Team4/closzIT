@@ -4,3 +4,6 @@ sam2
 open_clip_torch
 fastapi
 uvicorn
+python-multipart
+numpy
+opencv-python
