@@ -207,12 +207,20 @@ const MainPage = () => {
           </span>
         </div>
 
-        {isSearchExpanded && (
+        {isSearchExpanded ? (
           <button
             onClick={() => setIsSearchExpanded(false)}
             className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
           >
             <span className="material-symbols-rounded text-2xl text-gray-700 dark:text-gray-200">close</span>
+          </button>
+        ) : (
+          /* 마이페이지 버튼 */
+          <button
+            onClick={() => navigate('/mypage')}
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-primary to-indigo-500 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all flex-shrink-0"
+          >
+            <span className="material-symbols-rounded text-xl">person</span>
           </button>
         )}
       </div>

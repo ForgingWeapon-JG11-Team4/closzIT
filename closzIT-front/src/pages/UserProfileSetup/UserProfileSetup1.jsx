@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import WheelDatePicker from '../../components/WheelDatePicker';
 
 // 도/시 데이터
@@ -27,6 +27,9 @@ const provinces = Object.keys(locationData);
 
 const UserProfileSetup1 = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isEditMode = searchParams.get('edit') === 'true';
+  
   const [formData, setFormData] = useState({
     name: '',
     gender: '',
@@ -37,6 +40,59 @@ const UserProfileSetup1 = () => {
   const [isValid, setIsValid] = useState(false);
   const [availableCities, setAvailableCities] = useState([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // 기존 사용자 데이터 불러오기
+  useEffect(() => {
+    const fetchExistingData = async () => {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        setIsLoaded(true);
+        return;
+      }
+
+      try {
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+        const response = await fetch(`${backendUrl}/user/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          
+          // 생년월일 파싱
+          let birthday = null;
+          if (userData.birthday) {
+            const date = new Date(userData.birthday);
+            birthday = {
+              year: date.getFullYear(),
+              month: date.getMonth() + 1,
+              day: date.getDate()
+            };
+          }
+
+          // 도 설정 시 시/군/구 목록도 설정
+          if (userData.province) {
+            setAvailableCities(locationData[userData.province] || []);
+          }
+
+          setFormData({
+            name: userData.name || '',
+            gender: userData.gender || '',
+            birthday: birthday,
+            province: userData.province || '',
+            city: userData.city || ''
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+
+    fetchExistingData();
+  }, []);
 
   useEffect(() => {
     const { name, gender, birthday, province, city } = formData;
@@ -45,12 +101,12 @@ const UserProfileSetup1 = () => {
 
   // 도가 변경되면 해당 시/군/구 목록 업데이트
   useEffect(() => {
-    if (formData.province) {
+    if (formData.province && isLoaded) {
       setAvailableCities(locationData[formData.province] || []);
-      // 도가 바뀌면 시 초기화
+      // 도가 바뀌면 시 초기화 (최초 로드 시에는 초기화하지 않음)
       setFormData(prev => ({ ...prev, city: '' }));
     }
-  }, [formData.province]);
+  }, [formData.province, isLoaded]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -78,7 +134,8 @@ const UserProfileSetup1 = () => {
     if (isValid) {
       // localStorage에 유저 정보 저장
       localStorage.setItem('userProfile', JSON.stringify(formData));
-      navigate('/setup/profile2');
+      // edit 모드면 파라미터 유지
+      navigate(isEditMode ? '/setup/profile2?edit=true' : '/setup/profile2');
     }
   };
 

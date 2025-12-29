@@ -5,6 +5,7 @@ import AuthCallbackPage from './pages/Login/AuthCallbackPage';
 import UserProfileSetup1 from './pages/UserProfileSetup/UserProfileSetup1';
 import UserProfileSetup2 from './pages/UserProfileSetup/UserProfileSetup2';
 import MainPage from './pages/Main/MainPage';
+import MyPage from './pages/MyPage/MyPage';
 import RegisterPage from './pages/Register/RegisterPage';
 import LabelingPage from './pages/Labeling/LabelingPage';
 import FittingPage from './pages/Fitting/FittingPage';
@@ -20,6 +21,7 @@ function App() {
         <Route path="/setup/profile1" element={<UserProfileSetup1 />} />
         <Route path="/setup/profile2" element={<UserProfileSetup2 />} />
         <Route path="/main" element={<MainPage />} />
+        <Route path="/mypage" element={<MyPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/labeling" element={<LabelingPage />} />
         <Route path="/fitting" element={<FittingPage />} />
