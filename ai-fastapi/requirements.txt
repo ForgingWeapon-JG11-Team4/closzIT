@@ -1,0 +1,6 @@
+torch>=2.5.1
+ultralytics
+sam2
+open_clip_torch
+fastapi
+uvicorn
