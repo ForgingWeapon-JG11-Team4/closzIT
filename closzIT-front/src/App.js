@@ -7,6 +7,7 @@ import MainPage from './pages/Main/MainPage';
 import RegisterPage from './pages/Register/RegisterPage';
 import LabelingPage from './pages/Labeling/LabelingPage';
 import FittingPage from './pages/Fitting/FittingPage';
+import VirtualFittingTest from './pages/Fitting/VirtualFittingTest';
 import './App.css';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/labeling" element={<LabelingPage />} />
         <Route path="/fitting" element={<FittingPage />} />
+        <Route path="/virtual-fitting-test" element={<VirtualFittingTest />} />
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>

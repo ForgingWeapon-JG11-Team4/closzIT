@@ -235,10 +235,21 @@ const MainPage = () => {
             </div>
 
             {/* Generate Button */}
-            <div className="px-6 mt-6 mb-8">
+            <div className="px-6 mt-6 mb-4">
               <button className="w-full h-14 rounded-2xl bg-gradient-to-r from-orange-300 via-pink-400 to-purple-500 text-white font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2">
                 <span className="material-symbols-rounded">auto_awesome</span>
                 생성하기 (Generate)
+              </button>
+            </div>
+
+            {/* Virtual Fitting Test Button */}
+            <div className="px-6 mb-8">
+              <button
+                onClick={() => navigate('/virtual-fitting-test')}
+                className="w-full h-14 rounded-2xl bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 text-white font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-rounded">checkroom</span>
+                가상 피팅 테스트
               </button>
             </div>
 
