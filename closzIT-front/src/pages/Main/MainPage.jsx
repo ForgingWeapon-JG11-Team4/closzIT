@@ -1,30 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import OutfitRecommender from './OutfitRecommender';
 
 // 카테고리 데이터
 const categories = [
-  { id: 'outerwear', name: '외투', nameEn: 'Outerwear' },
-  { id: 'tops', name: '상의', nameEn: 'Tops' },
-  { id: 'bottoms', name: '하의', nameEn: 'Bottoms' },
-  { id: 'shoes', name: '신발', nameEn: 'Shoes' },
+  { id: 'outerwear', name: '외투', icon: 'diversity_1' },
+  { id: 'tops', name: '상의', icon: 'checkroom' },
+  { id: 'bottoms', name: '하의', icon: 'straighten' },
+  { id: 'shoes', name: '신발', icon: 'steps' },
 ];
 
-// 샘플 옷 데이터 (나중에 실제 데이터로 교체)
-const sampleClothes = {
+// 로컬 옷 이미지 데이터
+const clothesData = {
   outerwear: [
-    { id: 1, name: 'Denim Jacket', category: 'Casual', image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400' },
+    { id: 1, name: '외투1', image: require('../../assets/clothes/외투/외투1.png') },
+    { id: 2, name: '외투2', image: require('../../assets/clothes/외투/외투2.png') },
+    { id: 3, name: '외투3', image: require('../../assets/clothes/외투/외투3.png') },
   ],
   tops: [
-    { id: 1, name: 'Cotton Tee', category: 'Casual', image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400' },
-    { id: 2, name: 'Striped Shirt', category: 'Smart Casual', image: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400' },
-    { id: 3, name: 'Polo Shirt', category: 'Business', image: 'https://images.unsplash.com/photo-1625910513413-5fc45b628b65?w=400' },
+    { id: 1, name: '상의1', image: require('../../assets/clothes/상의/상의1.png') },
+    { id: 2, name: '상의2', image: require('../../assets/clothes/상의/상의2.png') },
+    { id: 3, name: '상의3', image: require('../../assets/clothes/상의/상의3.png') },
   ],
   bottoms: [
-    { id: 1, name: 'Blue Jeans', category: 'Casual', image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=400' },
+    { id: 1, name: '하의1', image: require('../../assets/clothes/하의/하의1.png') },
+    { id: 2, name: '하의2', image: require('../../assets/clothes/하의/하의2.png') },
   ],
   shoes: [
-    { id: 1, name: 'White Sneakers', category: 'Casual', image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=400' },
+    { id: 1, name: '신발1', image: require('../../assets/clothes/신발/신발1.png') },
+    { id: 2, name: '신발2', image: require('../../assets/clothes/신발/신발2.png') },
+    { id: 3, name: '신발3', image: require('../../assets/clothes/신발/신발3.png') },
   ],
 };
 
@@ -34,6 +39,14 @@ const MainPage = () => {
   const [currentClothIndex, setCurrentClothIndex] = useState(0);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [userName, setUserName] = useState('');
+  
+  // 선택된 코디 (각 카테고리별 선택된 옷)
+  const [selectedOutfit, setSelectedOutfit] = useState({
+    outerwear: null,
+    tops: null,
+    bottoms: null,
+    shoes: null,
+  });
 
   // localStorage에서 유저 정보 불러오기
   useEffect(() => {
@@ -44,24 +57,13 @@ const MainPage = () => {
     }
   }, []);
 
-  // ... (기존 변수 및 핸들러 유지) ...
   const currentCategoryData = categories.find(c => c.id === activeCategory);
-  const currentClothes = sampleClothes[activeCategory] || [];
+  const currentClothes = clothesData[activeCategory] || [];
   const currentCloth = currentClothes[currentClothIndex];
-  const prevCloth = currentClothes[currentClothIndex - 1];
-  const nextCloth = currentClothes[currentClothIndex + 1];
 
-  const handlePrevCloth = () => {
-    if (currentClothIndex > 0) {
-      setCurrentClothIndex(currentClothIndex - 1);
-    }
-  };
-
-  const handleNextCloth = () => {
-    if (currentClothIndex < currentClothes.length - 1) {
-      setCurrentClothIndex(currentClothIndex + 1);
-    }
-  };
+  // 스크롤 컨테이너 ref
+  const scrollContainerRef = useRef(null);
+  const CARD_WIDTH = 168; // w-36 (144px) + gap-6 (24px)
 
   // 카테고리 이전/다음 핸들러
   const currentCategoryIndex = categories.findIndex(c => c.id === activeCategory);
@@ -80,54 +82,131 @@ const MainPage = () => {
     }
   };
 
-  const handleCategoryChange = (categoryId) => {
-    setActiveCategory(categoryId);
-    setCurrentClothIndex(0);
+  // 옷 선택 핸들러 (해당 카테고리의 선택 박스에 등록)
+  const handleSelectCloth = (cloth) => {
+    setSelectedOutfit(prev => ({
+      ...prev,
+      [activeCategory]: cloth,
+    }));
+  };
+
+  // 선택 해제
+  const handleDeselectCloth = (categoryId) => {
+    setSelectedOutfit(prev => ({
+      ...prev,
+      [categoryId]: null,
+    }));
+  };
+
+  // 옷 넘기기
+  const handlePrevCloth = () => {
+    if (currentClothIndex > 0) {
+      setCurrentClothIndex(currentClothIndex - 1);
+    }
+  };
+
+  const handleNextCloth = () => {
+    if (currentClothIndex < currentClothes.length - 1) {
+      setCurrentClothIndex(currentClothIndex + 1);
+    }
+  };
+
+  // 스와이프 제스처
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe) {
+      handleNextCloth();
+    } else if (isRightSwipe) {
+      handlePrevCloth();
+    }
+  };
+
+  // 모든 카테고리가 선택되었는지 확인
+  const isAllSelected = Object.values(selectedOutfit).every(item => item !== null);
+
+  // 스크롤 시 현재 인덱스 업데이트 (중앙에 가장 가까운 아이템 감지)
+  const handleScroll = () => {
+    if (!scrollContainerRef.current) return;
+    
+    const container = scrollContainerRef.current;
+    const containerCenter = container.scrollLeft + (container.offsetWidth / 2);
+    
+    // 각 아이템의 중심 위치를 계산하여 가장 가까운 아이템 찾기
+    let closestIndex = 0;
+    let minDistance = Infinity;
+    
+    const items = container.querySelectorAll('[data-cloth-index]');
+    items.forEach((item) => {
+      const idx = parseInt(item.getAttribute('data-cloth-index'));
+      const itemCenter = item.offsetLeft + (item.offsetWidth / 2);
+      const distance = Math.abs(containerCenter - itemCenter);
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = idx;
+      }
+    });
+    
+    if (closestIndex !== currentClothIndex) {
+      setCurrentClothIndex(closestIndex);
+    }
   };
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen font-sans flex flex-col">
       
-      {/* Header with Search */}
-      <div className="px-4 py-3 flex items-center justify-between gap-3 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md sticky top-0 z-40 transition-all duration-300">
+      {/* Header */}
+      <div className="px-4 py-3 flex items-center justify-between gap-3 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md sticky top-0 z-40">
         {isSearchExpanded ? (
           <button 
             onClick={() => setIsSearchExpanded(false)}
             className="w-10 h-10 -ml-2 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
-            <span className="material-symbols-rounded text-2xl text-gray-600 dark:text-gray-300">arrow_back</span>
+            <span className="material-symbols-rounded text-2xl text-gray-700 dark:text-gray-200">arrow_back</span>
           </button>
-        ) : null}
-        
-        <div className={`relative flex-1 group transition-all duration-300 ${isSearchExpanded ? '' : ''}`}>
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors">
-            <span className="material-symbols-rounded text-xl">search</span>
-          </span>
-          <input
-            className="w-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 text-sm py-3 pl-11 pr-4 rounded-full border-none focus:ring-2 focus:ring-primary/50 transition-all shadow-sm"
-            placeholder="오늘의 코디? (Today's Outfit?)"
-            type="text"
-            onFocus={() => setIsSearchExpanded(true)}
-          />
-        </div>
-        
-        {!isSearchExpanded && (
-          <button className="w-11 h-11 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden border-2 border-transparent hover:border-primary transition-all flex-shrink-0 animate-fadeIn">
-            <span className="material-symbols-rounded text-2xl text-gray-600 dark:text-gray-300">person</span>
-          </button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="text-2xl font-bold bg-gradient-to-r from-primary to-emerald-400 bg-clip-text text-transparent">closzIT</span>
+          </div>
         )}
+        
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setIsSearchExpanded(!isSearchExpanded)}
+            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <span className="material-symbols-rounded text-2xl text-gray-700 dark:text-gray-200">
+              {isSearchExpanded ? 'close' : 'auto_awesome'}
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto pb-24 px-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         
         {isSearchExpanded ? (
-          /* Expanded AI Stylist UI */
           <div className="animate-slideDown">
             <OutfitRecommender />
           </div>
         ) : (
-          /* Default Main UI */
           <div className="animate-fadeIn">
             {/* Greeting */}
             {userName && (
@@ -138,8 +217,8 @@ const MainPage = () => {
               </div>
             )}
             
-            {/* Category Title */}
-            <div className="flex items-center justify-center space-x-8 mt-4 mb-2">
+            {/* Category Title with arrows */}
+            <div className="flex items-center justify-center space-x-8 mt-4 mb-4">
               <button 
                 onClick={handlePrevCategory}
                 disabled={currentCategoryIndex === 0}
@@ -147,8 +226,8 @@ const MainPage = () => {
               >
                 <span className="material-symbols-rounded text-3xl">chevron_left</span>
               </button>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white tracking-wide min-w-[160px] text-center">
-                {currentCategoryData?.name} ({currentCategoryData?.nameEn})
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white tracking-wide min-w-[120px] text-center">
+                {currentCategoryData?.name}
               </h2>
               <button 
                 onClick={handleNextCategory}
@@ -159,143 +238,169 @@ const MainPage = () => {
               </button>
             </div>
 
-            {/* Clothes Hanger Display */}
-            <div className="relative w-full h-72 flex flex-col items-center justify-start mt-2">
-              {/* Hanger Rail */}
-              <div className="w-11/12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mb-4 shadow-inner"></div>
+            {/* Closet Rail with Hanging Clothes */}
+            <div className="relative mb-6">
+              {/* The Rail */}
+              <div className="absolute top-4 left-0 right-0 h-2 bg-gradient-to-r from-gray-300 via-gray-400 to-gray-300 dark:from-gray-600 dark:via-gray-500 dark:to-gray-600 rounded-full shadow-md z-0"></div>
               
-              {/* Clothes Carousel */}
-              <div className="relative w-full h-full flex justify-center items-start">
+              {/* Horizontal Scroll Container */}
+              <div 
+                ref={scrollContainerRef}
+                className="flex gap-6 overflow-x-auto pt-0 pb-4 hide-scrollbar scroll-smooth"
+                style={{ scrollSnapType: 'x mandatory' }}
+                onScroll={handleScroll}
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEnd}
+              >
+                {/* Left Spacer for centering first item */}
+                <div className="flex-shrink-0" style={{ width: 'calc(50vw - 84px)' }}></div>
                 
-                {/* Left (Previous) Cloth */}
-                {prevCloth && (
-                  <div className="absolute left-4 top-4 w-32 h-48 opacity-50 transform -rotate-6 scale-90 blur-[1px]">
-                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-4 h-8 border-t-2 border-l-2 border-gray-400 rounded-tl-full"></div>
-                    <div className="w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-                      <img alt={prevCloth.name} className="w-full h-full object-cover" src={prevCloth.image} />
+                {currentClothes.map((cloth, idx) => (
+                  <div 
+                    key={`${cloth.id}-${idx === currentClothIndex ? 'active' : 'inactive'}`}
+                    data-cloth-index={idx}
+                    onClick={() => handleSelectCloth(cloth)}
+                    className={`flex-shrink-0 cursor-pointer transition-all duration-300 ${
+                      idx === currentClothIndex ? 'scale-105 animate-swing' : 'scale-95 opacity-70 hover:opacity-100'
+                    }`}
+                    style={{ scrollSnapAlign: 'center', transformOrigin: 'top center' }}
+                  >
+                    {/* Hook */}
+                    <div className="flex justify-center relative z-10">
+                      <div className={`w-6 h-8 border-4 rounded-t-full border-b-0 bg-transparent transition-colors ${
+                        idx === currentClothIndex 
+                          ? 'border-primary' 
+                          : 'border-gray-400 dark:border-gray-500'
+                      }`}></div>
                     </div>
-                  </div>
-                )}
-
-                {/* Right (Next) Cloth */}
-                {nextCloth && (
-                  <div className="absolute right-4 top-4 w-32 h-48 opacity-50 transform rotate-6 scale-90 blur-[1px]">
-                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-4 h-8 border-t-2 border-l-2 border-gray-400 rounded-tl-full"></div>
-                    <div className="w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-                      <img alt={nextCloth.name} className="w-full h-full object-cover" src={nextCloth.image} />
-                    </div>
-                  </div>
-                )}
-
-                {/* Center (Current) Cloth */}
-                {currentCloth ? (
-                  <div className="relative z-20 w-48 h-64 transform translate-y-2">
-                    {/* Hanger Hook */}
-                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-1 h-10 bg-gray-400"></div>
-                    <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-6 h-6 border-t-[3px] border-r-[3px] border-gray-800 dark:border-gray-400 rounded-tr-full transform -rotate-45"></div>
                     
-                    <div className="w-full h-full bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-none dark:border dark:border-gray-700 overflow-hidden relative group">
+                    {/* Clothes Card */}
+                    <div className={`w-36 h-44 bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border-2 transition-all ${
+                      idx === currentClothIndex 
+                        ? 'border-primary shadow-xl ring-2 ring-primary/30' 
+                        : 'border-gray-200 dark:border-gray-700'
+                    }`}>
                       <img 
-                        alt={currentCloth.name} 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                        src={currentCloth.image} 
+                        alt={cloth.name} 
+                        className="w-full h-full object-cover" 
+                        src={cloth.image} 
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-60"></div>
-                      <div className="absolute bottom-3 left-3 text-white">
-                        <p className="text-xs opacity-80">{currentCloth.category}</p>
-                        <p className="font-bold text-sm">{currentCloth.name}</p>
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Right Spacer for centering last item */}
+                <div className="flex-shrink-0" style={{ width: 'calc(50vw - 84px)' }}></div>
+                
+                {/* Empty State */}
+                {currentClothes.length === 0 && (
+                  <div className="flex-shrink-0 w-36">
+                    <div className="flex justify-center">
+                      <div className="w-6 h-8 border-4 border-gray-300 rounded-t-full border-b-0"></div>
+                    </div>
+                    <div className="w-36 h-44 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center border-2 border-dashed border-gray-300">
+                      <div className="text-center text-gray-400">
+                        <span className="material-symbols-rounded text-4xl">checkroom</span>
+                        <p className="text-xs mt-1">옷이 없어요</p>
                       </div>
                     </div>
                   </div>
-                ) : (
-                  <div className="relative z-20 w-48 h-64 flex items-center justify-center text-gray-400 dark:text-gray-600">
-                    <div className="text-center">
-                      <span className="material-symbols-rounded text-6xl mb-2">checkroom</span>
-                      <p className="text-sm">옷이 없어요</p>
-                    </div>
-                  </div>
                 )}
               </div>
             </div>
 
-            {/* Category Tabs */}
-            <div className="px-6 grid grid-cols-4 gap-4 mt-6">
-              {categories.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => handleCategoryChange(category.id)}
-                  className={`flex flex-col items-center gap-2 group cursor-pointer`}
-                >
-                  <span className={`text-sm font-semibold transition-colors ${
-                    activeCategory === category.id 
-                      ? 'text-primary' 
-                      : 'text-gray-700 dark:text-gray-300 group-hover:text-primary'
-                  }`}>
-                    {category.name}
-                  </span>
-                  <div className={`w-full aspect-square rounded-xl bg-gray-200 dark:bg-gray-800 overflow-hidden transition-all ${
-                    activeCategory === category.id 
-                      ? 'ring-2 ring-primary shadow-lg ring-offset-2 dark:ring-offset-gray-900' 
-                      : 'ring-2 ring-transparent group-hover:ring-primary/50'
-                  }`}>
-                    <div className={`w-full h-full flex items-center justify-center ${
-                      activeCategory === category.id ? 'opacity-100' : 'opacity-80 group-hover:opacity-100'
-                    }`}>
-                      <span className="material-symbols-rounded text-3xl text-gray-500 dark:text-gray-400">
-                        {category.id === 'outerwear' && 'diversity_1'}
-                        {category.id === 'tops' && 'checkroom'}
-                        {category.id === 'bottoms' && 'straighten'}
-                        {category.id === 'shoes' && 'steps'}
-                      </span>
+            {/* Selection Boxes - 4 category boxes */}
+            <div className="grid grid-cols-4 gap-3 px-2 mb-6">
+              {categories.map((category) => {
+                const selected = selectedOutfit[category.id];
+                const isActive = activeCategory === category.id;
+                
+                return (
+                  <div key={category.id} className="flex flex-col items-center">
+                    <span className={`text-xs font-semibold mb-2 ${isActive ? 'text-primary' : 'text-gray-500'}`}>
+                      {category.name}
+                    </span>
+                    <div 
+                      onClick={() => {
+                        if (selected) {
+                          handleDeselectCloth(category.id);
+                        } else {
+                          setActiveCategory(category.id);
+                          setCurrentClothIndex(0);
+                        }
+                      }}
+                      className={`w-full aspect-square rounded-xl overflow-hidden cursor-pointer transition-all ${
+                        isActive 
+                          ? 'ring-2 ring-primary shadow-lg' 
+                          : 'ring-2 ring-gray-200 dark:ring-gray-700'
+                      } ${selected ? 'bg-white' : 'bg-gray-100 dark:bg-gray-800'}`}
+                    >
+                      {selected ? (
+                        <div className="relative w-full h-full">
+                          <img 
+                            src={selected.image} 
+                            alt={selected.name}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                            <span className="material-symbols-rounded text-white text-xs">close</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="material-symbols-rounded text-3xl text-gray-400">
+                            {category.icon}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </button>
-              ))}
+                );
+              })}
             </div>
 
             {/* Generate Button */}
-            <div className="px-6 mt-6 mb-8">
-              <button className="w-full h-14 rounded-2xl bg-gradient-to-r from-orange-300 via-pink-400 to-purple-500 text-white font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2">
+            <div className="px-2 mb-8">
+              <button 
+                disabled={!isAllSelected}
+                className={`w-full h-14 rounded-2xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${
+                  isAllSelected 
+                    ? 'bg-gradient-to-r from-orange-300 via-pink-400 to-purple-500 text-white hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0' 
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                }`}
+              >
                 <span className="material-symbols-rounded">auto_awesome</span>
-                생성하기 (Generate)
+                {isAllSelected ? '코디 생성하기' : '모든 카테고리를 선택해주세요'}
               </button>
-            </div>
-
-            {/* Floating Tip */}
-            <div className="px-6 flex justify-center mb-4 animate-bounce">
-              <div className="bg-gray-800 dark:bg-gray-700 text-white text-xs py-2 px-4 rounded-lg shadow-lg relative">
-                옷 등록을 시작해 볼까요? (Start adding clothes?)
-                <div className="absolute w-3 h-3 bg-gray-800 dark:bg-gray-700 transform rotate-45 -bottom-1.5 left-1/2 -translate-x-1/2"></div>
-              </div>
             </div>
           </div>
         )}
       </div>
 
-        {/* Bottom Navigation */}
-        <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 flex items-center justify-around pb-2 z-50 safe-area-pb">
-          <button className="flex flex-col items-center justify-center w-16 h-full text-primary transition-colors gap-1">
-            <span className="material-symbols-rounded text-2xl">home</span>
-            <span className="text-[10px] font-medium">홈</span>
-          </button>
-          
-          <div className="relative -top-5">
-            <button 
-              onClick={() => navigate('/register')}
-              className="w-16 h-16 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform border-4 border-white dark:border-gray-900"
-            >
-              <span className="material-symbols-rounded text-4xl">add</span>
-            </button>
-          </div>
-          
-          <button className="flex flex-col items-center justify-center w-16 h-full text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors gap-1">
-            <span className="material-symbols-rounded text-2xl">grid_view</span>
-            <span className="text-[10px] font-medium">SNS</span>
+      {/* Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 flex items-center justify-around pb-2 z-50 safe-area-pb">
+        <button className="flex flex-col items-center justify-center w-16 h-full text-primary transition-colors gap-1">
+          <span className="material-symbols-rounded text-2xl">home</span>
+          <span className="text-[10px] font-medium">홈</span>
+        </button>
+        
+        <div className="relative -top-5">
+          <button 
+            onClick={() => navigate('/register')}
+            className="w-16 h-16 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform border-4 border-white dark:border-gray-900"
+          >
+            <span className="material-symbols-rounded text-4xl">add</span>
           </button>
         </div>
+        
+        <button className="flex flex-col items-center justify-center w-16 h-full text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors gap-1">
+          <span className="material-symbols-rounded text-2xl">grid_view</span>
+          <span className="text-[10px] font-medium">SNS</span>
+        </button>
+      </div>
     </div>
   );
 };
 
 export default MainPage;
-
