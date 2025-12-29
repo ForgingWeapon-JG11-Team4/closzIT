@@ -361,17 +361,28 @@ const MainPage = () => {
             </div>
 
             {/* Generate Button */}
-            <div className="px-2 mb-8">
-              <button 
+            <div className="px-2 mb-4">
+              <button
                 disabled={!isAllSelected}
                 className={`w-full h-14 rounded-2xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${
-                  isAllSelected 
-                    ? 'bg-gradient-to-r from-orange-300 via-pink-400 to-purple-500 text-white hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0' 
+                  isAllSelected
+                    ? 'bg-gradient-to-r from-orange-300 via-pink-400 to-purple-500 text-white hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                 }`}
               >
                 <span className="material-symbols-rounded">auto_awesome</span>
                 {isAllSelected ? '코디 생성하기' : '모든 카테고리를 선택해주세요'}
+              </button>
+            </div>
+
+            {/* Virtual Fitting Test Button */}
+            <div className="px-2 mb-8">
+              <button
+                onClick={() => navigate('/virtual-fitting-test')}
+                className="w-full h-14 rounded-2xl bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 text-white font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-rounded">checkroom</span>
+                가상 피팅 테스트
               </button>
             </div>
           </div>
