@@ -36,20 +36,21 @@ export class FittingService {
 
       // 개선된 프롬프트로 한 번에 모든 의류를 입히기
       const prompt = `
-      Rules:
-- Image 1 is the base person.
-- Replace clothing using Images 2–5 ONLY.
+Rules:
+1. SINGLE SUBJECT CONSTRAINT: 
+   - There is ONLY ONE PERSON in the final output, who must be the exact person from Image 1.
+   - Images 2–5 are for CLOTHING REFERENCE ONLY. Do not add extra people or create a collage.
 
-Outerwear must be fully open at the front.
-Inner top must be clearly visible.
-Closed outerwear is forbidden.
+2. PERFECT PRESERVATION: 
+   - Maintain the identical face, expression, hair, body, and pose of the person in Image 1. 
+   - The background, lighting, and framing must remain 100% unchanged.
 
-Do NOT change background, lighting, pose, face, hair, body, framing.
-Everything except clothing stays identical.
+3. CLOTHING ADAPTATION:
+   - Replace the original clothes with the garments from Images 2–5.
+   - Outerwear MUST be fully open at the front. Inner top MUST be visible.
+   - Adjust the fabric's wrinkles and fit to match the person's specific pose and body shape in Image 1 naturally.
 
-Output only the final image.
-Do not include explanations or text.
-
+Output ONLY the final image. No text or explanations.
 `;
 
       const apiCallStartTime = Date.now();
@@ -94,9 +95,7 @@ Do not include explanations or text.
           },
         ],
         generationConfig: {
-          temperature: 0.3,
-          TopP: 0.8,
-          TopK: 40
+          temperature: 0.1
         },
       });
       const apiCallTime = (Date.now() - apiCallStartTime) / 1000;
@@ -106,7 +105,7 @@ Do not include explanations or text.
       console.log(`Total processing time: ${totalTime.toFixed(2)}s`);
 
       // 응답 구조 확인
-      console.log('Response:', JSON.stringify(response, null, 2));
+      // console.log('Response:', JSON.stringify(response, null, 2));
 
       // 생성된 이미지 추출
       if (!response.candidates || response.candidates.length === 0) {
