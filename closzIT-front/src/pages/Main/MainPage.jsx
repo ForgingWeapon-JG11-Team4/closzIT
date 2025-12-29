@@ -63,6 +63,23 @@ const MainPage = () => {
     }
   };
 
+  // 카테고리 이전/다음 핸들러
+  const currentCategoryIndex = categories.findIndex(c => c.id === activeCategory);
+  
+  const handlePrevCategory = () => {
+    if (currentCategoryIndex > 0) {
+      setActiveCategory(categories[currentCategoryIndex - 1].id);
+      setCurrentClothIndex(0);
+    }
+  };
+
+  const handleNextCategory = () => {
+    if (currentCategoryIndex < categories.length - 1) {
+      setActiveCategory(categories[currentCategoryIndex + 1].id);
+      setCurrentClothIndex(0);
+    }
+  };
+
   const handleCategoryChange = (categoryId) => {
     setActiveCategory(categoryId);
     setCurrentClothIndex(0);
@@ -124,17 +141,19 @@ const MainPage = () => {
             {/* Category Title */}
             <div className="flex items-center justify-center space-x-8 mt-4 mb-2">
               <button 
-                onClick={handlePrevCloth}
-                className="p-2 text-gray-400 hover:text-gray-800 dark:hover:text-white transition-colors"
+                onClick={handlePrevCategory}
+                disabled={currentCategoryIndex === 0}
+                className={`p-2 transition-colors ${currentCategoryIndex === 0 ? 'text-gray-200 dark:text-gray-700 cursor-not-allowed' : 'text-gray-400 hover:text-gray-800 dark:hover:text-white'}`}
               >
                 <span className="material-symbols-rounded text-3xl">chevron_left</span>
               </button>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white tracking-wide">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white tracking-wide min-w-[160px] text-center">
                 {currentCategoryData?.name} ({currentCategoryData?.nameEn})
               </h2>
               <button 
-                onClick={handleNextCloth}
-                className="p-2 text-gray-400 hover:text-gray-800 dark:hover:text-white transition-colors"
+                onClick={handleNextCategory}
+                disabled={currentCategoryIndex === categories.length - 1}
+                className={`p-2 transition-colors ${currentCategoryIndex === categories.length - 1 ? 'text-gray-200 dark:text-gray-700 cursor-not-allowed' : 'text-gray-400 hover:text-gray-800 dark:hover:text-white'}`}
               >
                 <span className="material-symbols-rounded text-3xl">chevron_right</span>
               </button>
