@@ -1,9 +1,12 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import GoogleLoginButton from '../../components/GoogleLoginButton';
 
 const LoginPage = () => {
-  const navigate = useNavigate();
+  // 백엔드 Google OAuth 엔드포인트로 리다이렉트
+  const handleGoogleLogin = () => {
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+    window.location.href = `${backendUrl}/auth/google`;
+  };
 
   return (
     <div className="bg-white dark:bg-gray-900 font-sans antialiased h-screen flex flex-col justify-between overflow-hidden relative">
@@ -27,7 +30,7 @@ const LoginPage = () => {
       {/* 하단 버튼/푸터 섹션 */}
       <div className="w-full max-w-md mx-auto p-8 pb-12 z-10">
         <div className="space-y-4">
-          <GoogleLoginButton onClick={() => navigate('/setup/profile1')} />
+          <GoogleLoginButton onClick={handleGoogleLogin} />
           <button className="w-full text-center text-sm text-gray-400 hover:text-gray-600 transition-colors mt-4">
             다른 방법으로 로그인
           </button>

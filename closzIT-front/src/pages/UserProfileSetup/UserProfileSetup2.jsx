@@ -1,8 +1,77 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const UserProfileSetup2 = () => {
   const navigate = useNavigate();
+  
+  // State 관리
+  const [hairColor, setHairColor] = useState('');
+  const [personalColor, setPersonalColor] = useState('');
+  const [bodyType, setBodyType] = useState('');
+  const [preferredStyles, setPreferredStyles] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  // 스타일 토글 핸들러
+  const toggleStyle = (style) => {
+    setPreferredStyles(prev => 
+      prev.includes(style) 
+        ? prev.filter(s => s !== style)
+        : [...prev, style]
+    );
+  };
+
+  // 폼 제출 핸들러
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      const setup1Data = JSON.parse(localStorage.getItem('userProfile') || '{}');
+      
+      // 생년월일 포맷 변환
+      let birthday = null;
+      if (setup1Data.birthday) {
+        const { year, month, day } = setup1Data.birthday;
+        birthday = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+
+      const profileData = {
+        name: setup1Data.name,
+        gender: setup1Data.gender,
+        birthday,
+        province: setup1Data.province,
+        city: setup1Data.city,
+        hairColor,
+        personalColor,
+        bodyType,
+        preferredStyles
+      };
+
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+      const response = await fetch(`${backendUrl}/user/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(profileData)
+      });
+
+      if (!response.ok) {
+        throw new Error('프로필 저장에 실패했습니다');
+      }
+
+      // 성공 시 메인 페이지로 이동
+      navigate('/main');
+    } catch (err) {
+      console.error('Profile update error:', err);
+      setError(err.message || '오류가 발생했습니다');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="bg-background-light dark:bg-background-dark font-sans text-text-light dark:text-text-dark antialiased transition-colors duration-200 min-h-screen">
@@ -33,14 +102,25 @@ const UserProfileSetup2 = () => {
                 </p>
             </div>
 
+            {error && (
+              <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-sm">
+                {error}
+              </div>
+            )}
+
             <div className="flex-1 space-y-8 pb-24">
                 <section className="space-y-3">
                     <label className="block text-base font-semibold text-gray-800 dark:text-gray-200" htmlFor="hairColor">
                         머리 색깔을 알려주세요
                     </label>
                     <div className="relative">
-                        <select className="w-full bg-input-bg-light dark:bg-input-bg-dark border-0 rounded-xl py-4 pl-4 pr-10 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-blue appearance-none cursor-pointer" id="hairColor">
-                            <option disabled selected value="">선택해주세요</option>
+                        <select 
+                          className="w-full bg-input-bg-light dark:bg-input-bg-dark border-0 rounded-xl py-4 pl-4 pr-10 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-blue appearance-none cursor-pointer" 
+                          id="hairColor"
+                          value={hairColor}
+                          onChange={(e) => setHairColor(e.target.value)}
+                        >
+                            <option disabled value="">선택해주세요</option>
                             <option value="black">검정색 (Black)</option>
                             <option value="darkbrown">진한 갈색 (Dark Brown)</option>
                             <option value="lightbrown">밝은 갈색 (Light Brown)</option>
@@ -60,7 +140,14 @@ const UserProfileSetup2 = () => {
                     <div className="grid grid-cols-2 gap-3">
                         {/* 봄 웜톤 */}
                         <label className="cursor-pointer group">
-                            <input className="peer sr-only" name="tone" type="radio" value="spring"/>
+                            <input 
+                              className="peer sr-only" 
+                              name="tone" 
+                              type="radio" 
+                              value="spring"
+                              checked={personalColor === 'spring'}
+                              onChange={(e) => setPersonalColor(e.target.value)}
+                            />
                             <div className="p-4 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-orange-400 peer-checked:bg-orange-50 dark:peer-checked:bg-orange-900/20 transition-all text-center">
                                 <span className="text-2xl mb-1 block">🌸</span>
                                 <span className="block text-sm font-medium mb-1">봄 웜톤</span>
@@ -75,7 +162,14 @@ const UserProfileSetup2 = () => {
                         
                         {/* 여름 쿨톤 */}
                         <label className="cursor-pointer group">
-                            <input className="peer sr-only" name="tone" type="radio" value="summer"/>
+                            <input 
+                              className="peer sr-only" 
+                              name="tone" 
+                              type="radio" 
+                              value="summer"
+                              checked={personalColor === 'summer'}
+                              onChange={(e) => setPersonalColor(e.target.value)}
+                            />
                             <div className="p-4 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-pink-400 peer-checked:bg-pink-50 dark:peer-checked:bg-pink-900/20 transition-all text-center">
                                 <span className="text-2xl mb-1 block">🌊</span>
                                 <span className="block text-sm font-medium mb-1">여름 쿨톤</span>
@@ -90,7 +184,14 @@ const UserProfileSetup2 = () => {
                         
                         {/* 가을 웜톤 */}
                         <label className="cursor-pointer group">
-                            <input className="peer sr-only" name="tone" type="radio" value="autumn"/>
+                            <input 
+                              className="peer sr-only" 
+                              name="tone" 
+                              type="radio" 
+                              value="autumn"
+                              checked={personalColor === 'autumn'}
+                              onChange={(e) => setPersonalColor(e.target.value)}
+                            />
                             <div className="p-4 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-amber-600 peer-checked:bg-amber-50 dark:peer-checked:bg-amber-900/20 transition-all text-center">
                                 <span className="text-2xl mb-1 block">🍂</span>
                                 <span className="block text-sm font-medium mb-1">가을 웜톤</span>
@@ -105,7 +206,14 @@ const UserProfileSetup2 = () => {
                         
                         {/* 겨울 쿨톤 */}
                         <label className="cursor-pointer group">
-                            <input className="peer sr-only" name="tone" type="radio" value="winter"/>
+                            <input 
+                              className="peer sr-only" 
+                              name="tone" 
+                              type="radio" 
+                              value="winter"
+                              checked={personalColor === 'winter'}
+                              onChange={(e) => setPersonalColor(e.target.value)}
+                            />
                             <div className="p-4 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-blue-600 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
                                 <span className="text-2xl mb-1 block">❄️</span>
                                 <span className="block text-sm font-medium mb-1">겨울 쿨톤</span>
@@ -146,7 +254,14 @@ const UserProfileSetup2 = () => {
                     >
                         {/* 잘 모르겠어요 */}
                         <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
-                            <input className="peer sr-only" name="bodyType" type="radio" value="unknown"/>
+                            <input 
+                              className="peer sr-only" 
+                              name="bodyType" 
+                              type="radio" 
+                              value="unknown"
+                              checked={bodyType === 'unknown'}
+                              onChange={(e) => setBodyType(e.target.value)}
+                            />
                             <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
                                 <img 
                                     src={require('../../assets/bodyTypes/잘모르겠어요.png')} 
@@ -159,7 +274,14 @@ const UserProfileSetup2 = () => {
 
                         {/* 삼각형 */}
                         <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
-                            <input className="peer sr-only" name="bodyType" type="radio" value="triangle"/>
+                            <input 
+                              className="peer sr-only" 
+                              name="bodyType" 
+                              type="radio" 
+                              value="triangle"
+                              checked={bodyType === 'triangle'}
+                              onChange={(e) => setBodyType(e.target.value)}
+                            />
                             <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
                                 <img 
                                     src={require('../../assets/bodyTypes/삼각형.png')} 
@@ -172,7 +294,14 @@ const UserProfileSetup2 = () => {
 
                         {/* 역삼각형 */}
                         <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
-                            <input className="peer sr-only" name="bodyType" type="radio" value="invertedTriangle"/>
+                            <input 
+                              className="peer sr-only" 
+                              name="bodyType" 
+                              type="radio" 
+                              value="invertedTriangle"
+                              checked={bodyType === 'invertedTriangle'}
+                              onChange={(e) => setBodyType(e.target.value)}
+                            />
                             <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
                                 <img 
                                     src={require('../../assets/bodyTypes/역삼각형.png')} 
@@ -185,7 +314,14 @@ const UserProfileSetup2 = () => {
 
                         {/* 둥근형 */}
                         <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
-                            <input className="peer sr-only" name="bodyType" type="radio" value="oval"/>
+                            <input 
+                              className="peer sr-only" 
+                              name="bodyType" 
+                              type="radio" 
+                              value="oval"
+                              checked={bodyType === 'oval'}
+                              onChange={(e) => setBodyType(e.target.value)}
+                            />
                             <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
                                 <img 
                                     src={require('../../assets/bodyTypes/둥근형.png')} 
@@ -198,7 +334,14 @@ const UserProfileSetup2 = () => {
 
                         {/* 직사각형 */}
                         <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
-                            <input className="peer sr-only" name="bodyType" type="radio" value="rectangle"/>
+                            <input 
+                              className="peer sr-only" 
+                              name="bodyType" 
+                              type="radio" 
+                              value="rectangle"
+                              checked={bodyType === 'rectangle'}
+                              onChange={(e) => setBodyType(e.target.value)}
+                            />
                             <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
                                 <img 
                                     src={require('../../assets/bodyTypes/직사각형.png')} 
@@ -211,7 +354,14 @@ const UserProfileSetup2 = () => {
 
                         {/* 사다리꼴형 */}
                         <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
-                            <input className="peer sr-only" name="bodyType" type="radio" value="trapezoid"/>
+                            <input 
+                              className="peer sr-only" 
+                              name="bodyType" 
+                              type="radio" 
+                              value="trapezoid"
+                              checked={bodyType === 'trapezoid'}
+                              onChange={(e) => setBodyType(e.target.value)}
+                            />
                             <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
                                 <img 
                                     src={require('../../assets/bodyTypes/사다리꼴형.png')} 
@@ -231,7 +381,12 @@ const UserProfileSetup2 = () => {
                     <div className="flex flex-wrap gap-2">
                         {['캐주얼', '미니멀', '스트릿', '아메카지', '포멀', '비즈니스', '빈티지'].map((style) => (
                             <label key={style} className="cursor-pointer">
-                                <input className="peer sr-only" type="checkbox"/>
+                                <input 
+                                  className="peer sr-only" 
+                                  type="checkbox"
+                                  checked={preferredStyles.includes(style)}
+                                  onChange={() => toggleStyle(style)}
+                                />
                                 <div className="px-4 py-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 peer-checked:bg-brand-blue peer-checked:text-white peer-checked:border-brand-blue transition-all text-sm font-medium">
                                     {style}
                                 </div>
@@ -245,11 +400,25 @@ const UserProfileSetup2 = () => {
         <footer className="mt-8 mb-4 sticky bottom-4 z-10 w-full pointer-events-none">
              <div className="pointer-events-auto">
                 <button 
-                  className="w-full bg-brand-blue hover:bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/30 dark:shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                  onClick={() => navigate('/main')}
+                  className={`w-full font-bold py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2
+                    ${isSubmitting 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-brand-blue hover:bg-blue-600 text-white shadow-blue-500/30 dark:shadow-blue-500/20 active:scale-[0.98]'
+                    }`}
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
                 >
-                    다음
-                    <span className="material-icons-round text-lg">arrow_forward</span>
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        저장 중...
+                      </>
+                    ) : (
+                      <>
+                        다음
+                        <span className="material-icons-round text-lg">arrow_forward</span>
+                      </>
+                    )}
                 </button>
              </div>
         </footer>
