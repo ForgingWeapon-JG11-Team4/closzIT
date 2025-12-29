@@ -10,35 +10,19 @@ const categories = [
   { id: 'shoes', name: '신발', icon: 'steps' },
 ];
 
-// 로컬 옷 이미지 데이터
-const clothesData = {
-  outerwear: [
-    { id: 1, name: '외투1', image: require('../../assets/clothes/외투/외투1.png') },
-    { id: 2, name: '외투2', image: require('../../assets/clothes/외투/외투2.png') },
-    { id: 3, name: '외투3', image: require('../../assets/clothes/외투/외투3.png') },
-  ],
-  tops: [
-    { id: 1, name: '상의1', image: require('../../assets/clothes/상의/상의1.png') },
-    { id: 2, name: '상의2', image: require('../../assets/clothes/상의/상의2.png') },
-    { id: 3, name: '상의3', image: require('../../assets/clothes/상의/상의3.png') },
-  ],
-  bottoms: [
-    { id: 1, name: '하의1', image: require('../../assets/clothes/하의/하의1.png') },
-    { id: 2, name: '하의2', image: require('../../assets/clothes/하의/하의2.png') },
-  ],
-  shoes: [
-    { id: 1, name: '신발1', image: require('../../assets/clothes/신발/신발1.png') },
-    { id: 2, name: '신발2', image: require('../../assets/clothes/신발/신발2.png') },
-    { id: 3, name: '신발3', image: require('../../assets/clothes/신발/신발3.png') },
-  ],
-};
-
 const MainPage = () => {
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState('tops');
   const [currentClothIndex, setCurrentClothIndex] = useState(0);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [userName, setUserName] = useState('');
+  const [userClothes, setUserClothes] = useState({
+    outerwear: [],
+    tops: [],
+    bottoms: [],
+    shoes: [],
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
   // 선택된 코디 (각 카테고리별 선택된 옷)
   const [selectedOutfit, setSelectedOutfit] = useState({
@@ -48,18 +32,43 @@ const MainPage = () => {
     shoes: null,
   });
 
-  // localStorage에서 유저 정보 불러오기
+  // API에서 유저 정보 불러오기
   useEffect(() => {
-    const userProfile = localStorage.getItem('userProfile');
-    if (userProfile) {
-      const { name } = JSON.parse(userProfile);
-      setUserName(name);
-    }
-  }, []);
+    const fetchUserProfile = async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+          navigate('/login');
+          return;
+        }
+
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+        const response = await fetch(`${backendUrl}/user/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          setUserName(userData.name || '');
+        } else if (response.status === 401) {
+          // 토큰 만료 시 로그인 페이지로
+          localStorage.removeItem('accessToken');
+          navigate('/login');
+        }
+      } catch (error) {
+        console.error('Failed to fetch user profile:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserProfile();
+  }, [navigate]);
 
   const currentCategoryData = categories.find(c => c.id === activeCategory);
-  const currentClothes = clothesData[activeCategory] || [];
-  const currentCloth = currentClothes[currentClothIndex];
+  const currentClothes = userClothes[activeCategory] || [];
 
   // 스크롤 컨테이너 ref
   const scrollContainerRef = useRef(null);
@@ -290,16 +299,20 @@ const MainPage = () => {
                 {/* Right Spacer for centering last item */}
                 <div className="flex-shrink-0" style={{ width: 'calc(50vw - 84px)' }}></div>
 
-                {/* Empty State */}
+                {/* Empty State - Full width centered */}
                 {currentClothes.length === 0 && (
-                  <div className="flex-shrink-0 w-36">
-                    <div className="flex justify-center">
-                      <div className="w-6 h-8 border-4 border-gray-300 rounded-t-full border-b-0"></div>
-                    </div>
-                    <div className="w-36 h-44 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center border-2 border-dashed border-gray-300">
-                      <div className="text-center text-gray-400">
-                        <span className="material-symbols-rounded text-4xl">checkroom</span>
-                        <p className="text-xs mt-1">옷이 없어요</p>
+                  <div className="flex-shrink-0 w-full flex justify-center">
+                    <div 
+                      onClick={() => navigate('/register')}
+                      className="w-44 cursor-pointer group"
+                    >
+                      <div className="flex justify-center">
+                        <div className="w-6 h-8 border-4 border-gray-300 dark:border-gray-600 rounded-t-full border-b-0 group-hover:border-primary transition-colors"></div>
+                      </div>
+                      <div className="w-44 h-52 bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 group-hover:border-primary group-hover:bg-primary/5 transition-all">
+                        <span className="material-symbols-rounded text-5xl text-gray-400 dark:text-gray-500 group-hover:text-primary transition-colors">add_circle</span>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-2 group-hover:text-primary transition-colors">옷장이 비어있어요</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">탭하여 옷 등록하기</p>
                       </div>
                     </div>
                   </div>

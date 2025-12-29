@@ -1,0 +1,22 @@
+{
+  "files": {
+    "main.css": "/static/css/main.ac6233f6.css",
+    "main.js": "/static/js/main.ff262cb1.js",
+    "static/js/453.ba6a45c6.chunk.js": "/static/js/453.ba6a45c6.chunk.js",
+    "static/media/둥근형.png": "/static/media/둥근형.5e96e02076507cf4c528.png",
+    "static/media/삼각형.png": "/static/media/삼각형.2614f72b1f88aa536d17.png",
+    "static/media/역삼각형.png": "/static/media/역삼각형.76af18741712029d51ec.png",
+    "static/media/사다리꼴형.png": "/static/media/사다리꼴형.c7d9ea66d82868f40247.png",
+    "static/media/직사각형.png": "/static/media/직사각형.9f559675899fe4ad1c62.png",
+    "static/media/잘모르겠어요.png": "/static/media/잘모르겠어요.751ec3432ced24f1cda6.png",
+    "service-worker.js": "/service-worker.js",
+    "index.html": "/index.html",
+    "main.ac6233f6.css.map": "/static/css/main.ac6233f6.css.map",
+    "main.ff262cb1.js.map": "/static/js/main.ff262cb1.js.map",
+    "453.ba6a45c6.chunk.js.map": "/static/js/453.ba6a45c6.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.ac6233f6.css",
+    "static/js/main.ff262cb1.js"
+  ]
+}
