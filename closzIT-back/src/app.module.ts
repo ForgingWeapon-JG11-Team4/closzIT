@@ -1,8 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { PrismaModule } from './prisma/prisma.module';
+import { BedrockModule } from './ai/bedrock.module';
+import { AnalysisModule } from './analysis/analysis.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { ItemsModule } from './items/items.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { FittingModule } from './fitting/fitting.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
@@ -14,6 +18,10 @@ import { databaseConfig } from './config/database.config';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    PrismaModule,
+    BedrockModule,
+    AnalysisModule,
+    ItemsModule,
     TypeOrmModule.forRoot(databaseConfig()),
     AuthModule,
     UserModule,
@@ -22,4 +30,4 @@ import { databaseConfig } from './config/database.config';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
