@@ -38,3 +38,26 @@ code {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* 옷걸이 진자운동 애니메이션 */
+@keyframes swing {
+  0% { transform: rotate(0deg); }
+  25% { transform: rotate(4deg); }
+  50% { transform: rotate(0deg); }
+  75% { transform: rotate(-4deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes swingOnce {
+  0% { transform: rotate(0deg); }
+  20% { transform: rotate(6deg); }
+  40% { transform: rotate(-4deg); }
+  60% { transform: rotate(2deg); }
+  80% { transform: rotate(-1deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.animate-swing {
+  animation: swingOnce 0.6s ease-out;
+  transform-origin: top center;
+}
