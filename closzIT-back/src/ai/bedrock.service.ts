@@ -6,18 +6,15 @@ import { ConfigService } from '@nestjs/config';
 export class BedrockService {
     private client: BedrockRuntimeClient;
     private readonly logger = new Logger(BedrockService.name);
-    // Claude 3.5 Sonnet Model ID (Tokyo/US) - using latest available Sonnet as requested for "4.5" placeholder
-    // Since 4.5 is not yet available, we use 3.5 Sonnet.
-    // Using resource ID for ap-northeast-1 if available, otherwise default.
-    // Common ID: anthropic.claude-3-5-sonnet-20240620-v1:0
-    private readonly modelId = 'anthropic.claude-3-5-sonnet-20240620-v1:0';
+    // Claude Sonnet 4.5 Model ID (Japan Cross-Region Inference)
+    private readonly modelId = 'jp.anthropic.claude-sonnet-4-5-20250929-v1:0';
 
     constructor(private configService: ConfigService) {
         this.client = new BedrockRuntimeClient({
             region: this.configService.get<string>('AWS_REGION', 'ap-northeast-1'),
             credentials: {
-                accessKeyId: this.configService.get<string>('AWS_ACCESS_KEY_ID'),
-                secretAccessKey: this.configService.get<string>('AWS_SECRET_ACCESS_KEY'),
+                accessKeyId: this.configService.get<string>('AWS_ACCESS_KEY_ID') ?? '',
+                secretAccessKey: this.configService.get<string>('AWS_SECRET_ACCESS_KEY') ?? '',
             },
         });
     }
@@ -25,50 +22,67 @@ export class BedrockService {
     async extractClothingSpec(text: string, imageBase64?: string): Promise<any> {
         try {
             const prompt = `
-      You are an expert fashion analyzer. Based on the CLOTHING_SPEC.md rules, analyze the input and return a JSON object.
-      
-      RULES:
-      1. Category & Sub-Category: Choose exactly one string value.
-      2. Colors, Pattern, Detail, Style Mood: Return a list of strings.
-      3. Use only values from the ALLOWED LIST below. If no match, use 'Other'.
-      
-      ALLOWED LIST:
-      - Category: Outer, Top, Bottom, Shoes, Other
-      - Sub-Category:
-        (Outer): Cardigan, Jacket, Blazer, Jumper, Padding, Coat, Vest, Hoodie-zipup, Windbreaker, Other
-        (Top): Short-sleeve-T, Long-sleeve-T, Hoodie, Sweatshirt, Knit, Shirt, Sleeveless, Polo-shirt, Other
-        (Bottom): Denim, Slacks, Cotton-pants, Sweatpants, Shorts, Skirt, Leggings, Other
-        (Shoes): Sneakers, Loafers, Dress-shoes, Boots, Sandals, Slippers, Other
-      - Colors: Black, White, Gray, Beige, Brown, Navy, Blue, Sky-blue, Red, Pink, Orange, Yellow, Green, Mint, Purple, Khaki, Silver, Gold, Other
-      - Pattern: Solid, Stripe, Check, Dot, Floral, Animal, Graphic, Camouflage, Argyle, Other
-      - Detail: Logo, Pocket, Button, Zipper, Hood, Embroidery, Quilted, Distressed, Knit-rib, Other
-      - Style Mood: Casual, Street, Minimal, Formal, Sporty, Vintage, Gorpcore, Other
+You are an expert fashion analyst specializing in clothing color and category identification.
 
-      Return ONLY the JSON object. No markdown, no explanations.
-      Format:
-      {
-        "category": "...",
-        "sub_category": "...",
-        "colors": [...],
-        "pattern": [...],
-        "detail": [...],
-        "style_mood": [...]
-      }
-      `;
+TASK: Analyze the provided clothing image and extract attributes.
 
-            const content: any[] = [{ text: prompt }];
+IMPORTANT COLOR ANALYSIS RULES:
+- Look at the DOMINANT color of the clothing item
+- If the color appears olive, military green, or muted green-brown, choose "Khaki"
+- If the color is a dark blue that's not pure navy, still choose "Navy"
+- Grey-ish beige should be "Beige", not "Gray"
+- For striped patterns, list the main colors present
+- Be precise - "Khaki" is the brownish-green military color, not just any green
+
+RULES:
+1. Category & Sub-Category: Choose exactly one value each.
+2. Colors: Choose 1-3 DOMINANT colors. Be precise about the shade.
+3. Pattern, Detail, Style Mood: Return lists.
+4. Use ONLY values from the ALLOWED LIST. If no exact match, use 'Other'.
+
+ALLOWED VALUES:
+- Category: Outer, Top, Bottom, Shoes, Other
+- Sub-Category (by Category):
+  * Outer: Cardigan, Jacket, Blazer, Jumper, Padding, Coat, Vest, Hoodie-zipup, Windbreaker, Other
+  * Top: Short-sleeve-T, Long-sleeve-T, Hoodie, Sweatshirt, Knit, Shirt, Sleeveless, Polo-shirt, Other
+  * Bottom: Denim, Slacks, Cotton-pants, Sweatpants, Shorts, Skirt, Leggings, Other
+  * Shoes: Sneakers, Loafers, Dress-shoes, Boots, Sandals, Slippers, Other
+- Colors: Black, White, Gray, Beige, Brown, Navy, Blue, Sky-blue, Red, Pink, Orange, Yellow, Green, Mint, Purple, Khaki, Silver, Gold, Other
+- Pattern: Solid, Stripe, Check, Dot, Floral, Animal, Graphic, Camouflage, Argyle, Other
+- Detail: Logo, Pocket, Button, Zipper, Hood, Embroidery, Quilted, Distressed, Knit-rib, Other
+- Style Mood: Casual, Street, Minimal, Formal, Sporty, Vintage, Gorpcore, Other
+- TPO: Date, Daily, Commute, Sports, Travel, Wedding, Party, Home, School, Other
+- Season: Spring, Summer, Autumn, Winter
+
+Return ONLY a valid JSON object. No markdown code blocks, no explanations.
+
+{
+  "category": "string",
+  "sub_category": "string",
+  "colors": ["string"],
+  "pattern": ["string"],
+  "detail": ["string"],
+  "style_mood": ["string"],
+  "tpo": ["string"],
+  "season": ["string"]
+}
+`;
+
+            const content: any[] = [{ type: 'text', text: prompt }];
 
             if (imageBase64) {
                 content.push({
-                    image: {
-                        format: 'png', // assuming png based on previous tasks
-                        source: { bytes: Buffer.from(imageBase64, 'base64') }
+                    type: 'image',
+                    source: {
+                        type: 'base64',
+                        media_type: 'image/png',
+                        data: imageBase64,
                     }
                 });
             }
 
             if (text) {
-                content.push({ text: `Analyze this description/image: ${text}` });
+                content.push({ type: 'text', text: `Analyze this description/image: ${text}` });
             }
 
             const payload = {

@@ -10,10 +10,18 @@ datasource db {
 }
 
 model Item {
-  id           Int      @id @default(autoincrement())
+  id           Int        @id @default(autoincrement())
   category     String
   sub_category String
-  metadata     Json?    @db.JsonB
-  image_url    String?
+  metadata     Json?      @db.JsonB
+  image_url    String?    @db.Text
+  tpo          String[]
+  season       String[]
+  status       ItemStatus @default(PENDING)
   embedding    Unsupported("vector(768)")?
+}
+
+enum ItemStatus {
+  PENDING
+  COMPLETED
 }
