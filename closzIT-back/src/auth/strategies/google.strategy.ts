@@ -17,7 +17,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       clientSecret: configService.get<string>('GOOGLE_CLIENT_SECRET')!,
       callbackURL: configService.get<string>('GOOGLE_CALLBACK_URL')!,
       scope: ['email', 'profile'],
-    });
+      accessType: 'offline',
+      prompt: 'select_account', // 매번 계정 선택 화면 표시
+    } as any);
   }
 
   async validate(

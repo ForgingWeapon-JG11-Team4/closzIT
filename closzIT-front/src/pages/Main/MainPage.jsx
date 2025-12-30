@@ -182,30 +182,47 @@ const MainPage = () => {
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen font-sans flex flex-col">
 
       {/* Header */}
-      <div className="px-4 py-3 flex items-center justify-between gap-3 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md sticky top-0 z-40">
+      <div className="px-4 py-3 flex items-center gap-3 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md sticky top-0 z-40">
         {isSearchExpanded ? (
           <button
             onClick={() => setIsSearchExpanded(false)}
-            className="w-10 h-10 -ml-2 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="w-10 h-10 -ml-2 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
           >
             <span className="material-symbols-rounded text-2xl text-gray-700 dark:text-gray-200">arrow_back</span>
           </button>
-        ) : (
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold bg-gradient-to-r from-primary to-emerald-400 bg-clip-text text-transparent">closzIT</span>
-          </div>
-        )}
+        ) : null}
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsSearchExpanded(!isSearchExpanded)}
-            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            <span className="material-symbols-rounded text-2xl text-gray-700 dark:text-gray-200">
-              {isSearchExpanded ? 'close' : 'auto_awesome'}
-            </span>
-          </button>
+        {/* Search Bar - 클릭하면 추천 페이지로 */}
+        <div 
+          onClick={() => setIsSearchExpanded(true)}
+          className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer transition-all ${
+            isSearchExpanded 
+              ? 'bg-primary/10 border-2 border-primary' 
+              : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'
+          }`}
+        >
+          <span className="material-symbols-rounded text-xl text-gray-400">auto_awesome</span>
+          <span className={`text-sm ${isSearchExpanded ? 'text-primary font-medium' : 'text-gray-400'}`}>
+            {isSearchExpanded ? 'AI 스타일리스트에게 물어보세요' : '오늘 뭐 입지? AI에게 물어보기'}
+          </span>
         </div>
+
+        {isSearchExpanded ? (
+          <button
+            onClick={() => setIsSearchExpanded(false)}
+            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
+          >
+            <span className="material-symbols-rounded text-2xl text-gray-700 dark:text-gray-200">close</span>
+          </button>
+        ) : (
+          /* 마이페이지 버튼 */
+          <button
+            onClick={() => navigate('/mypage')}
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-primary to-indigo-500 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all flex-shrink-0"
+          >
+            <span className="material-symbols-rounded text-xl">person</span>
+          </button>
+        )}
       </div>
 
       {/* Main Content */}

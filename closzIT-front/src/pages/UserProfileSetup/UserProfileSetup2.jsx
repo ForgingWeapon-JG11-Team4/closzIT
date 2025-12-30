@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const UserProfileSetup2 = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isEditMode = searchParams.get('edit') === 'true';
   
   // State 관리
   const [hairColor, setHairColor] = useState('');
@@ -11,6 +13,35 @@ const UserProfileSetup2 = () => {
   const [preferredStyles, setPreferredStyles] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // 기존 사용자 데이터 불러오기
+  useEffect(() => {
+    const fetchExistingData = async () => {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+
+      try {
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+        const response = await fetch(`${backendUrl}/user/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          if (userData.hairColor) setHairColor(userData.hairColor);
+          if (userData.personalColor) setPersonalColor(userData.personalColor);
+          if (userData.bodyType) setBodyType(userData.bodyType);
+          if (userData.preferredStyles && userData.preferredStyles.length > 0) {
+            setPreferredStyles(userData.preferredStyles);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
+      }
+    };
+
+    fetchExistingData();
+  }, []);
 
   // 스타일 토글 핸들러
   const toggleStyle = (style) => {
@@ -63,8 +94,8 @@ const UserProfileSetup2 = () => {
         throw new Error('프로필 저장에 실패했습니다');
       }
 
-      // 성공 시 메인 페이지로 이동
-      navigate('/main');
+      // 성공 시 - edit 모드면 마이페이지로, 아니면 메인으로
+      navigate(isEditMode ? '/mypage' : '/main');
     } catch (err) {
       console.error('Profile update error:', err);
       setError(err.message || '오류가 발생했습니다');

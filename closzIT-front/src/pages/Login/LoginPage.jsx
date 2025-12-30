@@ -1,12 +1,58 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import GoogleLoginButton from '../../components/GoogleLoginButton';
 
 const LoginPage = () => {
+  const navigate = useNavigate();
+  const [isChecking, setIsChecking] = useState(true);
+
+  // 토큰이 이미 있고 유효하면 바로 main으로 리다이렉트
+  useEffect(() => {
+    const checkExistingToken = async () => {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        setIsChecking(false);
+        return;
+      }
+
+      try {
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+        const response = await fetch(`${backendUrl}/user/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          // 토큰 유효 - 프로필 완성 여부에 따라 리다이렉트
+          navigate(userData.isProfileComplete ? '/main' : '/setup/profile1');
+        } else {
+          // 토큰 무효 - 삭제
+          localStorage.removeItem('accessToken');
+          setIsChecking(false);
+        }
+      } catch (error) {
+        console.error('Token check failed:', error);
+        setIsChecking(false);
+      }
+    };
+
+    checkExistingToken();
+  }, [navigate]);
+
   // 백엔드 Google OAuth 엔드포인트로 리다이렉트
   const handleGoogleLogin = () => {
     const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
     window.location.href = `${backendUrl}/auth/google`;
   };
+
+  // 토큰 확인 중일 때 로딩 표시
+  if (isChecking) {
+    return (
+      <div className="bg-white dark:bg-gray-900 h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white dark:bg-gray-900 font-sans antialiased h-screen flex flex-col justify-between overflow-hidden relative">
