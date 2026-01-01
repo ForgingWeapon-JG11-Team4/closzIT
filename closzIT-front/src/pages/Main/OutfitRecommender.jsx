@@ -1,11 +1,44 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const OutfitRecommender = () => {
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+
+  // 일정 클릭 시 5초 로딩 후 코디 페이지로 이동
+  const handleScheduleClick = (scheduleName) => {
+    setLoadingMessage(`${scheduleName} 코디 추천 중...`);
+    setIsLoading(true);
+    
+    setTimeout(() => {
+      setIsLoading(false);
+      navigate('/outfit-sets');
+    }, 5000);
+  };
 
   return (
     <div className="animate-slideDown">
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 max-w-sm w-[90%] text-center shadow-2xl">
+            <div className="relative w-20 h-20 mx-auto mb-6">
+              <div className="absolute inset-0 rounded-full border-4 border-primary/20"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+              <span className="absolute inset-0 flex items-center justify-center material-symbols-rounded text-3xl text-primary">checkroom</span>
+            </div>
+            <p className="text-lg font-bold text-gray-900 dark:text-white mb-2">{loadingMessage}</p>
+            <p className="text-sm text-gray-500">AI가 최적의 코디를 분석하고 있어요</p>
+            <div className="mt-4 flex justify-center gap-1">
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* AI Stylist Greeting Card */}
       <div className="mt-2 mb-10 flex items-stretch gap-3 h-[8.5rem]">
         <div className="flex-1 bg-white dark:bg-gray-800 rounded-[2rem] rounded-bl-lg p-5 shadow-soft relative flex flex-col justify-between border border-gray-100 dark:border-gray-700 group transition-all hover:border-primary/20">
@@ -34,38 +67,37 @@ const OutfitRecommender = () => {
         </button>
       </div>
 
-      {/* Calendar Section */}
+      {/* 오늘의 일정 Section */}
       <div className="mb-10">
         <div className="flex items-end justify-between mb-5 px-1">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">캘린더</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">오늘의 일정</h2>
           <button className="text-xs font-medium text-gray-400 hover:text-primary transition-colors">전체보기</button>
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          {/* Today Card */}
-          <div className="aspect-[0.95] rounded-3xl bg-primary text-white p-4 shadow-glow shadow-primary/30 relative flex flex-col justify-between overflow-hidden group cursor-pointer transition-transform hover:-translate-y-1">
-            <div className="flex justify-between items-start">
-              <span className="text-xs font-semibold opacity-90">Today</span>
-              <div className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"></div>
+        <div className="flex gap-3">
+          {/* 점심식사 카드 */}
+          <div 
+            onClick={() => handleScheduleClick('부모님과 점심식사')}
+            className="flex-1 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-500 text-white p-4 shadow-lg relative overflow-hidden cursor-pointer transition-transform hover:-translate-y-1 active:scale-95"
+          >
+            <div className="flex justify-between items-start mb-3">
+              <span className="text-[10px] font-semibold bg-white/20 px-2 py-0.5 rounded-full">12:00</span>
+              <span className="material-symbols-rounded text-white/70 text-lg">restaurant</span>
             </div>
-            <div className="relative z-10">
-              <p className="text-[10px] opacity-80 mb-1 font-medium tracking-wide">16:00</p>
-              <p className="text-sm font-bold leading-tight">데이트</p>
-            </div>
-            <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-colors"></div>
+            <p className="text-sm font-bold leading-tight">부모님과 점심식사</p>
+            <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-white/10 rounded-full blur-xl"></div>
           </div>
           
-          {/* Other Days */}
-          {['Fri', 'Sat', 'Sun', 'Mon'].map((day, idx) => (
-            <div key={day} className="aspect-[0.95] rounded-3xl bg-white dark:bg-gray-800 p-4 border border-gray-100 dark:border-gray-700 flex flex-col justify-between hover:border-primary/30 transition-colors cursor-pointer group">
-              <span className={`text-xs font-semibold ${day === 'Sun' ? 'text-red-400' : 'text-gray-400 group-hover:text-primary'} transition-colors`}>{day}</span>
+          {/* 데이트 카드 */}
+          <div 
+            onClick={() => handleScheduleClick('데이트')}
+            className="flex-1 rounded-2xl bg-gradient-to-br from-primary to-purple-500 text-white p-4 shadow-lg relative overflow-hidden cursor-pointer transition-transform hover:-translate-y-1 active:scale-95"
+          >
+            <div className="flex justify-between items-start mb-3">
+              <span className="text-[10px] font-semibold bg-white/20 px-2 py-0.5 rounded-full">16:00</span>
+              <span className="material-symbols-rounded text-white/70 text-lg">favorite</span>
             </div>
-          ))}
-          
-          {/* Add Button */}
-          <div className="aspect-[0.95] rounded-3xl bg-gray-50 dark:bg-gray-800/50 p-4 border border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-center cursor-pointer hover:bg-white dark:hover:bg-gray-800 transition-all group">
-            <div className="w-8 h-8 rounded-full bg-white dark:bg-gray-800 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-              <span className="material-symbols-rounded text-gray-400 group-hover:text-primary text-xl">add</span>
-            </div>
+            <p className="text-sm font-bold leading-tight">데이트</p>
+            <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-white/10 rounded-full blur-xl"></div>
           </div>
         </div>
       </div>
@@ -73,37 +105,14 @@ const OutfitRecommender = () => {
       {/* Style Section */}
       <div className="mb-10">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-5 px-1 tracking-tight">스타일</h2>
-        <div className="grid grid-cols-3 gap-3">
-          {/* Casual */}
-          <div className="aspect-square rounded-3xl bg-gray-100 dark:bg-gray-800 overflow-hidden relative group cursor-pointer shadow-sm">
-            <img alt="Casual" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400" />
-            <div className="absolute inset-0 bg-black/5 group-hover:bg-black/10 transition-colors"></div>
-            <div className="absolute bottom-2 inset-x-2">
-              <div className="bg-white/90 dark:bg-black/80 backdrop-blur-md rounded-xl py-2 text-center shadow-sm">
-                <span className="text-[11px] font-bold text-gray-900 dark:text-white">캐주얼</span>
-              </div>
-            </div>
-          </div>
-          
-          {/* Hip */}
-          <div className="aspect-square rounded-3xl bg-gray-100 dark:bg-gray-800 overflow-hidden relative group cursor-pointer shadow-sm">
-            <img alt="Hip" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" src="https://images.unsplash.com/photo-1529139574466-a302d2d3f524?w=400" />
-            <div className="absolute inset-0 bg-black/5 group-hover:bg-black/10 transition-colors"></div>
-            <div className="absolute bottom-2 inset-x-2">
-              <div className="bg-white/90 dark:bg-black/80 backdrop-blur-md rounded-xl py-2 text-center shadow-sm">
-                <span className="text-[11px] font-bold text-gray-900 dark:text-white">힙</span>
-              </div>
-            </div>
-          </div>
-
-          {['모던', '스트릿', '빈티지'].map((style) => (
-            <div key={style} className="aspect-square rounded-3xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center relative cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors group">
-              <span className="text-xs font-semibold text-gray-400 group-hover:text-primary">{style}</span>
+        <div className="flex flex-wrap gap-2">
+          {['캐주얼', '힙', '모던', '스트릿', '빈티지', '미니멀'].map((style) => (
+            <div key={style} className="px-4 py-2 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors group">
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-300 group-hover:text-primary">{style}</span>
             </div>
           ))}
-
-          <div className="aspect-square rounded-3xl bg-gray-50 dark:bg-gray-800/50 border border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-center relative cursor-pointer hover:bg-white dark:hover:bg-gray-800 transition-colors group">
-            <span className="material-symbols-rounded text-gray-300 group-hover:text-primary">add</span>
+          <div className="px-4 py-2 rounded-full bg-gray-50 dark:bg-gray-800/50 border border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:border-primary transition-colors group">
+            <span className="material-symbols-rounded text-gray-400 group-hover:text-primary text-lg">add</span>
           </div>
         </div>
       </div>
@@ -111,37 +120,14 @@ const OutfitRecommender = () => {
       {/* TPO Section */}
       <div className="mb-4">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-5 px-1 tracking-tight">TPO</h2>
-        <div className="grid grid-cols-3 gap-3">
-          {/* Dining Out */}
-          <div className="aspect-square rounded-3xl bg-gray-100 dark:bg-gray-800 overflow-hidden relative group cursor-pointer shadow-sm">
-            <img alt="Dining Out" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400" />
-            <div className="absolute inset-0 bg-black/5 group-hover:bg-black/10 transition-colors"></div>
-            <div className="absolute bottom-2 inset-x-2">
-              <div className="bg-white/90 dark:bg-black/80 backdrop-blur-md rounded-xl py-2 text-center shadow-sm">
-                <span className="text-[11px] font-bold text-gray-900 dark:text-white">외식</span>
-              </div>
-            </div>
-          </div>
-          
-          {/* Daily */}
-          <div className="aspect-square rounded-3xl bg-gray-100 dark:bg-gray-800 overflow-hidden relative group cursor-pointer shadow-sm">
-            <img alt="Daily" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" src="https://images.unsplash.com/photo-1515347619252-60a6bf4fffce?w=400" />
-            <div className="absolute inset-0 bg-black/5 group-hover:bg-black/10 transition-colors"></div>
-            <div className="absolute bottom-2 inset-x-2">
-              <div className="bg-white/90 dark:bg-black/80 backdrop-blur-md rounded-xl py-2 text-center shadow-sm">
-                <span className="text-[11px] font-bold text-gray-900 dark:text-white">데일리</span>
-              </div>
-            </div>
-          </div>
-
-          {['출근', '여행', '파티'].map((tpo) => (
-            <div key={tpo} className="aspect-square rounded-3xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center relative cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors group">
-              <span className="text-xs font-semibold text-gray-400 group-hover:text-primary">{tpo}</span>
+        <div className="flex flex-wrap gap-2">
+          {['외식', '데일리', '출근', '여행', '파티', '데이트'].map((tpo) => (
+            <div key={tpo} className="px-4 py-2 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors group">
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-300 group-hover:text-primary">{tpo}</span>
             </div>
           ))}
-
-          <div className="aspect-square rounded-3xl bg-gray-50 dark:bg-gray-800/50 border border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-center relative cursor-pointer hover:bg-white dark:hover:bg-gray-800 transition-colors group">
-            <span className="material-symbols-rounded text-gray-300 group-hover:text-primary">add</span>
+          <div className="px-4 py-2 rounded-full bg-gray-50 dark:bg-gray-800/50 border border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:border-primary transition-colors group">
+            <span className="material-symbols-rounded text-gray-400 group-hover:text-primary text-lg">add</span>
           </div>
         </div>
       </div>

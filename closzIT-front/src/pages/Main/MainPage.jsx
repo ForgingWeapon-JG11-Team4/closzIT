@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import OutfitRecommender from './OutfitRecommender';
+import dongguliGif from '../../assets/동글이/동글이.gif';
 
 // 카테고리 데이터
 const categories = [
@@ -32,43 +33,100 @@ const MainPage = () => {
     shoes: null,
   });
 
-  // API에서 유저 정보 불러오기
+  // 옷 상세 팝업 상태
+  const [selectedClothForPopup, setSelectedClothForPopup] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // API에서 유저 정보 및 옷 목록 불러오기
   useEffect(() => {
-    const fetchUserProfile = async () => {
+    const fetchData = async () => {
       try {
         const token = localStorage.getItem('accessToken');
-        if (!token) {
-          navigate('/login');
-          return;
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+
+        // 유저 프로필 불러오기 (토큰 있을 때만)
+        let useAdminCloset = false; // 기본값: 내 옷장
+        if (token) {
+          const profileResponse = await fetch(`${backendUrl}/user/me`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+
+          if (profileResponse.ok) {
+            const userData = await profileResponse.json();
+            setUserName(userData.name || '');
+            // 명시적으로 true인 경우에만 관리자 옷장 사용
+            useAdminCloset = userData.useAdminCloset === true;
+          } else if (profileResponse.status === 401) {
+            localStorage.removeItem('accessToken');
+            navigate('/login');
+            return;
+          }
         }
 
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-        const response = await fetch(`${backendUrl}/user/me`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
+        // 옷 목록 불러오기 (사용자 설정에 따라 다른 소스)
+        console.log('[MainPage] Fetching items with isAdmin:', useAdminCloset);
+        const itemsResponse = await fetch(`${backendUrl}/items?isAdmin=${useAdminCloset}`);
+        if (itemsResponse.ok) {
+          const itemsData = await itemsResponse.json();
+          setUserClothes(itemsData);
+          
+          // 첫 로딩 시 첫 번째 옷 자동 선택
+          const initialCategory = 'tops'; // 기본 카테고리
+          if (itemsData[initialCategory]?.length > 0) {
+            setSelectedOutfit(prev => ({
+              ...prev,
+              [initialCategory]: itemsData[initialCategory][0],
+            }));
           }
-        });
-
-        if (response.ok) {
-          const userData = await response.json();
-          setUserName(userData.name || '');
-        } else if (response.status === 401) {
-          // 토큰 만료 시 로그인 페이지로
-          localStorage.removeItem('accessToken');
-          navigate('/login');
         }
       } catch (error) {
-        console.error('Failed to fetch user profile:', error);
+        console.error('Failed to fetch data:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchUserProfile();
+    fetchData();
   }, [navigate]);
 
   const currentCategoryData = categories.find(c => c.id === activeCategory);
   const currentClothes = userClothes[activeCategory] || [];
+
+  // 카테고리 변경 또는 옷 목록 변경 시 선택된 옷으로 스크롤 또는 첫 번째 옷 자동 선택
+  useEffect(() => {
+    if (currentClothes.length > 0) {
+      const alreadySelected = selectedOutfit[activeCategory];
+      
+      if (alreadySelected) {
+        // 이미 선택된 옷이 있으면 그 옷의 인덱스를 찾아서 포커스
+        const selectedIndex = currentClothes.findIndex(c => c.id === alreadySelected.id);
+        if (selectedIndex >= 0) {
+          setCurrentClothIndex(selectedIndex);
+          // 스크롤 위치도 조정
+          setTimeout(() => {
+            if (scrollContainerRef.current) {
+              const container = scrollContainerRef.current;
+              const items = container.querySelectorAll('[data-cloth-index]');
+              const targetItem = items[selectedIndex];
+              if (targetItem) {
+                const containerCenter = container.offsetWidth / 2;
+                const itemCenter = targetItem.offsetWidth / 2;
+                const scrollPosition = targetItem.offsetLeft - containerCenter + itemCenter;
+                container.scrollTo({ left: scrollPosition, behavior: 'smooth' });
+              }
+            }
+          }, 100);
+        }
+      } else {
+        // 선택된 옷이 없으면 첫 번째 옷 선택
+        setSelectedOutfit(prev => ({
+          ...prev,
+          [activeCategory]: currentClothes[0],
+        }));
+        setCurrentClothIndex(0);
+      }
+    }
+  }, [activeCategory, currentClothes.length]);
 
   // 스크롤 컨테이너 ref
   const scrollContainerRef = useRef(null);
@@ -97,6 +155,47 @@ const MainPage = () => {
       ...prev,
       [activeCategory]: cloth,
     }));
+  };
+
+  // 옷 클릭 시 팝업 열기
+  const handleClothClick = (cloth) => {
+    setSelectedClothForPopup(cloth);
+  };
+
+  // 옷 삭제 핸들러
+  const handleDeleteCloth = async (clothId) => {
+    try {
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+      const response = await fetch(`${backendUrl}/items/${clothId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // 로컬 상태에서 제거
+        setUserClothes(prev => {
+          const updated = { ...prev };
+          for (const category of Object.keys(updated)) {
+            updated[category] = updated[category].filter(item => item.id !== clothId);
+          }
+          return updated;
+        });
+        // 선택된 옷에서도 제거
+        setSelectedOutfit(prev => {
+          const updated = { ...prev };
+          for (const category of Object.keys(updated)) {
+            if (updated[category]?.id === clothId) {
+              updated[category] = null;
+            }
+          }
+          return updated;
+        });
+        setShowDeleteConfirm(false);
+        setSelectedClothForPopup(null);
+      }
+    } catch (error) {
+      console.error('Failed to delete cloth:', error);
+      setShowDeleteConfirm(false);
+    }
   };
 
   // 선택 해제
@@ -150,7 +249,7 @@ const MainPage = () => {
   // 모든 카테고리가 선택되었는지 확인
   const isAllSelected = Object.values(selectedOutfit).every(item => item !== null);
 
-  // 스크롤 시 현재 인덱스 업데이트 (중앙에 가장 가까운 아이템 감지)
+  // 스크롤 시 현재 인덱스 업데이트 및 자동 선택 (중앙에 가장 가까운 아이템 감지)
   const handleScroll = () => {
     if (!scrollContainerRef.current) return;
 
@@ -175,6 +274,11 @@ const MainPage = () => {
 
     if (closestIndex !== currentClothIndex) {
       setCurrentClothIndex(closestIndex);
+      // 포커스된 옷을 자동으로 선택 박스에 등록
+      const focusedCloth = currentClothes[closestIndex];
+      if (focusedCloth) {
+        handleSelectCloth(focusedCloth);
+      }
     }
   };
 
@@ -269,72 +373,70 @@ const MainPage = () => {
               {/* The Rail */}
               <div className="absolute top-4 left-0 right-0 h-2 bg-gradient-to-r from-gray-300 via-gray-400 to-gray-300 dark:from-gray-600 dark:via-gray-500 dark:to-gray-600 rounded-full shadow-md z-0"></div>
 
-              {/* Horizontal Scroll Container */}
-              <div
-                ref={scrollContainerRef}
-                className="flex gap-6 overflow-x-auto pt-0 pb-4 hide-scrollbar scroll-smooth"
-                style={{ scrollSnapType: 'x mandatory' }}
-                onScroll={handleScroll}
-                onTouchStart={onTouchStart}
-                onTouchMove={onTouchMove}
-                onTouchEnd={onTouchEnd}
-              >
-                {/* Left Spacer for centering first item */}
-                <div className="flex-shrink-0" style={{ width: 'calc(50vw - 84px)' }}></div>
-
-                {currentClothes.map((cloth, idx) => (
-                  <div
-                    key={`${cloth.id}-${idx === currentClothIndex ? 'active' : 'inactive'}`}
-                    data-cloth-index={idx}
-                    onClick={() => handleSelectCloth(cloth)}
-                    className={`flex-shrink-0 cursor-pointer transition-all duration-300 ${idx === currentClothIndex ? 'scale-105 animate-swing' : 'scale-95 opacity-70 hover:opacity-100'
-                      }`}
-                    style={{ scrollSnapAlign: 'center', transformOrigin: 'top center' }}
+              {/* Empty State */}
+              {currentClothes.length === 0 ? (
+                <div className="flex justify-center items-center py-8">
+                  <div 
+                    onClick={() => navigate('/register')}
+                    className="cursor-pointer group flex flex-col items-center"
                   >
-                    {/* Hook */}
-                    <div className="flex justify-center relative z-10">
-                      <div className={`w-6 h-8 border-4 rounded-t-full border-b-0 bg-transparent transition-colors ${idx === currentClothIndex
-                          ? 'border-primary'
-                          : 'border-gray-400 dark:border-gray-500'
-                        }`}></div>
-                    </div>
-
-                    {/* Clothes Card */}
-                    <div className={`w-36 h-44 bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border-2 transition-all ${idx === currentClothIndex
-                        ? 'border-primary shadow-xl ring-2 ring-primary/30'
-                        : 'border-gray-200 dark:border-gray-700'
-                      }`}>
-                      <img
-                        alt={cloth.name}
-                        className="w-full h-full object-cover"
-                        src={cloth.image}
-                      />
-                    </div>
+                    <img 
+                      src={dongguliGif} 
+                      alt="동글이" 
+                      className="w-56 h-56 object-contain mb-2"
+                    />
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-2">옷장이 비어있어요...ㅠ</p>
                   </div>
-                ))}
+                </div>
+              ) : (
+                /* Horizontal Scroll Container - only show when clothes exist */
+                <div
+                  ref={scrollContainerRef}
+                  className="flex gap-6 overflow-x-auto pt-0 pb-4 hide-scrollbar scroll-smooth"
+                  style={{ scrollSnapType: 'x mandatory' }}
+                  onScroll={handleScroll}
+                  onTouchStart={onTouchStart}
+                  onTouchMove={onTouchMove}
+                  onTouchEnd={onTouchEnd}
+                >
+                  {/* Left Spacer for centering first item */}
+                  <div className="flex-shrink-0" style={{ width: 'calc(50vw - 84px)' }}></div>
 
-                {/* Right Spacer for centering last item */}
-                <div className="flex-shrink-0" style={{ width: 'calc(50vw - 84px)' }}></div>
-
-                {/* Empty State - Full width centered */}
-                {currentClothes.length === 0 && (
-                  <div className="flex-shrink-0 w-full flex justify-center">
-                    <div 
-                      onClick={() => navigate('/register')}
-                      className="w-44 cursor-pointer group"
+                  {currentClothes.map((cloth, idx) => (
+                    <div
+                      key={`${cloth.id}-${idx === currentClothIndex ? 'active' : 'inactive'}`}
+                      data-cloth-index={idx}
+                      onClick={() => handleClothClick(cloth)}
+                      className={`flex-shrink-0 cursor-pointer transition-all duration-300 ${idx === currentClothIndex ? 'scale-105 animate-swing' : 'scale-95 opacity-70 hover:opacity-100'
+                        }`}
+                      style={{ scrollSnapAlign: 'center', transformOrigin: 'top center' }}
                     >
-                      <div className="flex justify-center">
-                        <div className="w-6 h-8 border-4 border-gray-300 dark:border-gray-600 rounded-t-full border-b-0 group-hover:border-primary transition-colors"></div>
+                      {/* Hook */}
+                      <div className="flex justify-center relative z-10">
+                        <div className={`w-6 h-8 border-4 rounded-t-full border-b-0 bg-transparent transition-colors ${idx === currentClothIndex
+                            ? 'border-primary'
+                            : 'border-gray-400 dark:border-gray-500'
+                          }`}></div>
                       </div>
-                      <div className="w-44 h-52 bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 group-hover:border-primary group-hover:bg-primary/5 transition-all">
-                        <span className="material-symbols-rounded text-5xl text-gray-400 dark:text-gray-500 group-hover:text-primary transition-colors">add_circle</span>
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-2 group-hover:text-primary transition-colors">옷장이 비어있어요</p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">탭하여 옷 등록하기</p>
+
+                      {/* Clothes Card */}
+                      <div className={`w-36 h-44 bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border-2 transition-all ${idx === currentClothIndex
+                          ? 'border-primary shadow-xl ring-2 ring-primary/30'
+                          : 'border-gray-200 dark:border-gray-700'
+                        }`}>
+                        <img
+                          alt={cloth.name}
+                          className="w-full h-full object-cover"
+                          src={cloth.image}
+                        />
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  ))}
+
+                  {/* Right Spacer for centering last item */}
+                  <div className="flex-shrink-0" style={{ width: 'calc(50vw - 84px)' }}></div>
+                </div>
+              )}
             </div>
 
             {/* Selection Boxes - 4 category boxes */}
@@ -403,6 +505,112 @@ const MainPage = () => {
           </div>
         )}
       </div>
+
+      {/* 옷 상세 팝업 */}
+      {selectedClothForPopup && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => { setSelectedClothForPopup(null); setShowDeleteConfirm(false); }}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden animate-slideUp"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 팝업 헤더 */}
+            <div className="relative">
+              <img 
+                src={selectedClothForPopup.image} 
+                alt={selectedClothForPopup.name}
+                className="w-full h-64 object-cover"
+              />
+              <button
+                onClick={() => setSelectedClothForPopup(null)}
+                className="absolute top-3 right-3 w-8 h-8 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/50 transition-colors"
+              >
+                <span className="material-symbols-rounded text-xl">close</span>
+              </button>
+            </div>
+
+            {/* 옷 정보 */}
+            <div className="p-5">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                {selectedClothForPopup.name || selectedClothForPopup.sub_category || '옷'}
+              </h3>
+              
+              <div className="flex flex-wrap gap-2 mb-4">
+                {selectedClothForPopup.category && (
+                  <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
+                    {selectedClothForPopup.category}
+                  </span>
+                )}
+                {selectedClothForPopup.sub_category && (
+                  <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full text-sm">
+                    {selectedClothForPopup.sub_category}
+                  </span>
+                )}
+              </div>
+
+              {/* 계절 & TPO */}
+              <div className="space-y-2 mb-5">
+                {selectedClothForPopup.season?.length > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <span className="material-symbols-rounded text-lg">calendar_month</span>
+                    <span>{selectedClothForPopup.season.join(', ')}</span>
+                  </div>
+                )}
+                {selectedClothForPopup.tpo?.length > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <span className="material-symbols-rounded text-lg">location_on</span>
+                    <span>{selectedClothForPopup.tpo.join(', ')}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* 버튼들 */}
+              {!showDeleteConfirm ? (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      navigate(`/labeling`, { state: { itemId: selectedClothForPopup.id, isEdit: true } });
+                    }}
+                    className="flex-1 py-3 px-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    <span className="material-symbols-rounded text-xl">edit</span>
+                    수정
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="flex-1 py-3 px-4 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                  >
+                    <span className="material-symbols-rounded text-xl">delete</span>
+                    삭제
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-center text-gray-700 dark:text-gray-300 font-medium">
+                    정말 삭제하시겠습니까?
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="flex-1 py-3 px-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      취소
+                    </button>
+                    <button
+                      onClick={() => handleDeleteCloth(selectedClothForPopup.id)}
+                      className="flex-1 py-3 px-4 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition-colors"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 flex items-center justify-around pb-2 z-50 safe-area-pb">

@@ -18,6 +18,7 @@ model Item {
   tpo          String[]
   season       String[]
   status       ItemStatus @default(PENDING)
+  isAdminItem  Boolean    @default(false)
   embedding    Unsupported("vector(768)")?
 }
 

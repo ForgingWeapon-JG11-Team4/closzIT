@@ -67,6 +67,10 @@ export class UserService {
     if (updateProfileDto.preferredStyles !== undefined)
       user.preferredStyles = updateProfileDto.preferredStyles;
 
+    // 옷장 설정 업데이트
+    if (updateProfileDto.useAdminCloset !== undefined)
+      user.useAdminCloset = updateProfileDto.useAdminCloset;
+
     // 프로필 완성 여부 체크
     user.isProfileComplete = !!(
       user.name &&
@@ -77,5 +81,13 @@ export class UserService {
     );
 
     return this.userRepository.save(user);
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    await this.userRepository.remove(user);
   }
 }

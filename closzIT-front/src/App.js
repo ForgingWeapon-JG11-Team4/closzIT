@@ -10,6 +10,7 @@ import RegisterPage from './pages/Register/RegisterPage';
 import LabelingPage from './pages/Labeling/LabelingPage';
 import FittingPage from './pages/Fitting/FittingPage';
 import VirtualFittingTest from './pages/Fitting/VirtualFittingTest';
+import OutfitSetsPage from './pages/OutfitSets/OutfitSetsPage';
 import './App.css';
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
         <Route path="/labeling" element={<LabelingPage />} />
         <Route path="/fitting" element={<FittingPage />} />
         <Route path="/virtual-fitting-test" element={<VirtualFittingTest />} />
+        <Route path="/outfit-sets" element={<OutfitSetsPage />} />
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>

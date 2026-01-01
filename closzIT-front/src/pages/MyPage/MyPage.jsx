@@ -61,6 +61,31 @@ const MyPage = () => {
     }
   };
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+      const response = await fetch(`${backendUrl}/user/me`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('userProfile');
+        navigate('/login');
+      }
+    } catch (error) {
+      console.error('Delete account error:', error);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="bg-gray-50 dark:bg-gray-900 min-h-screen flex items-center justify-center">
@@ -166,6 +191,50 @@ const MyPage = () => {
             </div>
             <span className="material-symbols-rounded text-gray-400">chevron_right</span>
           </button>
+          
+          {/* Closet Source Toggle */}
+          <div className="w-full flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-rounded text-gray-500">checkroom</span>
+              <div>
+                <span className="text-gray-900 dark:text-white">옷장 소스</span>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {user?.useAdminCloset !== false ? '샘플 옷장 사용 중' : '내 옷장 사용 중'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                const token = localStorage.getItem('accessToken');
+                if (!token) return;
+                const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+                const newValue = user?.useAdminCloset === false;
+                try {
+                  const response = await fetch(`${backendUrl}/user/profile`, {
+                    method: 'PUT',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ useAdminCloset: newValue })
+                  });
+                  if (response.ok) {
+                    setUser(prev => ({ ...prev, useAdminCloset: newValue }));
+                  }
+                } catch (error) {
+                  console.error('Toggle closet error:', error);
+                }
+              }}
+              className={`relative w-12 h-6 rounded-full transition-colors ${
+                user?.useAdminCloset !== false ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+            >
+              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                user?.useAdminCloset !== false ? 'translate-x-6' : 'translate-x-0.5'
+              }`} />
+            </button>
+          </div>
+
           <button
             className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700"
           >
@@ -195,11 +264,57 @@ const MyPage = () => {
           로그아웃
         </button>
 
+        {/* Delete Account Button */}
+        <button
+          onClick={() => setShowDeleteConfirm(true)}
+          className="w-full mt-3 py-3 text-gray-400 text-sm hover:text-red-500 transition-colors"
+        >
+          회원 탈퇴
+        </button>
+
         {/* App Version */}
-        <p className="text-center text-gray-400 text-xs mt-8">
+        <p className="text-center text-gray-400 text-xs mt-6">
           closzIT v1.0.0
         </p>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <span className="material-symbols-rounded text-3xl text-red-500">warning</span>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">회원 탈퇴</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                정말 탈퇴하시겠습니까?<br/>
+                모든 데이터가 삭제되며 복구할 수 없습니다.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                className="flex-1 py-3 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition-colors"
+              >
+                탈퇴하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

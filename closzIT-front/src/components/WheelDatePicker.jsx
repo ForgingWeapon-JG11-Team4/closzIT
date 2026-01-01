@@ -21,8 +21,8 @@ const years = generateYears();
 // 휠 컬럼 컴포넌트
 const WheelColumn = ({ items, value, onChange, suffix }) => {
   const containerRef = useRef(null);
-  const itemHeight = 40;
-  const visibleItems = 5;
+  const itemHeight = 32; // 40에서 32로 축소
+  const visibleItems = 3; // 5에서 3으로 축소
 
   const currentIndex = items.indexOf(value);
 
@@ -54,8 +54,8 @@ const WheelColumn = ({ items, value, onChange, suffix }) => {
         }}
       />
       {/* 상단/하단 그라데이션 */}
-      <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-white dark:from-gray-900 to-transparent pointer-events-none z-20" />
-      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white dark:from-gray-900 to-transparent pointer-events-none z-20" />
+      <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white dark:from-gray-900 to-transparent pointer-events-none z-20" />
+      <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white dark:from-gray-900 to-transparent pointer-events-none z-20" />
       
       <div
         ref={containerRef}
@@ -138,7 +138,7 @@ const WheelDatePicker = ({ value, onChange, onClose }) => {
           </button>
         </div>
 
-        <div className="flex gap-2" style={{ height: '200px' }}>
+        <div className="flex gap-2" style={{ height: '96px' }}>
           <WheelColumn
             items={years}
             value={selectedYear}

@@ -13,4 +13,7 @@ export class UpdateProfileDto {
   personalColor?: string;
   bodyType?: string;
   preferredStyles?: string[];
+
+  // 옷장 설정
+  useAdminCloset?: boolean;
 }

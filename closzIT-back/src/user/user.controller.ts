@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Put,
+  Delete,
   Body,
   UseGuards,
   Request,
@@ -29,5 +30,12 @@ export class UserController {
     @Body() updateProfileDto: UpdateProfileDto,
   ) {
     return this.userService.updateProfile(req.user.id, updateProfileDto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('me')
+  async deleteAccount(@Request() req) {
+    await this.userService.deleteUser(req.user.id);
+    return { message: 'Account deleted successfully' };
   }
 }

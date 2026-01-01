@@ -53,6 +53,9 @@ export class User {
   preferredStyles: string[]; // ['캐주얼', '미니멀', ...]
 
   @Column({ default: false })
+  useAdminCloset: boolean; // true = 관리자 샘플 옷장, false = 내 옷장
+
+  @Column({ default: false })
   isProfileComplete: boolean;
 
   @CreateDateColumn()
