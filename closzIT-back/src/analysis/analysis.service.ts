@@ -24,84 +24,47 @@ export class AnalysisService {
         const startTime = Date.now();
         this.logger.log(`[TIMING] Starting analysis for file: ${file.originalname}`);
 
-        // 1. Call FastAPI /analyze-all
         const formData = new FormData();
         formData.append('file', file.buffer, file.originalname);
 
         try {
+            // 1. Call FastAPI
             const fastApiStartTime = Date.now();
             const response = await firstValueFrom(
                 this.httpService.post(`${this.fastApiUrl}/analyze-all`, formData, {
-                    headers: {
-                        ...formData.getHeaders(),
-                    },
+                    headers: { ...formData.getHeaders() },
                 }),
             );
             this.logger.log(`[TIMING] FastAPI call took ${Date.now() - fastApiStartTime}ms`);
 
-            const items = response.data; // List of { image_base64, embedding, label }
+            const items = response.data; // List of { label, confidence, image_base64, embedding }
             this.logger.log(`[TIMING] FastAPI returned ${items.length} items.`);
 
-            // 2. Process each item in parallel using Promise.all
+            // 2. Parallel Bedrock Analysis (NO DB HERE)
             const processingStartTime = Date.now();
             const results = await Promise.all(
                 items.map(async (item: any, index: number) => {
-                    const itemStartTime = Date.now();
-
-                    // Prepare vector string for pgvector.
-                    const embeddingString = `[${item.embedding.join(',')}]`;
-
-                    // Convert base64 to Data URL for direct frontend usage
-                    const imageDataUrl = `data:image/png;base64,${item.image_base64}`;
-                    this.logger.log(`[TIMING] Item ${index}: image_url length = ${imageDataUrl.length} chars`);
-
-                    // Run Bedrock and DB Insert in PARALLEL
                     const bedrockStartTime = Date.now();
-                    const [labelData, savedItem] = await Promise.all([
-                        // Task A: Bedrock Analysis (use image_base64 from FastAPI)
-                        (async () => {
-                            const result = await this.bedrockService.extractClothingSpec('', item.image_base64);
-                            this.logger.log(`[TIMING] Item ${index}: Bedrock took ${Date.now() - bedrockStartTime}ms`);
-                            return result;
-                        })(),
 
-                        // Task B: DB Insert (Embedding + Image as Data URL)
-                        (async () => {
-                            const dbStartTime = Date.now();
-                            const result = await (this.prismaService as any).$queryRaw`
-                                INSERT INTO "Item" (category, sub_category, metadata, image_url, tpo, season, status, embedding)
-                                VALUES (
-                                  '', 
-                                  '', 
-                                  ${null}::jsonb, 
-                                  ${imageDataUrl}, 
-                                  ARRAY[]::text[], 
-                                  ARRAY[]::text[], 
-                                  'PENDING', 
-                                  ${embeddingString}::vector
-                                )
-                                RETURNING id, image_url;
-                            `;
-                            this.logger.log(`[TIMING] Item ${index}: DB INSERT took ${Date.now() - dbStartTime}ms`);
-                            return result;
-                        })()
-                    ]);
+                    // Log YOLO detection confidence
+                    this.logger.log(`[Item ${index}] YOLO Label: ${item.label}, Confidence: ${(item.confidence * 100).toFixed(1)}%`);
 
-                    const savedRecord = savedItem[0];
-                    this.logger.log(`[TIMING] Item ${index}: Saved with id=${savedRecord.id}, image_url saved=${!!savedRecord.image_url}`);
+                    // Task: Bedrock Analysis
+                    const labelData = await this.bedrockService.extractClothingSpec('', item.image_base64);
+                    this.logger.log(`[TIMING] Item ${index}: Bedrock took ${Date.now() - bedrockStartTime}ms`);
 
                     return {
-                        id: savedRecord.id, // DB ID from Task B
-                        label: labelData,   // AI Result from Task A
-                        image: item.image_base64,  // Use image_base64 from FastAPI
+                        tempId: index, // Temporary ID for frontend key
+                        label: labelData,
+                        image: item.image_base64,
+                        embedding: item.embedding, // Pass embedding to frontend (to send back later)
                     };
                 }),
             );
             this.logger.log(`[TIMING] All items processing took ${Date.now() - processingStartTime}ms`);
 
-            this.logger.log(`[TIMING] Total analysis took ${Date.now() - startTime}ms`);
             return {
-                message: 'Analysis completed',
+                message: 'Analysis completed (No DB saved)',
                 results: results,
             };
 
@@ -111,25 +74,104 @@ export class AnalysisService {
         }
     }
 
+    async saveItems(userId: string, items: any[]) {
+        this.logger.log(`[saveItems] Saving ${items.length} items for userId: ${userId}`);
+
+        const validItems = items.filter(item => item && item.image_base64); // Basic validation
+
+        try {
+            // 각 아이템의 라벨 텍스트 생성 (영문, 공백으로 연결)
+            const textsToEmbed = validItems.map(item => {
+                const { colors, pattern, detail, style_mood, tpo } = item.label || {};
+                const parts = [
+                    ...(colors || []),
+                    ...(pattern || []),
+                    ...(detail || []),
+                    ...(style_mood || []),
+                    ...(tpo || []),
+                ];
+                return parts.join(' ');
+            });
+
+            // FastAPI 텍스트 임베딩 API 호출
+            let textEmbeddings: number[][] = [];
+            try {
+                const embedResponse = await firstValueFrom(
+                    this.httpService.post(`${this.fastApiUrl}/embed-text`, {
+                        texts: textsToEmbed,
+                    }),
+                );
+                textEmbeddings = embedResponse.data.embeddings;
+                this.logger.log(`[saveItems] Text embeddings generated: ${textEmbeddings.length}`);
+            } catch (embedError) {
+                this.logger.warn(`[saveItems] Text embedding failed, using zero vectors: ${embedError.message}`);
+                textEmbeddings = textsToEmbed.map(() => new Array(512).fill(0));
+            }
+
+            const results = await Promise.all(validItems.map(async (item, index) => {
+                const { category, sub_category, colors, pattern, detail, style_mood, tpo, season } = item.label || {};
+                const imageBase64 = item.image_base64;
+                const embedding = item.embedding;
+
+                const imageDataUrl = `data:image/png;base64,${imageBase64}`;
+                const embeddingString = `[${embedding.join(',')}]`;
+                const textEmbeddingString = `[${textEmbeddings[index].join(',')}]`;
+
+                const result = await (this.prismaService as any).$queryRaw`
+                    INSERT INTO "clothes_rec_test" (
+                        user_id, 
+                        category, 
+                        sub_category, 
+                        colors,
+                        pattern,
+                        detail,
+                        style_mood,
+                        tpo,
+                        season,
+                        image_url, 
+                        image_embedding,
+                        text_embedding
+                    )
+                    VALUES (
+                        ${userId}::uuid,
+                        ${category || ''},
+                        ${sub_category || ''},
+                        ${colors || []}::text[],
+                        ${pattern || []}::text[],
+                        ${detail || []}::text[],
+                        ${style_mood || []}::text[],
+                        ${tpo || []}::text[],
+                        ${season || []}::text[],
+                        ${imageDataUrl},
+                        ${embeddingString}::vector,
+                        ${textEmbeddingString}::vector
+                    )
+                    RETURNING id;
+                `;
+                return result[0];
+            }));
+
+            this.logger.log(`[saveItems] Successfully saved ${results.length} items.`);
+            return { savedCount: results.length, ids: results.map(r => r.id) };
+
+        } catch (error) {
+            this.logger.error('[saveItems] Error saving items', error);
+            throw error;
+        }
+    }
+
     async confirmItem(id: number, data: any) {
-        // 3. Confirm (Update) Item
-        // Data should contain final labels.
-        // We update metadata and specific fields, and set status to COMPLETED.
-
-        const { category, sub_category, tpo, season, ...otherMetadata } = data;
-
-        // Merge existing metadata? Or just overwrite. For now overwrite metadata with full confirmed structure.
-
+        // Legacy support or single item update if needed
         return (this.prismaService as any).item.update({
+            // ... existing logic ...
             where: { id },
-            data: {
-                category,
-                sub_category,
-                tpo: tpo,
-                season: season,
-                metadata: data, // Save full data to metadata as well
-                status: 'COMPLETED',
-            },
+            data: { metadata: data }
+        });
+    }
+
+    async deleteItem(id: number) {
+        return (this.prismaService as any).item.delete({
+            where: { id },
         });
     }
 }

@@ -6,8 +6,7 @@ const categoryLabels = {
   'Outer': '아우터',
   'Top': '상의',
   'Bottom': '하의',
-  'Shoes': '신발',
-  'Other': '기타'
+  'Shoes': '신발'
 };
 
 const subCategoryLabels = {
@@ -50,11 +49,10 @@ const tpoOptions = [
 
 // 카테고리 옵션
 const categoryOptions = {
-  'Outer': ['Cardigan', 'Jacket', 'Blazer', 'Jumper', 'Padding', 'Coat', 'Vest', 'Hoodie-zipup', 'Windbreaker', 'Other'],
-  'Top': ['Short-sleeve-T', 'Long-sleeve-T', 'Hoodie', 'Sweatshirt', 'Knit', 'Shirt', 'Sleeveless', 'Polo-shirt', 'Other'],
-  'Bottom': ['Denim', 'Slacks', 'Cotton-pants', 'Sweatpants', 'Shorts', 'Skirt', 'Leggings', 'Other'],
-  'Shoes': ['Sneakers', 'Loafers', 'Dress-shoes', 'Boots', 'Sandals', 'Slippers', 'Other'],
-  'Other': ['Other']
+  'Outer': ['Cardigan', 'Jacket', 'Blazer', 'Jumper', 'Padding', 'Coat', 'Vest', 'Hoodie-zipup', 'Windbreaker'],
+  'Top': ['Short-sleeve-T', 'Long-sleeve-T', 'Hoodie', 'Sweatshirt', 'Knit', 'Shirt', 'Sleeveless', 'Polo-shirt'],
+  'Bottom': ['Denim', 'Slacks', 'Cotton-pants', 'Sweatpants', 'Shorts', 'Skirt', 'Leggings'],
+  'Shoes': ['Sneakers', 'Loafers', 'Dress-shoes', 'Boots', 'Sandals', 'Slippers']
 };
 
 // 색상 옵션
@@ -77,14 +75,41 @@ const colorOptions = [
   { name: '카키', value: 'Khaki', hex: '#6b7280' },
 ];
 
-// 패턴 옵션
+// 패턴 옵션 (CLOTHING_SPEC.md 기준)
 const patternOptions = [
   { label: '무지', value: 'Solid' },
   { label: '스트라이프', value: 'Stripe' },
   { label: '체크', value: 'Check' },
   { label: '도트', value: 'Dot' },
   { label: '플로럴', value: 'Floral' },
-  { label: '그래픽', value: 'Graphic' }
+  { label: '애니멀', value: 'Animal' },
+  { label: '그래픽', value: 'Graphic' },
+  { label: '카모', value: 'Camouflage' },
+  { label: '아가일', value: 'Argyle' },
+];
+
+// 디테일 옵션 (CLOTHING_SPEC.md 기준)
+const detailOptions = [
+  { label: '로고', value: 'Logo' },
+  { label: '포켓', value: 'Pocket' },
+  { label: '버튼', value: 'Button' },
+  { label: '지퍼', value: 'Zipper' },
+  { label: '후드', value: 'Hood' },
+  { label: '자수', value: 'Embroidery' },
+  { label: '퀼팅', value: 'Quilted' },
+  { label: '워싱', value: 'Distressed' },
+  { label: '니트립', value: 'Knit-rib' },
+];
+
+// 스타일 무드 옵션 (CLOTHING_SPEC.md 기준)
+const styleMoodOptions = [
+  { label: '캐주얼', value: 'Casual' },
+  { label: '스트릿', value: 'Street' },
+  { label: '미니멀', value: 'Minimal' },
+  { label: '포멀', value: 'Formal' },
+  { label: '스포티', value: 'Sporty' },
+  { label: '빈티지', value: 'Vintage' },
+  { label: '고프코어', value: 'Gorpcore' },
 ];
 
 const API_BASE_URL = 'http://localhost:3000';
@@ -94,7 +119,14 @@ const LabelingPage = () => {
   const location = useLocation();
 
   // RegisterPage에서 전달받은 이미지 정보
-  const { imageUrl, imageFile } = location.state || {};
+  const { imageUrl: initialImageUrl, imageFile: initialImageFile } = location.state || {};
+
+  // 현재 사용 중인 이미지 (새 이미지 등록 가능)
+  const [currentImageUrl, setCurrentImageUrl] = useState(initialImageUrl);
+  const [currentImageFile, setCurrentImageFile] = useState(initialImageFile);
+
+  // 현재 로그인된 사용자 ID
+  const [userId, setUserId] = useState(null);
 
   // 분석 상태
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -105,11 +137,49 @@ const LabelingPage = () => {
   // 각 아이템별 사용 안함 표시 (skip)
   const [skippedItems, setSkippedItems] = useState([]);
 
+  // 저장 중 상태
+  const [isSaving, setIsSaving] = useState(false);
+
   // 각 아이템별 수정된 폼 데이터 저장
   const [itemFormData, setItemFormData] = useState([]);
 
   // 현재 선택된 아이템의 폼 상태
   const currentFormData = itemFormData[currentItemIndex] || {};
+
+  // 현재 아이템이 신발인지 확인 (패턴/디테일 UI 숨김용)
+  // analysisResults[idx].label은 Bedrock 분석 결과 객체 (category, sub_category 등)
+  const isCurrentItemShoes =
+    analysisResults[currentItemIndex]?.label?.category?.toLowerCase() === 'shoes' ||
+    currentFormData.category?.toLowerCase() === 'shoes';
+
+  // 페이지 로드 시 사용자 ID 가져오기
+  useEffect(() => {
+    const fetchUserId = async () => {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        console.warn('[LabelingPage] No access token found');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/user/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          setUserId(userData.id);
+          console.log('[LabelingPage] User ID loaded:', userData.id);
+        } else {
+          console.error('[LabelingPage] Failed to fetch user data');
+        }
+      } catch (error) {
+        console.error('[LabelingPage] Error fetching user:', error);
+      }
+    };
+
+    fetchUserId();
+  }, []);
 
   // 아이템 변경 시 폼 데이터 로드
   useEffect(() => {
@@ -154,6 +224,30 @@ const LabelingPage = () => {
     updateCurrentFormData('colors', updated);
   };
 
+  const togglePattern = (patternValue) => {
+    const current = currentFormData.pattern || [];
+    const updated = current.includes(patternValue)
+      ? current.filter(p => p !== patternValue)
+      : [...current, patternValue];
+    updateCurrentFormData('pattern', updated);
+  };
+
+  const toggleDetail = (detailValue) => {
+    const current = currentFormData.detail || [];
+    const updated = current.includes(detailValue)
+      ? current.filter(d => d !== detailValue)
+      : [...current, detailValue];
+    updateCurrentFormData('detail', updated);
+  };
+
+  const toggleStyleMood = (styleMoodValue) => {
+    const current = currentFormData.style_mood || [];
+    const updated = current.includes(styleMoodValue)
+      ? current.filter(s => s !== styleMoodValue)
+      : [...current, styleMoodValue];
+    updateCurrentFormData('style_mood', updated);
+  };
+
   // 다음 스킵되지 않은 아이템 인덱스 찾기
   const findNextNonSkippedIndex = (currentIdx) => {
     for (let i = currentIdx + 1; i < analysisResults.length; i++) {
@@ -164,9 +258,25 @@ const LabelingPage = () => {
     return -1; // 더 이상 스킵되지 않은 아이템 없음
   };
 
+  // 새 이미지 선택 핸들러
+  const handleNewImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setCurrentImageUrl(url);
+      setCurrentImageFile(file);
+      // 분석 상태 초기화
+      setIsAnalyzed(false);
+      setAnalysisResults([]);
+      setItemFormData([]);
+      setSkippedItems([]);
+      setCurrentItemIndex(0);
+    }
+  };
+
   // 의상 분석 API 호출
   const handleAnalyze = async () => {
-    if (!imageFile) {
+    if (!currentImageFile) {
       alert('이미지를 먼저 선택해주세요.');
       return;
     }
@@ -176,7 +286,8 @@ const LabelingPage = () => {
 
     try {
       const formData = new FormData();
-      formData.append('file', imageFile);
+      formData.append('file', currentImageFile);
+      // userId는 저장 시점에 전송합니다.
 
       const response = await fetch(`${API_BASE_URL}/analysis`, {
         method: 'POST',
@@ -194,25 +305,40 @@ const LabelingPage = () => {
       const data = await response.json();
       console.log('[DEBUG] Response data:', data);
 
-      // 분석 결과 저장
+      // 분석 결과 저장 (DB ID 없음, 임시 ID 부여)
       const results = data.results || [];
+
+      // 탐지된 객체가 없는 경우 알림
+      if (results.length === 0) {
+        alert('탐지한 의상이 없습니다.\n다른 이미지를 선택해 주세요.');
+        setIsAnalyzing(false);
+        return;
+      }
+
       setAnalysisResults(results);
 
       // 각 아이템별 폼 데이터 초기화
-      const initialFormData = results.map(item => {
-        const label = item.label || {};
+      const initialFormData = results.map((item, idx) => {
+        const labelData = item.label || {};
+        // labelData는 Bedrock 분석 결과 객체 (category, sub_category 등)
+        const isShoes = labelData.category?.toLowerCase() === 'shoes';
+
         return {
-          id: item.id,
-          category: label.category || '',
-          sub_category: label.sub_category || '',
-          season: label.season || [],
-          tpo: label.tpo || [],
-          colors: label.colors || [],
-          pattern: label.pattern?.[0] || ''
+          id: idx, // Use index or item.tempId as key
+          category: labelData.category || '',
+          sub_category: labelData.sub_category || '',
+          season: labelData.season || [],
+          tpo: labelData.tpo || [],
+          colors: labelData.colors || [],
+          // 신발인 경우 패턴/디테일은 빈 배열로 처리
+          pattern: isShoes ? [] : (labelData.pattern || []),
+          detail: isShoes ? [] : (labelData.detail || []),
+          style_mood: labelData.style_mood || [],
         };
       });
       setItemFormData(initialFormData);
       setCurrentItemIndex(0);
+      setSkippedItems([]);
       setIsAnalyzed(true);
     } catch (error) {
       console.error('[ERROR] Analysis error:', error);
@@ -224,10 +350,31 @@ const LabelingPage = () => {
 
   // 저장 API 호출 - 모든 비스킵 아이템 일괄 저장
   const handleSave = async () => {
+    setIsSaving(true);
     // 저장할 아이템 필터링 (스킵되지 않은 것만)
-    const itemsToSave = analysisResults
-      .map((item, index) => ({ item, index }))
-      .filter(({ index }) => !skippedItems.includes(index));
+    const itemsToSave = itemFormData
+      .map((formData, index) => {
+        const analysisItem = analysisResults[index];
+        const isShoes = formData.category?.toLowerCase() === 'shoes' ||
+          analysisItem?.label?.category?.toLowerCase() === 'shoes';
+
+        return {
+          image_base64: analysisItem.image, // Backend expects image_base64
+          embedding: analysisItem.embedding,
+          label: {
+            category: formData.category,
+            sub_category: formData.sub_category,
+            colors: formData.colors,
+            // 신발인 경우 패턴/디테일은 빈 배열로 처리
+            pattern: isShoes ? [] : formData.pattern,
+            detail: isShoes ? [] : formData.detail,
+            style_mood: formData.style_mood,
+            tpo: formData.tpo,
+            season: formData.season,
+          }
+        };
+      })
+      .filter((_, index) => !skippedItems.includes(index));
 
     if (itemsToSave.length === 0) {
       alert('저장할 항목이 없습니다.');
@@ -235,50 +382,39 @@ const LabelingPage = () => {
     }
 
     try {
-      // 모든 아이템 병렬 저장
-      const savePromises = itemsToSave.map(async ({ item, index }) => {
-        const formData = itemFormData[index];
+      console.log('[DEBUG] Saving items:', itemsToSave.length);
 
-        if (!formData) {
-          console.warn(`[WARN] No form data for item ${index}`);
-          return { success: false, index };
-        }
-
-        const response = await fetch(`${API_BASE_URL}/analysis/${item.id}/confirm`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            category: formData.category,
-            sub_category: formData.sub_category,
-            tpo: formData.tpo,
-            season: formData.season,
-            colors: formData.colors,
-            pattern: [formData.pattern],
-          }),
-        });
-
-        if (!response.ok) {
-          console.error(`[ERROR] Failed to save item ${index}`);
-          return { success: false, index };
-        }
-
-        return { success: true, index };
-      });
-
-      const results = await Promise.all(savePromises);
-      const successCount = results.filter(r => r.success).length;
-      const failCount = results.filter(r => !r.success).length;
-
-      if (failCount > 0) {
-        alert(`${successCount}개 저장 완료, ${failCount}개 저장 실패`);
-      } else {
-        alert(`${successCount}개 아이템이 저장되었습니다! (${skippedItems.length}개 제외)`);
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        alert('로그인이 필요합니다.');
+        navigate('/login');
+        return;
       }
 
+      const response = await fetch(`${API_BASE_URL}/analysis/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ items: itemsToSave }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[ERROR] Save failed:', errorText);
+        throw new Error(`저장 실패: ${response.status}`);
+      }
+
+      const result = await response.json();
+      alert(`${result.savedCount}개 아이템이 성공적으로 저장되었습니다!`);
       navigate('/main');
+
     } catch (error) {
       console.error('[ERROR] Save error:', error);
       alert('저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -310,18 +446,29 @@ const LabelingPage = () => {
             // 분석 전: 원본 이미지만 표시
             <div className="flex flex-col items-center">
               <div className="relative w-48 h-48 bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden flex items-center justify-center">
-                {imageUrl ? (
-                  <img src={imageUrl} alt="선택된 의상" className="w-full h-full object-cover" />
+                {currentImageUrl ? (
+                  <img src={currentImageUrl} alt="선택된 의상" className="w-full h-full object-cover" />
                 ) : (
                   <span className="material-symbols-rounded text-6xl text-gray-300">checkroom</span>
                 )}
               </div>
 
+              {/* 새 이미지 선택 버튼 */}
+              <label className="mt-3 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                다른 이미지 선택
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleNewImageSelect}
+                  className="hidden"
+                />
+              </label>
+
               {/* 의상 분석 버튼 */}
               <button
                 onClick={handleAnalyze}
-                disabled={isAnalyzing || !imageFile}
-                className={`mt-4 px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all ${isAnalyzing || !imageFile
+                disabled={isAnalyzing || !currentImageFile}
+                className={`mt-3 px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all ${isAnalyzing || !currentImageFile
                   ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-primary hover:opacity-90 active:scale-[0.98]'
                   }`}
@@ -330,14 +477,26 @@ const LabelingPage = () => {
               </button>
             </div>
           ) : (
-            // 분석 후: 원본(좌) + 분석 이미지(중앙)
+            // 분석 후: 원본(좌) + 분석 이미지(중앙) + 새 이미지 버튼
             <div className="flex items-start justify-center gap-4">
-              {/* 원본 이미지 (작게) */}
+              {/* 원본 이미지 (작게) + 새 이미지 선택 */}
               <div className="flex-shrink-0">
                 <p className="text-xs text-gray-500 text-center mb-1">원본</p>
                 <div className="w-20 h-20 bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-                  {imageUrl && <img src={imageUrl} alt="원본" className="w-full h-full object-cover" />}
+                  {currentImageUrl && <img src={currentImageUrl} alt="원본" className="w-full h-full object-cover" />}
                 </div>
+                {/* 새 이미지 선택 버튼 */}
+                <label className="mt-2 block text-center">
+                  <span className="text-xs text-gray-400 hover:text-primary cursor-pointer underline">
+                    변경
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleNewImageSelect}
+                    className="hidden"
+                  />
+                </label>
               </div>
 
               {/* 분석된 이미지 (크게) */}
@@ -374,7 +533,7 @@ const LabelingPage = () => {
                   )}
 
                   {currentAnalyzedImage ? (
-                    <img src={currentAnalyzedImage} alt="분석된 의상" className="w-full h-full object-cover" />
+                    <img src={currentAnalyzedImage} alt="분석된 의상" className="w-full h-full object-contain" />
                   ) : (
                     <span className="material-symbols-rounded text-6xl text-gray-300">checkroom</span>
                   )}
@@ -534,25 +693,77 @@ const LabelingPage = () => {
               </div>
             </div>
 
-            {/* 패턴 */}
+            {/* 패턴 (다중 선택) - 신발이 아닌 경우에만 표시 */}
+            {!isCurrentItemShoes && (
+              <div className="py-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-gray-900 dark:text-white font-medium">패턴</span>
+                  <span className="text-primary text-sm font-medium">
+                    {(currentFormData.pattern || []).map(p => patternOptions.find(o => o.value === p)?.label || p).join(', ') || '선택해주세요'}
+                  </span>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {patternOptions.map((pattern) => (
+                    <button
+                      key={pattern.value}
+                      onClick={() => togglePattern(pattern.value)}
+                      className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${(currentFormData.pattern || []).includes(pattern.value)
+                        ? 'bg-primary text-white'
+                        : 'border border-gray-300 dark:border-gray-600 text-gray-500'
+                        }`}
+                    >
+                      {pattern.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 디테일 - 신발이 아닌 경우에만 표시 */}
+            {!isCurrentItemShoes && (
+              <div className="py-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-gray-900 dark:text-white font-medium">디테일</span>
+                  <span className="text-primary text-sm font-medium">
+                    {(currentFormData.detail || []).map(d => detailOptions.find(o => o.value === d)?.label || d).join(', ') || '선택해주세요'}
+                  </span>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {detailOptions.map((detail) => (
+                    <button
+                      key={detail.value}
+                      onClick={() => toggleDetail(detail.value)}
+                      className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${(currentFormData.detail || []).includes(detail.value)
+                        ? 'bg-primary text-white'
+                        : 'border border-gray-300 dark:border-gray-600 text-gray-500'
+                        }`}
+                    >
+                      {detail.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 스타일 무드 */}
             <div className="py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center mb-3">
-                <span className="text-gray-900 dark:text-white font-medium">패턴</span>
+                <span className="text-gray-900 dark:text-white font-medium">스타일</span>
                 <span className="text-primary text-sm font-medium">
-                  {patternOptions.find(p => p.value === currentFormData.pattern)?.label || currentFormData.pattern || '선택해주세요'}
+                  {(currentFormData.style_mood || []).map(s => styleMoodOptions.find(o => o.value === s)?.label || s).join(', ') || '선택해주세요'}
                 </span>
               </div>
               <div className="flex gap-2 flex-wrap">
-                {patternOptions.map((pattern) => (
+                {styleMoodOptions.map((style) => (
                   <button
-                    key={pattern.value}
-                    onClick={() => updateCurrentFormData('pattern', pattern.value)}
-                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${currentFormData.pattern === pattern.value
+                    key={style.value}
+                    onClick={() => toggleStyleMood(style.value)}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${(currentFormData.style_mood || []).includes(style.value)
                       ? 'bg-primary text-white'
                       : 'border border-gray-300 dark:border-gray-600 text-gray-500'
                       }`}
                   >
-                    {pattern.label}
+                    {style.label}
                   </button>
                 ))}
               </div>
@@ -562,11 +773,15 @@ const LabelingPage = () => {
             <div className="pt-6 pb-4">
               <button
                 onClick={handleSave}
-                className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg hover:opacity-90 active:scale-[0.98] transition-all"
+                disabled={isSaving}
+                className={`w-full py-4 rounded-2xl font-bold text-base shadow-lg transition-all ${isSaving
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    : 'bg-primary text-white hover:opacity-90 active:scale-[0.98]'
+                  }`}
               >
-                {currentItemIndex < analysisResults.length - 1
-                  ? `저장 후 다음 (${currentItemIndex + 1}/${analysisResults.length})`
-                  : '저장 완료'
+                {isSaving
+                  ? '저장 중...'
+                  : `모든 의상 저장 (${analysisResults.length - skippedItems.length}개)`
                 }
               </button>
             </div>

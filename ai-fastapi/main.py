@@ -180,3 +180,30 @@ async def analyze_all_images(file: UploadFile = File(...)):
         logger.error(f"통합 분석 중 오류 발생: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+from pydantic import BaseModel
+from typing import List
+
+class TextEmbeddingRequest(BaseModel):
+    texts: List[str]
+
+@app.post("/embed-text")
+async def embed_text(request: TextEmbeddingRequest):
+    """
+    텍스트 리스트를 받아 각각의 임베딩 벡터를 반환합니다.
+    Request body: {"texts": ["White Solid Casual", "Black Stripe Formal"]}
+    Response: {"embeddings": [[0.1, 0.2, ...], [0.3, 0.4, ...]]}
+    """
+    try:
+        manager = ModelManager()
+        embeddings = []
+        
+        for text in request.texts:
+            embedding = manager.extract_text_embedding(text)
+            embeddings.append(embedding)
+        
+        return {"embeddings": embeddings}
+    
+    except Exception as e:
+        logger.error(f"텍스트 임베딩 중 오류 발생: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

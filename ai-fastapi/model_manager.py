@@ -39,7 +39,7 @@ class ModelManager:
 
     def load_models(self):
         """
-        필요한 모든 모델(YOLOv11, SAM2, FashionSigLIP)을 로드합니다.
+        필요한 모든 모델(YOLOv11, SAM2, FashionSigLIP, CLIP)을 로드합니다.
         """
         logger.info("모델 로딩 시작...")
         
@@ -49,8 +49,11 @@ class ModelManager:
         # 2. SAM2 로드
         self._load_sam2()
 
-        # 3. Marqo-FashionSigLIP 로드
+        # 3. Marqo-FashionSigLIP 로드 (이미지 임베딩용)
         self._load_fashion_siglip()
+
+        # 4. CLIP 로드 (텍스트 임베딩용)
+        self._load_clip()
 
         logger.info("모든 모델 로딩 완료.")
 
@@ -133,6 +136,28 @@ class ModelManager:
         except Exception as e:
             logger.error(f"Marqo-FashionSigLIP 모델 로딩 실패: {e}")
 
+    def _load_clip(self):
+        """CLIP 모델 로딩 (텍스트 임베딩용)"""
+        try:
+            logger.info("CLIP 모델 로딩 중 (ViT-B-32)...")
+            # ViT-B-32는 가볍고 빠른 CLIP 모델
+            model, _, preprocess = open_clip.create_model_and_transforms(
+                'ViT-B-32', 
+                pretrained='openai',
+                device=self.device
+            )
+            tokenizer = open_clip.get_tokenizer('ViT-B-32')
+            
+            self.models['clip'] = {
+                'model': model,
+                'preprocess': preprocess,
+                'tokenizer': tokenizer
+            }
+            logger.info("CLIP 모델 로딩 성공 (ViT-B-32, 512차원).")
+            
+        except Exception as e:
+            logger.error(f"CLIP 모델 로딩 실패: {e}")
+
     def extract_embedding(self, image: np.ndarray):
         """
         이미지(numpy array)를 받아 FashionSigLIP 모델을 통해 임베딩을 추출합니다.
@@ -177,7 +202,40 @@ class ModelManager:
             logger.error(f"임베딩 추출 실패: {e}")
             return [0.0] * 768
 
-    def predict_yolo(self, image, conf=0.25):
+    def extract_text_embedding(self, text: str):
+        """
+        텍스트를 받아 CLIP 모델을 통해 텍스트 임베딩을 추출합니다.
+        Args:
+            text (str): 임베딩할 텍스트 (영문, 예: "White Solid Casual Formal Spring")
+        Returns:
+            list: 정규화된 임베딩 벡터 (float 리스트, 길이 512)
+        """
+        if 'clip' not in self.models:
+            logger.error("CLIP 모델이 로드되지 않았습니다.")
+            return [0.0] * 512
+
+        try:
+            model_dict = self.models['clip']
+            model = model_dict['model']
+            tokenizer = model_dict['tokenizer']
+
+            # 텍스트 토큰화
+            text_tokens = tokenizer([text]).to(self.device)
+
+            with torch.no_grad():
+                # 텍스트 인코딩
+                text_features = model.encode_text(text_tokens)
+                # 정규화
+                text_features /= text_features.norm(dim=-1, keepdim=True)
+            
+            # CPU로 이동 및 리스트 변환
+            return text_features.cpu().numpy()[0].tolist()
+
+        except Exception as e:
+            logger.error(f"텍스트 임베딩 추출 실패: {e}")
+            return [0.0] * 512
+
+    def predict_yolo(self, image, conf=0.5):
         """
         2-Stage Cascade Detection:
         - Stage 1: yolov8n-clothing-detection으로 Clothing/Shoes/Bags/Accessories 분류
@@ -185,7 +243,7 @@ class ModelManager:
         
         Args:
             image (numpy.ndarray): 입력 이미지
-            conf (float): 자신감 임계값
+            conf (float): 자신감 임계값 (기본값 0.5로 낮은 확신도 필터링)
         Returns:
             list: 탐지된 객체 정보 리스트 (label, confidence, xyxy box)
         """
@@ -269,7 +327,7 @@ class ModelManager:
     
     def _nms_by_label(self, detections, iou_threshold=0.3):
         """같은 라벨끼리 NMS 적용하여 중복 박스 제거
-        - shoes 라벨은 모든 박스를 하나의 union box로 합침
+        - shoes 라벨은 가까운 박스들을 하나의 union box로 합침 (한 쌍의 신발 처리)
         - 다른 라벨은 IoU 기반 NMS 적용
         """
         if not detections:
@@ -284,23 +342,26 @@ class ModelManager:
         result = []
         for label, group in label_groups.items():
             
-            # shoes는 모든 박스를 하나로 합침 (union box)
-            if label.lower() == 'shoes' and len(group) > 1:
-                # 모든 박스를 포함하는 union box 계산
-                all_boxes = [d['box'] for d in group]
-                x1 = min(b[0] for b in all_boxes)
-                y1 = min(b[1] for b in all_boxes)
-                x2 = max(b[2] for b in all_boxes)
-                y2 = max(b[3] for b in all_boxes)
-                
-                # 가장 높은 confidence 사용
-                max_conf = max(d['confidence'] for d in group)
-                
-                result.append({
-                    "label": "shoes",
-                    "confidence": max_conf,
-                    "box": np.array([x1, y1, x2, y2])
-                })
+            # shoes는 가까운 박스들을 그룹으로 합침 (한 쌍의 신발 처리)
+            if label.lower() == 'shoes':
+                shoe_groups = self._group_nearby_shoes(group)
+                for shoe_group in shoe_groups:
+                    if len(shoe_group) >= 1:
+                        # 그룹 내 모든 박스를 포함하는 union box 계산
+                        all_boxes = [d['box'] for d in shoe_group]
+                        x1 = min(b[0] for b in all_boxes)
+                        y1 = min(b[1] for b in all_boxes)
+                        x2 = max(b[2] for b in all_boxes)
+                        y2 = max(b[3] for b in all_boxes)
+                        
+                        # 가장 높은 confidence 사용
+                        max_conf = max(d['confidence'] for d in shoe_group)
+                        
+                        result.append({
+                            "label": "shoes",
+                            "confidence": max_conf,
+                            "box": np.array([x1, y1, x2, y2])
+                        })
             else:
                 # 다른 라벨은 IoU 기반 NMS
                 group = sorted(group, key=lambda x: x['confidence'], reverse=True)
@@ -317,6 +378,60 @@ class ModelManager:
                 result.extend(keep)
         
         return result
+    
+    def _group_nearby_shoes(self, shoe_detections, proximity_ratio=2.0):
+        """가까이 있는 신발 박스들을 그룹으로 묶음 (한 쌍의 신발 처리)
+        
+        Args:
+            shoe_detections: 신발 탐지 결과 리스트
+            proximity_ratio: 박스 크기 대비 거리 비율 (이 비율 이내면 같은 그룹)
+        
+        Returns:
+            list: 그룹화된 신발 탐지 리스트의 리스트
+        """
+        if len(shoe_detections) <= 1:
+            return [shoe_detections] if shoe_detections else []
+        
+        # 이미 그룹에 할당된 인덱스 추적
+        assigned = set()
+        groups = []
+        
+        for i, det1 in enumerate(shoe_detections):
+            if i in assigned:
+                continue
+            
+            # 새 그룹 시작
+            current_group = [det1]
+            assigned.add(i)
+            
+            box1 = det1['box']
+            center1 = ((box1[0] + box1[2]) / 2, (box1[1] + box1[3]) / 2)
+            size1 = max(box1[2] - box1[0], box1[3] - box1[1])
+            
+            for j, det2 in enumerate(shoe_detections):
+                if j in assigned:
+                    continue
+                
+                box2 = det2['box']
+                center2 = ((box2[0] + box2[2]) / 2, (box2[1] + box2[3]) / 2)
+                size2 = max(box2[2] - box2[0], box2[3] - box2[1])
+                
+                # 두 박스 중심 간 거리 계산
+                distance = ((center1[0] - center2[0])**2 + (center1[1] - center2[1])**2)**0.5
+                avg_size = (size1 + size2) / 2
+                
+                # 거리가 박스 크기의 proximity_ratio 배 이내면 같은 그룹
+                # 또는 Y좌표가 비슷하면 (같은 줄에 있는 신발)
+                y_diff = abs(center1[1] - center2[1])
+                
+                if distance < avg_size * proximity_ratio or (y_diff < avg_size * 0.5 and distance < avg_size * 3.0):
+                    current_group.append(det2)
+                    assigned.add(j)
+            
+            groups.append(current_group)
+        
+        logger.info(f"[Shoes] {len(shoe_detections)}개 신발 박스 → {len(groups)}개 그룹으로 병합")
+        return groups
 
     def predict_sam2(self, image, boxes):
         """
