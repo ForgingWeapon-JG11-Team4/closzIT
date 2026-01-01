@@ -31,3 +31,10 @@ __pycache__
 
 # AWS RDS
 rds-connect.ps1
+# AI model checkpoints (다운로드 스크립트로 설치: python ai-fastapi/download_models.py)
+ai-fastapi/checkpoints/*.pt
+ai-fastapi/checkpoints/**/*.pt
+ai-fastapi/checkpoints/.cache/
+
+# 임시 문서
+walkthrough.md
