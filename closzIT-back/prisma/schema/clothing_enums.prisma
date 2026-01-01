@@ -1,0 +1,138 @@
+// closzIT-back/prisma/schema/clothing_enums.prisma
+
+// ===== 카테고리 =====
+
+enum Category {
+  Outer
+  Top
+  Bottom
+  Shoes
+  Other
+}
+
+enum SubCategoryOuter {
+  Cardigan
+  Jacket
+  Blazer
+  Jumper
+  Padding
+  Coat
+  Vest
+  HoodieZipup @map("Hoodie-zipup")
+  Windbreaker
+  Other
+}
+
+enum SubCategoryTop {
+  ShortSleeveT @map("Short-sleeve-T")
+  LongSleeveT  @map("Long-sleeve-T")
+  Hoodie
+  Sweatshirt
+  Knit
+  Shirt
+  Sleeveless
+  PoloShirt    @map("Polo-shirt")
+  Other
+}
+
+enum SubCategoryBottom {
+  Denim
+  Slacks
+  CottonPants @map("Cotton-pants")
+  Sweatpants
+  Shorts
+  Skirt
+  Leggings
+  Other
+}
+
+enum SubCategoryShoes {
+  Sneakers
+  Loafers
+  DressShoes @map("Dress-shoes")
+  Boots
+  Sandals
+  Slippers
+  Other
+}
+
+// ===== 공통 속성 =====
+
+enum Color {
+  Black
+  White
+  Gray
+  Beige
+  Brown
+  Navy
+  Blue
+  SkyBlue @map("Sky-blue")
+  Red
+  Pink
+  Orange
+  Yellow
+  Green
+  Mint
+  Purple
+  Khaki
+  Silver
+  Gold
+  Other
+}
+
+enum Pattern {
+  Solid
+  Stripe
+  Check
+  Dot
+  Floral
+  Animal
+  Graphic
+  Camouflage
+  Argyle
+  Other
+}
+
+enum Detail {
+  Logo
+  Pocket
+  Button
+  Zipper
+  Hood
+  Embroidery
+  Quilted
+  Distressed
+  KnitRib @map("Knit-rib")
+  Other
+}
+
+enum StyleMood {
+  Casual
+  Street
+  Minimal
+  Formal
+  Sporty
+  Vintage
+  Gorpcore
+  Other
+}
+
+enum TPO {
+  Date
+  Daily
+  Commute
+  Sports
+  Travel
+  Wedding
+  Party
+  Home
+  School
+  Other
+}
+
+enum Season {
+  Spring
+  Summer
+  Autumn
+  Winter
+}

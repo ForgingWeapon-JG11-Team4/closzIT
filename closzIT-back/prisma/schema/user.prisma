@@ -1,0 +1,79 @@
+// closzIT-back/prisma/schema/user.prisma
+
+model User {
+  // ===== 기본 정보 =====
+  
+  /// 고유 ID (자동 생성 UUID)
+  id String @id @default(uuid())
+
+  /// 이메일 (중복 불가)
+  email String @unique
+
+  /// 이름
+  name String?
+
+  /// 프로필 이미지 URL
+  profileImage String? @map("profile_image")
+
+  // ===== Google OAuth 정보 =====
+  
+  /// Google OAuth ID
+  googleId String? @unique @map("google_id")
+
+  /// Google Access Token
+  googleAccessToken String? @map("google_access_token") @db.Text
+
+  /// Google Refresh Token
+  googleRefreshToken String? @map("google_refresh_token") @db.Text
+
+  // ===== Setup 1 정보 =====
+  
+  /// 성별
+  gender Gender?
+
+  /// 생년월일
+  birthday DateTime? @db.Date
+
+  /// 시/도
+  province Province?
+
+  /// 시/군/구
+  city String?
+
+  // ===== Setup 2 정보 =====
+  
+  /// 머리 색상
+  hairColor HairColor? @map("hair_color")
+
+  /// 퍼스널 컬러
+  personalColor PersonalColor? @map("personal_color")
+
+  // ===== 선호도 (RAG 검색에 사용) =====
+  
+  /// 선호 스타일 목록
+  preferredStyles String[] @map("preferred_styles")
+
+  // ===== 상태 =====
+  
+  /// 프로필 완성 여부
+  isProfileComplete Boolean @default(false) @map("is_profile_complete")
+
+  /// 보유 크레딧
+  credit            Int @default(0)
+
+  // ===== 시간 정보 =====
+  
+  /// 등록일 (자동 생성)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  /// 수정일 (자동 업데이트)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // ===== 관계 =====
+  
+  /// 사용자의 옷 목록
+  clothes Clothing[]
+
+  // ===== 테이블 매핑 =====
+  @@map("users")
+}

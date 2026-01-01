@@ -1,3 +1,6 @@
+// ⚠️ DEPRECATED - 이 파일은 더 이상 사용되지 않습니다.
+// prisma/schema/ 폴더의 파일들을 사용하세요.
+
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
