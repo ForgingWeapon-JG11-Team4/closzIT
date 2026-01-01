@@ -130,6 +130,7 @@ CREATE TABLE "users" (
     "email" TEXT NOT NULL,
     "name" TEXT,
     "profile_image" TEXT,
+    "full_body_image" TEXT,
     "google_id" TEXT,
     "google_access_token" TEXT,
     "google_refresh_token" TEXT,

@@ -13,7 +13,10 @@ model User {
   name String?
 
   /// 프로필 이미지 URL
-  profileImage String? @map("profile_image")
+  profileImage String? @map("profile_image") @db.Text
+
+  /// 전신 사진 URL
+  fullBodyImage String? @map("full_body_image") @db.Text
 
   // ===== Google OAuth 정보 =====
   
