@@ -29,3 +29,5 @@ yarn-error.log*
 # python
 __pycache__
 
+# AWS RDS
+rds-connect.ps1
