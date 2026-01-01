@@ -1,28 +1,27 @@
 // src/user/user.service.ts
+// ✅ Prisma ORM 방식으로 리팩토링됨
 
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from './user.entity';
+import { PrismaService } from '../prisma/prisma.service';
+import { User } from '@prisma/client';  // Prisma가 자동 생성한 타입
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class UserService {
   constructor(
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-  ) {}
+    private prisma: PrismaService,  // PrismaService 주입
+  ) { }
 
   async findById(id: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { id } });
+    return this.prisma.user.findUnique({ where: { id } });
   }
 
   async findByGoogleId(googleId: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { googleId } });
+    return this.prisma.user.findUnique({ where: { googleId } });
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { email } });
+    return this.prisma.user.findUnique({ where: { email } });
   }
 
   async createFromGoogle(googleProfile: {
@@ -30,12 +29,13 @@ export class UserService {
     email: string;
     profileImage?: string;
   }): Promise<User> {
-    const user = this.userRepository.create({
-      googleId: googleProfile.googleId,
-      email: googleProfile.email,
-      profileImage: googleProfile.profileImage,
+    return this.prisma.user.create({
+      data: {
+        googleId: googleProfile.googleId,
+        email: googleProfile.email,
+        profileImage: googleProfile.profileImage,
+      },
     });
-    return this.userRepository.save(user);
   }
 
   async updateProfile(
@@ -47,35 +47,39 @@ export class UserService {
       throw new Error('User not found');
     }
 
+    // 업데이트 데이터 구성
+    const updateData: any = {};
+
     // Setup 1 정보 업데이트
-    if (updateProfileDto.name !== undefined) user.name = updateProfileDto.name;
-    if (updateProfileDto.gender !== undefined)
-      user.gender = updateProfileDto.gender;
-    if (updateProfileDto.birthday !== undefined)
-      user.birthday = new Date(updateProfileDto.birthday);
-    if (updateProfileDto.province !== undefined)
-      user.province = updateProfileDto.province;
-    if (updateProfileDto.city !== undefined) user.city = updateProfileDto.city;
+    if (updateProfileDto.name !== undefined) updateData.name = updateProfileDto.name;
+    if (updateProfileDto.gender !== undefined) updateData.gender = updateProfileDto.gender;
+    if (updateProfileDto.birthday !== undefined) updateData.birthday = new Date(updateProfileDto.birthday);
+    if (updateProfileDto.province !== undefined) updateData.province = updateProfileDto.province;
+    if (updateProfileDto.city !== undefined) updateData.city = updateProfileDto.city;
 
     // Setup 2 정보 업데이트
-    if (updateProfileDto.hairColor !== undefined)
-      user.hairColor = updateProfileDto.hairColor;
-    if (updateProfileDto.personalColor !== undefined)
-      user.personalColor = updateProfileDto.personalColor;
-    if (updateProfileDto.bodyType !== undefined)
-      user.bodyType = updateProfileDto.bodyType;
-    if (updateProfileDto.preferredStyles !== undefined)
-      user.preferredStyles = updateProfileDto.preferredStyles;
+    if (updateProfileDto.hairColor !== undefined) updateData.hairColor = updateProfileDto.hairColor;
+    if (updateProfileDto.personalColor !== undefined) updateData.personalColor = updateProfileDto.personalColor;
+    if (updateProfileDto.preferredStyles !== undefined) updateData.preferredStyles = updateProfileDto.preferredStyles;
 
     // 프로필 완성 여부 체크
-    user.isProfileComplete = !!(
-      user.name &&
-      user.gender &&
-      user.birthday &&
-      user.province &&
-      user.city
+    const updatedName = updateData.name ?? user.name;
+    const updatedGender = updateData.gender ?? user.gender;
+    const updatedBirthday = updateData.birthday ?? user.birthday;
+    const updatedProvince = updateData.province ?? user.province;
+    const updatedCity = updateData.city ?? user.city;
+
+    updateData.isProfileComplete = !!(
+      updatedName &&
+      updatedGender &&
+      updatedBirthday &&
+      updatedProvince &&
+      updatedCity
     );
 
-    return this.userRepository.save(user);
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+    });
   }
 }

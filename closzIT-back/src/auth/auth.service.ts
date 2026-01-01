@@ -3,14 +3,14 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
-import { User } from '../user/user.entity';
+import { User } from '@prisma/client';  // Prisma 자동 생성 타입
 
 @Injectable()
 export class AuthService {
   constructor(
     private userService: UserService,
     private jwtService: JwtService,
-  ) {}
+  ) { }
 
   async validateGoogleUser(googleProfile: {
     googleId: string;
