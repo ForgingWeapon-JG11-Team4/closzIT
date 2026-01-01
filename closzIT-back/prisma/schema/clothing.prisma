@@ -1,0 +1,85 @@
+// closzIT-back/prisma/schema/clothing.prisma
+
+model Clothing {
+  // ===== 기본 정보 =====
+  
+  /// 고유 ID (자동 생성 UUID)
+  id        String   @id @default(uuid())
+  
+  /// 옷 주인의 유저 ID (User.id 참조)
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  /// 원본 이미지 URL (S3)
+  /// 예: https://s3.../clothes/user_123/blazer_001.png
+  imageUrl  String   @map("image_url") @db.Text
+
+  // ===== 카테고리 =====
+  
+  /// 대분류: Outer, Top, Bottom, Shoes, Other
+  category     Category
+  
+  /// 소분류: Blazer, Shirt, Denim, Sneakers 등
+  subCategory  String  @map("sub_category")
+
+  // ===== 속성 (배열) - Bedrock 라벨링 결과 저장 =====
+  
+  /// 색상 목록
+  colors     Color[]
+  
+  /// 패턴 목록
+  patterns   Pattern[]
+  
+  /// 디테일 목록
+  details    Detail[]
+  
+  /// 스타일/무드 목록
+  styleMoods StyleMood[] @map("style_mood")
+  
+  /// TPO 목록
+  tpos       TPO[]
+  
+  /// 계절 목록
+  seasons    Season[]
+
+  // ===== 개인화 데이터 (RAG 추천에서 사용) =====
+  
+  /// 개인 평점 (0 ~ 5)
+  userRating   Float     @default(5.0) @map("user_rating")
+
+  /// 사용자 메모
+  note         String?   @db.Text
+
+  /// 총 착용 횟수
+  wearCount    Int       @default(0) @map("wear_count")
+  
+  /// 마지막 착용일
+  lastWorn     DateTime? @map("last_worn")
+  
+  /// 추천 수락 횟수
+  acceptCount  Int       @default(0) @map("accept_count")
+  
+  /// 추천 거절 횟수
+  rejectCount  Int       @default(0) @map("reject_count")
+
+  // ===== 시간 정보 =====
+  
+  /// 등록일 (자동 생성)
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  /// 수정일 (자동 업데이트)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // ===== 임베딩 (pgvector) =====
+  
+  /// 이미지 임베딩 (이미지 → FashionSigLIP)
+  embedding     Unsupported("vector(768)")?
+  
+  /// 텍스트 임베딩 (텍스트 → CLIP)
+  textEmbedding Unsupported("vector(512)")? @map("text_embedding")
+
+
+  // ===== 테이블 매핑 =====
+  @@map("clothes")
+  @@index([userId])
+}
