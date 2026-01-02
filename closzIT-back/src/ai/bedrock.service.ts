@@ -137,4 +137,77 @@ Return ONLY a valid JSON object. No markdown code blocks, no explanations.
             throw error;
         }
     }
+
+    async extractTPOFromCalendar(event: {
+    summary: string;
+    location?: string;
+    description?: string;
+    start: string;
+    }): Promise<string> {
+    try {
+        const hour = new Date(event.start).getHours();
+        
+        const prompt = `
+You are an expert at understanding daily schedules and recommending appropriate dress codes.
+
+TASK: Analyze the calendar event and determine the most appropriate TPO (Time, Place, Occasion).
+
+EVENT DETAILS:
+- Title: ${event.summary}
+- Location: ${event.location || 'Not specified'}
+- Description: ${event.description || 'Not specified'}
+- Time: ${hour}:00
+
+ALLOWED TPO VALUES (choose exactly ONE):
+- Date: romantic occasions, dinner with partner
+- Daily: casual everyday activities
+- Commute: work, office, business meetings
+- Sports: gym, exercise, outdoor activities
+- Travel: trips, airports, sightseeing
+- Wedding: weddings, formal ceremonies
+- Party: celebrations, gatherings, dinners with friends
+- Home: staying home, relaxing
+- School: classes, studying, campus activities
+
+Return ONLY a valid JSON object. No markdown, no explanations.
+
+{
+"tpo": "string",
+"confidence": number,
+"reason": "string"
+}
+`;
+
+        const payload = {
+        anthropic_version: 'bedrock-2023-05-31',
+        max_tokens: 200,
+        messages: [
+            {
+            role: 'user',
+            content: [{ type: 'text', text: prompt }],
+            },
+        ],
+        };
+
+        const command = new InvokeModelCommand({
+        modelId: this.modelId,
+        contentType: 'application/json',
+        body: JSON.stringify(payload),
+        });
+
+        const response = await this.client.send(command);
+        const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+
+        const resultText = responseBody.content[0].text;
+        const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+        const jsonStr = jsonMatch ? jsonMatch[0] : resultText;
+        
+        const result = JSON.parse(jsonStr);
+        return result.tpo;
+
+    } catch (error) {
+        this.logger.error('TPO extraction failed', error);
+        return 'Daily';
+    }
+    }
 }

@@ -1,5 +1,4 @@
 // src/pages/Login/AuthCallbackPage.jsx
-// OAuth 콜백 처리: URL에서 토큰 추출 후 localStorage에 저장하고 리다이렉트
 
 import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -11,14 +10,19 @@ const AuthCallbackPage = () => {
   useEffect(() => {
     const token = searchParams.get('token');
     const redirect = searchParams.get('redirect') || '/main';
+    const needConsent = searchParams.get('needConsent');
 
     if (token) {
-      // JWT 토큰을 localStorage에 저장
       localStorage.setItem('accessToken', token);
       console.log('Token saved to localStorage');
     }
 
-    // 지정된 경로로 리다이렉트 (신규 사용자: /setup/profile1, 기존 사용자: /main)
+    // refresh token 없으면 consent 화면으로 리다이렉트
+    if (needConsent === 'true') {
+      window.location.href = 'http://localhost:3000/auth/google?prompt=consent';
+      return;
+    }
+
     navigate(redirect, { replace: true });
   }, [searchParams, navigate]);
 

@@ -110,7 +110,7 @@ venv\Scripts\activate
 
 # macOS/Linux:
 python3 -m venv venv
-source venv/bin/activate
+source venv/Scripts/activate
 
 [단계 2] 의존성 설치
 ------------------------
