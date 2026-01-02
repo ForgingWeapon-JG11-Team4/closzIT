@@ -12,13 +12,13 @@ export class ItemsController {
     @Request() req,
     @Query('category') category?: string,
   ) {
-    const userId = req.user.userId;
+    const userId = req.user.id;
     return this.itemsService.getItemsByUser(userId, category);
   }
 
   @Get('by-category')
   async getItemsByCategory(@Request() req) {
-    const userId = req.user.userId;
+    const userId = req.user.id;
     return this.itemsService.getItemsGroupedByCategory(userId);
   }
 }
