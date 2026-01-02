@@ -38,6 +38,11 @@ model User {
   /// 시/도 (한글 직접 저장)
   province           String?
   clothes            Clothing[]
+  posts              Post[]
+  comments           Comment[]
+  likes              Like[]
+  followers          Follow[]   @relation("Following")
+  following          Follow[]   @relation("Follower")
 
   @@map("users")
 }

@@ -10,6 +10,10 @@ import RegisterPage from './pages/Register/RegisterPage';
 import LabelingPage from './pages/Labeling/LabelingPage';
 import FittingPage from './pages/Fitting/FittingPage';
 import VirtualFittingTest from './pages/Fitting/VirtualFittingTest';
+import FeedPage from './pages/FeedPage';
+import CreatePostPage from './pages/CreatePostPage';
+import PostDetailPage from './pages/PostDetailPage';
+import ProfilePage from './pages/ProfilePage';
 import './App.css';
 
 function App() {
@@ -26,6 +30,11 @@ function App() {
         <Route path="/labeling" element={<LabelingPage />} />
         <Route path="/fitting" element={<FittingPage />} />
         <Route path="/virtual-fitting-test" element={<VirtualFittingTest />} />
+        <Route path="/feed" element={<FeedPage />} />
+        <Route path="/create-post" element={<CreatePostPage />} />
+        <Route path="/post/:postId" element={<PostDetailPage />} />
+        <Route path="/profile/:userId" element={<ProfilePage />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>

@@ -1,0 +1,136 @@
+// closzIT-back/prisma/schema/social.prisma
+
+// ===== 게시물 =====
+
+model Post {
+  /// 고유 ID (자동 생성 UUID)
+  id          String   @id @default(dbgenerated("gen_random_uuid()"))
+
+  /// 작성자 유저 ID
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// 게시물 이미지 URL
+  imageUrl    String   @map("image_url")
+
+  /// 게시물 설명/캡션
+  caption     String?
+
+  /// 좋아요 수
+  likesCount  Int      @default(0) @map("likes_count")
+
+  /// 댓글 수
+  commentsCount Int    @default(0) @map("comments_count")
+
+  /// 등록일
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  /// 수정일
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  /// 관계
+  comments    Comment[]
+  likes       Like[]
+  postClothes PostClothing[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("posts")
+}
+
+// ===== 게시물-옷 매핑 =====
+
+model PostClothing {
+  /// 고유 ID
+  id         String   @id @default(dbgenerated("gen_random_uuid()"))
+
+  /// 게시물 ID
+  postId     String   @map("post_id")
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  /// 옷 ID
+  clothingId String   @map("clothing_id")
+  clothing   Clothing @relation(fields: [clothingId], references: [id], onDelete: Cascade)
+
+  /// 등록일
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([postId, clothingId])
+  @@index([postId])
+  @@index([clothingId])
+  @@map("post_clothes")
+}
+
+// ===== 댓글 =====
+
+model Comment {
+  /// 고유 ID
+  id        String   @id @default(dbgenerated("gen_random_uuid()"))
+
+  /// 게시물 ID
+  postId    String   @map("post_id")
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  /// 작성자 ID
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// 댓글 내용
+  content   String
+
+  /// 등록일
+  createdAt DateTime @default(now()) @map("created_at")
+
+  /// 수정일
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([postId])
+  @@index([userId])
+  @@map("comments")
+}
+
+// ===== 좋아요 =====
+
+model Like {
+  /// 고유 ID
+  id        String   @id @default(dbgenerated("gen_random_uuid()"))
+
+  /// 게시물 ID
+  postId    String   @map("post_id")
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  /// 좋아요 누른 유저 ID
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// 등록일
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+  @@map("likes")
+}
+
+// ===== 팔로우 =====
+
+model Follow {
+  /// 고유 ID
+  id          String   @id @default(dbgenerated("gen_random_uuid()"))
+
+  /// 팔로워 (팔로우하는 사람)
+  followerId  String   @map("follower_id")
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+
+  /// 팔로잉 (팔로우 당하는 사람)
+  followingId String   @map("following_id")
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  /// 등록일
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
+}
