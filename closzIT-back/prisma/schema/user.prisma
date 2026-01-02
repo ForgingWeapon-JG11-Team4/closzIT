@@ -37,6 +37,12 @@ model User {
   updatedAt          DateTime       @updatedAt @map("updated_at")
   /// 시/도 (한글 직접 저장)
   province           String?
+  /// 키 (cm)
+  height             Decimal?       @db.Decimal
+  /// 몸무게 (kg)
+  weight             Decimal?       @db.Decimal
+  /// 체형
+  bodyType           String?        @map("body_type")
   clothes            Clothing[]
 
   @@map("users")

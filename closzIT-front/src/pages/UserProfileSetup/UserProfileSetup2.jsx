@@ -9,6 +9,8 @@ const UserProfileSetup2 = () => {
   // State 관리
   const [hairColor, setHairColor] = useState('');
   const [personalColor, setPersonalColor] = useState('');
+  const [height, setHeight] = useState('');
+  const [weight, setWeight] = useState('');
   const [bodyType, setBodyType] = useState('');
   const [preferredStyles, setPreferredStyles] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,6 +32,8 @@ const UserProfileSetup2 = () => {
           const userData = await response.json();
           if (userData.hairColor) setHairColor(userData.hairColor);
           if (userData.personalColor) setPersonalColor(userData.personalColor);
+          if (userData.height) setHeight(String(userData.height));
+          if (userData.weight) setWeight(String(userData.weight));
           if (userData.bodyType) setBodyType(userData.bodyType);
           if (userData.preferredStyles && userData.preferredStyles.length > 0) {
             setPreferredStyles(userData.preferredStyles);
@@ -52,8 +56,29 @@ const UserProfileSetup2 = () => {
     );
   };
 
-  // 폼 제출 핸들러
-  const handleSubmit = async () => {
+  // 폼 제출 핸들러 - Setup3로 이동
+  const handleSubmit = () => {
+    // Setup2 데이터를 localStorage에 저장
+    const setup2Data = {
+      hairColor,
+      personalColor,
+      height: height ? parseFloat(height) : null,
+      weight: weight ? parseFloat(weight) : null,
+      bodyType,
+      preferredStyles
+    };
+    localStorage.setItem('userProfileSetup2', JSON.stringify(setup2Data));
+    
+    // edit 모드면 바로 저장, 아니면 Setup3로 이동
+    if (isEditMode) {
+      saveProfileToBackend();
+    } else {
+      navigate('/setup3');
+    }
+  };
+
+  // 백엔드에 프로필 저장 (edit 모드용)
+  const saveProfileToBackend = async () => {
     setIsSubmitting(true);
     setError('');
 
@@ -76,6 +101,8 @@ const UserProfileSetup2 = () => {
         city: setup1Data.city,
         hairColor,
         personalColor,
+        height: height ? parseFloat(height) : null,
+        weight: weight ? parseFloat(weight) : null,
         bodyType,
         preferredStyles
       };
@@ -94,8 +121,7 @@ const UserProfileSetup2 = () => {
         throw new Error('프로필 저장에 실패했습니다');
       }
 
-      // 성공 시 - edit 모드면 마이페이지로, 아니면 메인으로
-      navigate(isEditMode ? '/mypage' : '/main');
+      navigate('/mypage');
     } catch (err) {
       console.error('Profile update error:', err);
       setError(err.message || '오류가 발생했습니다');
@@ -269,6 +295,43 @@ const UserProfileSetup2 = () => {
                                 진단받기
                                 <span className="material-icons-round text-base">arrow_forward</span>
                             </button>
+                        </div>
+                    </div>
+                </section>
+
+                {/* 키/몸무게 입력 (선택) */}
+                <section className="space-y-3">
+                    <div className="flex items-center gap-2">
+                        <label className="block text-base font-semibold text-gray-800 dark:text-gray-200">
+                            키와 몸무게
+                        </label>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                            선택
+                        </span>
+                    </div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 -mt-1">
+                        더 정확한 스타일 추천을 위해 입력해주세요 (안 해도 괜찮아요!)
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="relative">
+                            <input
+                                type="number"
+                                placeholder="키 (cm)"
+                                value={height}
+                                onChange={(e) => setHeight(e.target.value)}
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-surface-light dark:bg-surface-dark text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">cm</span>
+                        </div>
+                        <div className="relative">
+                            <input
+                                type="number"
+                                placeholder="몸무게 (kg)"
+                                value={weight}
+                                onChange={(e) => setWeight(e.target.value)}
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-surface-light dark:bg-surface-dark text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">kg</span>
                         </div>
                     </div>
                 </section>
