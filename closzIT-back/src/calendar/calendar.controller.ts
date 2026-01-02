@@ -32,4 +32,14 @@ export class CalendarController {
     
     return { results };
   }
+
+  @Get('today/context')
+  @UseGuards(JwtAuthGuard)
+  async getTodayWithContext(@Req() req) {
+    const events = await this.calendarService.getEventsWithWeather(
+      req.user.id,
+      new Date(),
+    );
+    return { events };
+  }
 }
