@@ -235,6 +235,126 @@ class ModelManager:
             logger.error(f"텍스트 임베딩 추출 실패: {e}")
             return [0.0] * 512
 
+    def detect_item_type_with_clip(self, image: np.ndarray) -> dict:
+        """
+        CLIP Zero-Shot Classification으로 이미지가 신발인지 의류인지 판단합니다.
+        YOLO fallback용으로, 탑뷰 신발 등 YOLO가 인식 못하는 경우에 사용.
+        
+        Args:
+            image (numpy.ndarray): 입력 이미지 (BGR)
+        
+        Returns:
+            dict: {
+                'item_type': 'shoes' | 'clothing' | 'unknown',
+                'confidence': float,
+                'scores': dict
+            }
+        """
+        if 'clip' not in self.models:
+            logger.warning("CLIP 모델이 로드되지 않았습니다.")
+            return {'item_type': 'unknown', 'confidence': 0.0, 'scores': {}}
+
+        try:
+            model_dict = self.models['clip']
+            model = model_dict['model']
+            preprocess = model_dict['preprocess']
+            tokenizer = model_dict['tokenizer']
+
+            # BGR -> RGB -> PIL
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            image_pil = Image.fromarray(image_rgb)
+
+            # 분류 라벨 정의
+            labels = [
+                "a pair of shoes, sneakers, footwear",
+                "a clothing item, shirt, pants, jacket",
+                "a random object, not fashion item",
+            ]
+            
+            label_to_type = {
+                0: 'shoes',
+                1: 'clothing',
+                2: 'unknown',
+            }
+
+            # 이미지 인코딩
+            image_input = preprocess(image_pil).unsqueeze(0).to(self.device)
+            text_tokens = tokenizer(labels).to(self.device)
+
+            with torch.no_grad():
+                image_features = model.encode_image(image_input)
+                text_features = model.encode_text(text_tokens)
+                
+                image_features /= image_features.norm(dim=-1, keepdim=True)
+                text_features /= text_features.norm(dim=-1, keepdim=True)
+                
+                similarity = (100.0 * image_features @ text_features.T).softmax(dim=-1)
+                scores = similarity[0].cpu().numpy()
+
+            all_scores = {
+                'shoes': float(scores[0]),
+                'clothing': float(scores[1]),
+                'unknown': float(scores[2])
+            }
+            
+            best_idx = int(scores.argmax())
+            item_type = label_to_type[best_idx]
+            confidence = float(scores[best_idx])
+            
+            logger.info(f"[CLIP] Item type detection: {item_type} (confidence: {confidence:.2%})")
+            logger.info(f"[CLIP] scores: shoes={scores[0]:.2%}, clothing={scores[1]:.2%}, unknown={scores[2]:.2%}")
+            
+            return {
+                'item_type': item_type,
+                'confidence': confidence,
+                'scores': all_scores
+            }
+
+        except Exception as e:
+            logger.error(f"CLIP 아이템 타입 감지 실패: {e}")
+            return {'item_type': 'unknown', 'confidence': 0.0, 'scores': {}}
+
+    def predict_sam2_with_points(self, image: np.ndarray, points: list, labels: list = None):
+        """
+        SAM2 모델을 사용하여 여러 포인트 프롬프트로 세그멘테이션 마스크를 생성합니다.
+        여러 포인트를 주면 모든 포인트의 객체가 하나의 마스크로 합쳐집니다.
+        
+        Args:
+            image (numpy.ndarray): 입력 이미지 (RGB)
+            points (list): [[x1, y1], [x2, y2], ...] 포인트 좌표 리스트
+            labels (list): [1, 1, ...] 각 포인트의 라벨 (1=foreground, 0=background)
+        
+        Returns:
+            numpy.ndarray: 마스크 (H, W) 또는 None
+        """
+        if 'sam2' not in self.models:
+            logger.warning("SAM2 모델이 로드되지 않았습니다.")
+            return None
+        
+        if labels is None:
+            labels = [1] * len(points)  # 모든 포인트를 foreground로
+        
+        try:
+            predictor = self.models['sam2']
+            predictor.set_image(image)
+            
+            point_coords = np.array(points)
+            point_labels = np.array(labels)
+            
+            mask, _, _ = predictor.predict(
+                point_coords=point_coords,
+                point_labels=point_labels,
+                box=None,
+                multimask_output=False
+            )
+            
+            logger.info(f"[SAM2] Multi-point segmentation completed: {len(points)} points")
+            return mask.squeeze()
+            
+        except Exception as e:
+            logger.error(f"SAM2 포인트 프롬프트 실패: {e}")
+            return None
+
     def predict_yolo(self, image, conf=0.5):
         """
         2-Stage Cascade Detection:

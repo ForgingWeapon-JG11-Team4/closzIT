@@ -4,9 +4,10 @@ from model_manager import ModelManager
 import utils
 import logging
 import os
+import numpy as np
 
 # 환경 변수 설정
-USE_SAM2 = os.getenv('USE_SAM2', 'false').lower() == 'true'
+USE_SAM2 = os.getenv('USE_SAM2', 'true').lower() == 'true'
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -122,8 +123,78 @@ async def analyze_all_images(file: UploadFile = File(...)):
         yolo_start = time.time()
         detections = manager.predict_yolo(image)
         logger.info(f"[TIMING] YOLO detection: {(time.time() - yolo_start)*1000:.1f}ms, found {len(detections)} items")
+        
+        # YOLO 탐지 결과 상세 로그
+        logger.info("=" * 50)
+        logger.info("[YOLO DETECTION RESULTS]")
+        for i, det in enumerate(detections):
+            label = det.get('label', 'unknown')
+            conf = det.get('confidence', 0) * 100
+            box = det.get('box', [])
+            logger.info(f"  [{i}] Label: {label:10} | Confidence: {conf:5.1f}% | Box: {box}")
+        logger.info("=" * 50)
+        
+        # ============================================================
+        # YOLO Fallback: CLIP으로 신발/의류 감지 → SAM2 중앙점 프롬프트
+        # ============================================================
         if not detections:
-            return [] # 탐지된 객체 없음
+            logger.warning("[YOLO FALLBACK] 탐지된 객체 없음 - CLIP으로 아이템 타입 확인")
+            
+            # 1. CLIP으로 신발/의류 여부 확인
+            clip_result = manager.detect_item_type_with_clip(image)
+            item_type = clip_result['item_type']
+            
+            if item_type == 'unknown':
+                logger.warning("[YOLO FALLBACK] CLIP도 패션 아이템으로 인식하지 못함 - 빈 결과 반환")
+                return []
+            
+            logger.info(f"[YOLO FALLBACK] CLIP 감지: {item_type} (confidence: {clip_result['confidence']:.2%})")
+            
+            h, w = image.shape[:2]
+            # 신발 한 쌍을 위해 3개 포인트 사용 (왼쪽, 중앙, 오른쪽)
+            points = [
+                [w // 4, h // 2],      # 왼쪽 1/4 지점
+                [w // 2, h // 2],      # 중앙
+                [3 * w // 4, h // 2],  # 오른쪽 3/4 지점
+            ]
+            full_box = np.array([0, 0, w, h])
+            
+            # 2. SAM2로 여러 포인트 기준 세그멘테이션
+            processed_image = image
+            if USE_SAM2:
+                try:
+                    sam_start = time.time()
+                    # 여러 포인트 프롬프트로 SAM2 호출 (신발 한 쌍 모두 마스킹)
+                    mask = manager.predict_sam2_with_points(image, points)
+                    logger.info(f"[TIMING] SAM2 multi-point segmentation: {(time.time() - sam_start)*1000:.1f}ms")
+                    
+                    if mask is not None:
+                        processed_image = utils.apply_mask_and_crop(image, mask, full_box)
+                        logger.info("[YOLO FALLBACK] SAM2 마스크 적용 성공 (3-points)")
+                    else:
+                        logger.warning("[YOLO FALLBACK] SAM2 마스크 생성 실패, 원본 이미지 사용")
+                except Exception as e:
+                    logger.error(f"[YOLO FALLBACK] SAM2 실패: {e}")
+            
+            # 3. Base64 인코딩
+            image_base64 = utils.encode_image_to_base64(processed_image)
+            
+            # 4. FashionSigLIP 임베딩 추출
+            embed_start = time.time()
+            embedding = manager.extract_embedding(processed_image)
+            logger.info(f"[TIMING] Embedding (fallback): {(time.time() - embed_start)*1000:.1f}ms")
+            
+            # 5. CLIP 감지 결과를 label로 전달 (Bedrock 힌트용)
+            result = [{
+                "label": item_type,  # 'shoes' 또는 'clothing' - Bedrock 힌트
+                "confidence": clip_result['confidence'],
+                "box": full_box.tolist(),
+                "image_base64": image_base64,
+                "embedding": embedding
+            }]
+            
+            logger.info(f"[TIMING] Total FastAPI processing (CLIP fallback): {(time.time() - total_start)*1000:.1f}ms")
+            return result
 
         # 3. 바운딩 박스 추출
         boxes = [d['box'] for d in detections]
