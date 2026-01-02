@@ -4,14 +4,16 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { BedrockService } from '../ai/bedrock.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 export interface CalendarEvent {
   id: string;
-  summary: string;         // 일정 제목
-  location?: string;       // 장소
-  description?: string;    // 설명
-  start: string;           // 시작 시간
-  end: string;             // 종료 시간
+  summary: string;
+  location?: string;
+  description?: string;
+  start: string;
+  end: string;
 }
 
 interface GoogleCalendarEvent {
@@ -39,24 +41,22 @@ export class CalendarService {
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly bedrockService: BedrockService,
+    private readonly prisma: PrismaService,
   ) {}
 
-  /**
-   * 사용자의 Google Calendar 일정 조회
-   */
-  async getEvents(
-    userId: string,
-    targetDate: Date,
-    accessToken?: string
-  ): Promise<CalendarEvent[]> {
-    // accessToken이 없으면 DB에서 조회 (UserService 연동 필요)
-    if (!accessToken) {
-      console.log('Access token not provided, returning empty events');
+  async getEvents(userId: string, targetDate: Date): Promise<CalendarEvent[]> {
+    // DB에서 토큰 조회
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { googleAccessToken: true },
+    });
+
+    if (!user?.googleAccessToken) {
+      console.log('Access token not found');
       return [];
     }
 
     try {
-      // 해당 날짜의 시작과 끝
       const startOfDay = new Date(targetDate);
       startOfDay.setHours(0, 0, 0, 0);
 
@@ -68,7 +68,7 @@ export class CalendarService {
           'https://www.googleapis.com/calendar/v3/calendars/primary/events',
           {
             headers: {
-              Authorization: `Bearer ${accessToken}`,
+              Authorization: `Bearer ${user.googleAccessToken}`,
             },
             params: {
               timeMin: startOfDay.toISOString(),
@@ -76,12 +76,12 @@ export class CalendarService {
               singleEvents: true,
               orderBy: 'startTime',
             },
-          }
-        )
+          },
+        ),
       );
 
       const events = response.data.items || [];
-
+      console.log('캘린더 조회 성공, 일정 수:', events.length);
       return events.map((event) => ({
         id: event.id,
         summary: event.summary || '(제목 없음)',

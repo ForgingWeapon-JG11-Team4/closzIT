@@ -9,6 +9,7 @@ import { ItemsModule } from './items/items.module';
 import { FittingModule } from './fitting/fitting.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
+import { CalendarModule } from './calendar/calendar.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { UserModule } from './user/user.module';
     AuthModule,
     UserModule,
     FittingModule,
+    CalendarModule,
   ],
   controllers: [AppController],
   providers: [AppService],

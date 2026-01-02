@@ -1,16 +1,15 @@
 // src/user/user.service.ts
-// ✅ Prisma ORM 방식으로 리팩토링됨
 
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { User } from '@prisma/client';  // Prisma가 자동 생성한 타입
+import { User } from '@prisma/client';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class UserService {
   constructor(
-    private prisma: PrismaService,  // PrismaService 주입
-  ) { }
+    private prisma: PrismaService,
+  ) {}
 
   async findById(id: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { id } });
@@ -28,12 +27,29 @@ export class UserService {
     googleId: string;
     email: string;
     profileImage?: string;
+    accessToken: string;
+    refreshToken?: string;
   }): Promise<User> {
     return this.prisma.user.create({
       data: {
         googleId: googleProfile.googleId,
         email: googleProfile.email,
         profileImage: googleProfile.profileImage,
+        googleAccessToken: googleProfile.accessToken,
+        googleRefreshToken: googleProfile.refreshToken,
+      },
+    });
+  }
+
+  async updateGoogleTokens(
+    userId: string,
+    tokens: { accessToken: string; refreshToken?: string },
+  ): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        googleAccessToken: tokens.accessToken,
+        ...(tokens.refreshToken && { googleRefreshToken: tokens.refreshToken }),
       },
     });
   }
@@ -47,7 +63,6 @@ export class UserService {
       throw new Error('User not found');
     }
 
-    // 업데이트 데이터 구성
     const updateData: any = {};
 
     // Setup 1 정보 업데이트

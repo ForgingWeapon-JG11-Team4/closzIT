@@ -2,11 +2,14 @@
 
 import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
-import { CalendarService } from './services/calendar.service';
+import { CalendarService } from './calendar.service';
+import { CalendarController } from './calendar.controller';
 import { BedrockModule } from '../ai/bedrock.module';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-  imports: [HttpModule, BedrockModule],
+  imports: [HttpModule, BedrockModule, PrismaModule],
+  controllers: [CalendarController],
   providers: [CalendarService],
   exports: [CalendarService],
 })

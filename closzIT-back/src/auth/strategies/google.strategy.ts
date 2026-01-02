@@ -16,9 +16,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       clientID: configService.get<string>('GOOGLE_CLIENT_ID')!,
       clientSecret: configService.get<string>('GOOGLE_CLIENT_SECRET')!,
       callbackURL: configService.get<string>('GOOGLE_CALLBACK_URL')!,
-      scope: ['email', 'profile'],
+      scope: ['email', 'profile', 'https://www.googleapis.com/auth/calendar.readonly'],
       accessType: 'offline',
-      prompt: 'select_account', // 매번 계정 선택 화면 표시
+      prompt: 'select_account',
     } as any);
   }
 
@@ -34,9 +34,10 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       googleId: id,
       email: emails[0].value,
       profileImage: photos?.[0]?.value,
+      accessToken,
+      refreshToken,
     });
 
     done(null, user);
   }
 }
-
