@@ -118,30 +118,30 @@ export class AnalysisService {
                 const textEmbeddingString = `[${textEmbeddings[index].join(',')}]`;
 
                 const result = await (this.prismaService as any).$queryRaw`
-                    INSERT INTO "clothes_rec_test" (
+                    INSERT INTO "clothes" (
                         user_id, 
                         category, 
                         sub_category, 
                         colors,
-                        pattern,
-                        detail,
+                        patterns,
+                        details,
                         style_mood,
-                        tpo,
-                        season,
+                        tpos,
+                        seasons,
                         image_url, 
                         image_embedding,
                         text_embedding
                     )
                     VALUES (
-                        ${userId}::uuid,
-                        ${category || ''},
+                        ${userId},
+                        ${category || 'Other'}::"Category",
                         ${sub_category || ''},
-                        ${colors || []}::text[],
-                        ${pattern || []}::text[],
-                        ${detail || []}::text[],
-                        ${style_mood || []}::text[],
-                        ${tpo || []}::text[],
-                        ${season || []}::text[],
+                        ${colors || []}::"Color"[],
+                        ${pattern || []}::"Pattern"[],
+                        ${detail || []}::"Detail"[],
+                        ${style_mood || []}::"StyleMood"[],
+                        ${tpo || []}::"TPO"[],
+                        ${season || []}::"Season"[],
                         ${imageDataUrl},
                         ${embeddingString}::vector,
                         ${textEmbeddingString}::vector
