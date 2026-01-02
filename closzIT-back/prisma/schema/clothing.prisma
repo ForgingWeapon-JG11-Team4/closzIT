@@ -78,6 +78,9 @@ model Clothing {
   /// 텍스트 임베딩 (텍스트 → CLIP)
   textEmbedding   Unsupported("vector")? @map("text_embedding")
 
+  // ===== 관계 =====
+  postClothes PostClothing[]
+
   // ===== 테이블 매핑 =====
   @@index([userId])
   @@map("clothes")

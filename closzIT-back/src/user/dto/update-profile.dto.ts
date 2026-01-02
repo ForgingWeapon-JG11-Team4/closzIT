@@ -11,6 +11,11 @@ export class UpdateProfileDto {
   // Setup 2 정보
   hairColor?: string;
   personalColor?: string;
+  height?: number;
+  weight?: number;
   bodyType?: string;
   preferredStyles?: string[];
+
+  // Setup 3 정보
+  fullBodyImage?: string; // Base64 encoded image
 }

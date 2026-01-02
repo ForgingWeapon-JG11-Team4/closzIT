@@ -75,7 +75,13 @@ export class UserService {
     // Setup 2 정보 업데이트
     if (updateProfileDto.hairColor !== undefined) updateData.hairColor = updateProfileDto.hairColor;
     if (updateProfileDto.personalColor !== undefined) updateData.personalColor = updateProfileDto.personalColor;
+    if (updateProfileDto.height !== undefined) updateData.height = updateProfileDto.height;
+    if (updateProfileDto.weight !== undefined) updateData.weight = updateProfileDto.weight;
+    if (updateProfileDto.bodyType !== undefined) updateData.bodyType = updateProfileDto.bodyType;
     if (updateProfileDto.preferredStyles !== undefined) updateData.preferredStyles = updateProfileDto.preferredStyles;
+
+    // Setup 3 정보 업데이트
+    if (updateProfileDto.fullBodyImage !== undefined) updateData.fullBodyImage = updateProfileDto.fullBodyImage;
 
     // 프로필 완성 여부 체크
     const updatedName = updateData.name ?? user.name;
