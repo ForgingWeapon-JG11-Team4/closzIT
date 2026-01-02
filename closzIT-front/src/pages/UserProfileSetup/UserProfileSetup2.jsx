@@ -9,10 +9,30 @@ const UserProfileSetup2 = () => {
   // State 관리
   const [hairColor, setHairColor] = useState('');
   const [personalColor, setPersonalColor] = useState('');
-  const [bodyType, setBodyType] = useState('');
   const [preferredStyles, setPreferredStyles] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Province 한글 -> 영문 Enum 매핑
+  const provinceMap = {
+    '서울특별시': 'Seoul',
+    '부산광역시': 'Busan',
+    '대구광역시': 'Daegu',
+    '인천광역시': 'Incheon',
+    '광주광역시': 'Gwangju',
+    '대전광역시': 'Daejeon',
+    '울산광역시': 'Ulsan',
+    '세종특별자치시': 'Sejong',
+    '경기도': 'Gyeonggi',
+    '강원도': 'Gangwon',
+    '충청북도': 'Chungbuk',
+    '충청남도': 'Chungnam',
+    '전라북도': 'Jeonbuk',
+    '전라남도': 'Jeonnam',
+    '경상북도': 'Gyeongbuk',
+    '경상남도': 'Gyeongnam',
+    '제주특별자치도': 'Jeju',
+  };
 
   // 기존 사용자 데이터 불러오기
   useEffect(() => {
@@ -30,7 +50,6 @@ const UserProfileSetup2 = () => {
           const userData = await response.json();
           if (userData.hairColor) setHairColor(userData.hairColor);
           if (userData.personalColor) setPersonalColor(userData.personalColor);
-          if (userData.bodyType) setBodyType(userData.bodyType);
           if (userData.preferredStyles && userData.preferredStyles.length > 0) {
             setPreferredStyles(userData.preferredStyles);
           }
@@ -72,11 +91,10 @@ const UserProfileSetup2 = () => {
         name: setup1Data.name,
         gender: setup1Data.gender,
         birthday,
-        province: setup1Data.province,
+        province: provinceMap[setup1Data.province] || setup1Data.province,
         city: setup1Data.city,
         hairColor,
         personalColor,
-        bodyType,
         preferredStyles
       };
 
@@ -152,11 +170,11 @@ const UserProfileSetup2 = () => {
                           onChange={(e) => setHairColor(e.target.value)}
                         >
                             <option disabled value="">선택해주세요</option>
-                            <option value="black">검정색 (Black)</option>
-                            <option value="darkbrown">진한 갈색 (Dark Brown)</option>
-                            <option value="lightbrown">밝은 갈색 (Light Brown)</option>
-                            <option value="blonde">금발 (Blonde)</option>
-                            <option value="other">기타 (Other)</option>
+                            <option value="Black">검정색 (Black)</option>
+                            <option value="DarkBrown">진한 갈색 (Dark Brown)</option>
+                            <option value="LightBrown">밝은 갈색 (Light Brown)</option>
+                            <option value="Blonde">금발 (Blonde)</option>
+                            <option value="Other">기타 (Other)</option>
                         </select>
                         <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500">
                             <span className="material-icons-round">expand_more</span>
@@ -175,8 +193,8 @@ const UserProfileSetup2 = () => {
                               className="peer sr-only" 
                               name="tone" 
                               type="radio" 
-                              value="spring"
-                              checked={personalColor === 'spring'}
+                              value="SpringWarm"
+                              checked={personalColor === 'SpringWarm'}
                               onChange={(e) => setPersonalColor(e.target.value)}
                             />
                             <div className="p-4 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-orange-400 peer-checked:bg-orange-50 dark:peer-checked:bg-orange-900/20 transition-all text-center">
@@ -197,8 +215,8 @@ const UserProfileSetup2 = () => {
                               className="peer sr-only" 
                               name="tone" 
                               type="radio" 
-                              value="summer"
-                              checked={personalColor === 'summer'}
+                              value="SummerCool"
+                              checked={personalColor === 'SummerCool'}
                               onChange={(e) => setPersonalColor(e.target.value)}
                             />
                             <div className="p-4 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-pink-400 peer-checked:bg-pink-50 dark:peer-checked:bg-pink-900/20 transition-all text-center">
@@ -219,8 +237,8 @@ const UserProfileSetup2 = () => {
                               className="peer sr-only" 
                               name="tone" 
                               type="radio" 
-                              value="autumn"
-                              checked={personalColor === 'autumn'}
+                              value="AutumnWarm"
+                              checked={personalColor === 'AutumnWarm'}
                               onChange={(e) => setPersonalColor(e.target.value)}
                             />
                             <div className="p-4 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-amber-600 peer-checked:bg-amber-50 dark:peer-checked:bg-amber-900/20 transition-all text-center">
@@ -241,8 +259,8 @@ const UserProfileSetup2 = () => {
                               className="peer sr-only" 
                               name="tone" 
                               type="radio" 
-                              value="winter"
-                              checked={personalColor === 'winter'}
+                              value="WinterCool"
+                              checked={personalColor === 'WinterCool'}
                               onChange={(e) => setPersonalColor(e.target.value)}
                             />
                             <div className="p-4 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-blue-600 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
@@ -270,138 +288,6 @@ const UserProfileSetup2 = () => {
                                 <span className="material-icons-round text-base">arrow_forward</span>
                             </button>
                         </div>
-                    </div>
-                </section>
-
-                <section className="space-y-3">
-                    <label className="block text-base font-semibold text-gray-800 dark:text-gray-200">
-                        체형을 알려주세요
-                    </label>
-                    
-                    {/* 가로 스크롤 캐러셀 */}
-                    <div 
-                        className="flex gap-3 overflow-x-auto pb-2 -mx-6 px-6 hide-scrollbar"
-                        style={{ scrollSnapType: 'x mandatory' }}
-                    >
-                        {/* 잘 모르겠어요 */}
-                        <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
-                            <input 
-                              className="peer sr-only" 
-                              name="bodyType" 
-                              type="radio" 
-                              value="unknown"
-                              checked={bodyType === 'unknown'}
-                              onChange={(e) => setBodyType(e.target.value)}
-                            />
-                            <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
-                                <img 
-                                    src={require('../../assets/bodyTypes/잘모르겠어요.png')} 
-                                    alt="잘 모르겠어요" 
-                                    className="w-full h-24 object-contain mb-2"
-                                />
-                                <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">잘 모르겠어요</span>
-                            </div>
-                        </label>
-
-                        {/* 삼각형 */}
-                        <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
-                            <input 
-                              className="peer sr-only" 
-                              name="bodyType" 
-                              type="radio" 
-                              value="triangle"
-                              checked={bodyType === 'triangle'}
-                              onChange={(e) => setBodyType(e.target.value)}
-                            />
-                            <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
-                                <img 
-                                    src={require('../../assets/bodyTypes/삼각형.png')} 
-                                    alt="삼각형" 
-                                    className="w-full h-24 object-contain mb-2"
-                                />
-                                <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">삼각형</span>
-                            </div>
-                        </label>
-
-                        {/* 역삼각형 */}
-                        <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
-                            <input 
-                              className="peer sr-only" 
-                              name="bodyType" 
-                              type="radio" 
-                              value="invertedTriangle"
-                              checked={bodyType === 'invertedTriangle'}
-                              onChange={(e) => setBodyType(e.target.value)}
-                            />
-                            <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
-                                <img 
-                                    src={require('../../assets/bodyTypes/역삼각형.png')} 
-                                    alt="역삼각형" 
-                                    className="w-full h-24 object-contain mb-2"
-                                />
-                                <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">역삼각형</span>
-                            </div>
-                        </label>
-
-                        {/* 둥근형 */}
-                        <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
-                            <input 
-                              className="peer sr-only" 
-                              name="bodyType" 
-                              type="radio" 
-                              value="oval"
-                              checked={bodyType === 'oval'}
-                              onChange={(e) => setBodyType(e.target.value)}
-                            />
-                            <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
-                                <img 
-                                    src={require('../../assets/bodyTypes/둥근형.png')} 
-                                    alt="둥근형" 
-                                    className="w-full h-24 object-contain mb-2"
-                                />
-                                <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">둥근형</span>
-                            </div>
-                        </label>
-
-                        {/* 직사각형 */}
-                        <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
-                            <input 
-                              className="peer sr-only" 
-                              name="bodyType" 
-                              type="radio" 
-                              value="rectangle"
-                              checked={bodyType === 'rectangle'}
-                              onChange={(e) => setBodyType(e.target.value)}
-                            />
-                            <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
-                                <img 
-                                    src={require('../../assets/bodyTypes/직사각형.png')} 
-                                    alt="직사각형" 
-                                    className="w-full h-24 object-contain mb-2"
-                                />
-                                <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">직사각형</span>
-                            </div>
-                        </label>
-
-                        {/* 사다리꼴형 */}
-                        <label className="flex-shrink-0 cursor-pointer" style={{ scrollSnapAlign: 'start' }}>
-                            <input 
-                              className="peer sr-only" 
-                              name="bodyType" 
-                              type="radio" 
-                              value="trapezoid"
-                              checked={bodyType === 'trapezoid'}
-                              onChange={(e) => setBodyType(e.target.value)}
-                            />
-                            <div className="w-28 p-3 rounded-xl border-2 border-transparent bg-input-bg-light dark:bg-input-bg-dark peer-checked:border-brand-blue peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
-                                <img 
-                                    src={require('../../assets/bodyTypes/사다리꼴형.png')} 
-                                    alt="사다리꼴형" 
-                                    className="w-full h-24 object-contain mb-2"
-                                />
-                                <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">사다리꼴형</span>
-                            </div>
-                        </label>
                     </div>
                 </section>
 

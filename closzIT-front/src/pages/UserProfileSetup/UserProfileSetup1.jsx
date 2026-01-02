@@ -195,8 +195,8 @@ const UserProfileSetup1 = () => {
                     className="peer sr-only" 
                     name="gender" 
                     type="radio" 
-                    value="female"
-                    checked={formData.gender === 'female'}
+                    value="Female"
+                    checked={formData.gender === 'Female'}
                     onChange={handleChange}
                   />
                   <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-surface-light dark:bg-surface-dark text-center hover:bg-gray-50 dark:hover:bg-gray-800 peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all duration-200">
@@ -208,8 +208,8 @@ const UserProfileSetup1 = () => {
                     className="peer sr-only" 
                     name="gender" 
                     type="radio" 
-                    value="male"
-                    checked={formData.gender === 'male'}
+                    value="Male"
+                    checked={formData.gender === 'Male'}
                     onChange={handleChange}
                   />
                   <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-surface-light dark:bg-surface-dark text-center hover:bg-gray-50 dark:hover:bg-gray-800 peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all duration-200">
