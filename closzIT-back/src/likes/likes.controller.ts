@@ -9,7 +9,7 @@ export class LikesController {
 
   @Post('toggle')
   async toggleLike(@Request() req, @Body() body: { postId: string }) {
-    const userId = req.user.userId;
+    const userId = req.user.id;
     return this.likesService.toggleLike(body.postId, userId);
   }
 }
