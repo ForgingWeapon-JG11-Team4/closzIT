@@ -32,9 +32,9 @@ const MainPage = () => {
     shoes: null,
   });
 
-  // API에서 유저 정보 불러오기
+  // API에서 유저 정보 및 옷 데이터 불러오기
   useEffect(() => {
-    const fetchUserProfile = async () => {
+    const fetchUserData = async () => {
       try {
         const token = localStorage.getItem('accessToken');
         if (!token) {
@@ -43,28 +43,48 @@ const MainPage = () => {
         }
 
         const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-        const response = await fetch(`${backendUrl}/user/me`, {
+
+        // 유저 프로필 가져오기
+        const userResponse = await fetch(`${backendUrl}/user/me`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
 
-        if (response.ok) {
-          const userData = await response.json();
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
           setUserName(userData.name || '');
-        } else if (response.status === 401) {
-          // 토큰 만료 시 로그인 페이지로
+        } else if (userResponse.status === 401) {
           localStorage.removeItem('accessToken');
           navigate('/login');
+          return;
         }
+
+        // 아이템 데이터 가져오기
+        const itemsResponse = await fetch(`${backendUrl}/items/by-category`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        console.log('Items response status:', itemsResponse.status);
+
+        if (itemsResponse.ok) {
+          const itemsData = await itemsResponse.json();
+          console.log('Items data received:', itemsData);
+          setUserClothes(itemsData);
+        } else {
+          console.error('Failed to fetch items:', itemsResponse.status, itemsResponse.statusText);
+        }
+
       } catch (error) {
-        console.error('Failed to fetch user profile:', error);
+        console.error('Failed to fetch user data:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchUserProfile();
+    fetchUserData();
   }, [navigate]);
 
   const currentCategoryData = categories.find(c => c.id === activeCategory);
@@ -420,7 +440,10 @@ const MainPage = () => {
           </button>
         </div>
 
-        <button className="flex flex-col items-center justify-center w-16 h-full text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors gap-1">
+        <button
+          onClick={() => navigate('/feed')}
+          className="flex flex-col items-center justify-center w-16 h-full text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors gap-1"
+        >
           <span className="material-symbols-rounded text-2xl">grid_view</span>
           <span className="text-[10px] font-medium">SNS</span>
         </button>

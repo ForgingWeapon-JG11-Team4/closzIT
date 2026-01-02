@@ -44,6 +44,11 @@ model User {
   /// 체형
   bodyType           String?        @map("body_type")
   clothes            Clothing[]
+  posts              Post[]
+  comments           Comment[]
+  likes              Like[]
+  followers          Follow[]   @relation("Following")
+  following          Follow[]   @relation("Follower")
 
   @@map("users")
 }

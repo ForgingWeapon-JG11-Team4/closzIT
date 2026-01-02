@@ -9,6 +9,10 @@ import { ItemsModule } from './items/items.module';
 import { FittingModule } from './fitting/fitting.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
+import { PostsModule } from './posts/posts.module';
+import { CommentsModule } from './comments/comments.module';
+import { LikesModule } from './likes/likes.module';
+import { FollowModule } from './follow/follow.module';
 
 @Module({
   imports: [
@@ -23,6 +27,10 @@ import { UserModule } from './user/user.module';
     AuthModule,
     UserModule,
     FittingModule,
+    PostsModule,
+    CommentsModule,
+    LikesModule,
+    FollowModule,
   ],
   controllers: [AppController],
   providers: [AppService],
