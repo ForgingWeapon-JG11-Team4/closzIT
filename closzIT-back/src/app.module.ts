@@ -14,6 +14,7 @@ import { PostsModule } from './posts/posts.module';
 import { CommentsModule } from './comments/comments.module';
 import { LikesModule } from './likes/likes.module';
 import { FollowModule } from './follow/follow.module';
+import { RecommendationModule } from './recommendation/recommendation.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { FollowModule } from './follow/follow.module';
     CommentsModule,
     LikesModule,
     FollowModule,
+    RecommendationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -103,4 +103,15 @@ export class UserService {
       data: updateData,
     });
   }
+
+  async getPreference(userId: string): Promise<{ preferred_styles: string[] }> {
+    const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { preferredStyles: true },
+    });
+
+    return {
+        preferred_styles: user?.preferredStyles || [],
+    };
+  }
 }
