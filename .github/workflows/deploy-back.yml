@@ -1,36 +1,34 @@
 name: Deploy Backend to Private EC2
 
 on:
-  push:
-    branches:
-      - main
+  push:
+    branches:
+      - dev
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-2
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
 
-      # SSM을 통해 Private EC2에 명령어 전달
-      - name: AWS SSM Send Command
-        run: |
-          aws ssm send-command \
-            --document-name "AWS-RunShellScript" \
-            --instance-ids "i-0617e4b725d90c05b" \
-            --parameters 'commands=[
-              "cd /home/ubuntu/app",
-             "sudo -u ubuntu git pull origin main",
-              "npm install",
-              "npm run build",
-              "pm2 restart all"
-            ]' \
-            --comment "Deploying backend via GitHub Actions"
-
+      - name: AWS SSM Send Command
+        run: |
+          aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --instance-ids "i-0617e4b725d90c05b" \
+            --parameters 'commands=[
+              "cd /home/ubuntu/app",
+              "sudo -u ubuntu git pull origin dev",
+              "npm install",
+              "npm run build",
+              "pm2 restart all"
+            ]' \
+            --comment "Deploying backend via GitHub Actions"
