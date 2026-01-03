@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - dev
+      - test1
     paths:
       - 'closzIT-front/**'
       - '.github/workflows/deploy-front.yml'
