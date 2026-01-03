@@ -49,8 +49,8 @@ export class AnalysisService {
                     // Log YOLO detection confidence
                     this.logger.log(`[Item ${index}] YOLO Label: ${item.label}, Confidence: ${(item.confidence * 100).toFixed(1)}%`);
 
-                    // Task: Bedrock Analysis
-                    const labelData = await this.bedrockService.extractClothingSpec('', item.image_base64);
+                    // Task: Bedrock Analysis (YOLO label을 힌트로 전달)
+                    const labelData = await this.bedrockService.extractClothingSpec('', item.image_base64, item.label);
                     this.logger.log(`[TIMING] Item ${index}: Bedrock took ${Date.now() - bedrockStartTime}ms`);
 
                     return {

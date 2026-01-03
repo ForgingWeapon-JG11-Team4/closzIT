@@ -19,11 +19,31 @@ export class BedrockService {
         });
     }
 
-    async extractClothingSpec(text: string, imageBase64?: string): Promise<any> {
+    async extractClothingSpec(text: string, imageBase64?: string, detectedType?: string): Promise<any> {
         try {
+            // 디버깅: 전달받은 detectedType 로그
+            this.logger.log(`[Bedrock] Received detectedType: "${detectedType}"`);
+
+            // YOLO 탐지 결과에 따른 카테고리 힌트 생성
+            let categoryHint = '';
+            if (detectedType === 'shoes') {
+                categoryHint = `
+CRITICAL: This item was detected as SHOES by object detection.
+- The category MUST be "Shoes"
+- Choose an appropriate sub_category from: Sneakers, Loafers, Dress-shoes, Boots, Sandals, Slippers, Other
+- Do NOT classify this as Outer, Top, or Bottom under any circumstances.
+`;
+            } else if (detectedType === 'clothing') {
+                categoryHint = `
+NOTE: This item was detected as CLOTHING by object detection.
+- Choose category from: Outer, Top, Bottom (NOT Shoes)
+- Analyze whether it's an upper body garment (Outer/Top) or lower body garment (Bottom)
+`;
+            }
+
             const prompt = `
 You are an expert fashion analyst specializing in clothing color and category identification.
-
+${categoryHint}
 TASK: Analyze the provided clothing image and extract attributes.
 
 IMPORTANT COLOR ANALYSIS RULES:
