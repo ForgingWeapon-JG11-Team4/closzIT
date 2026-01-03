@@ -23,7 +23,7 @@ jobs:
         run: |
           aws ssm send-command \
             --document-name "AWS-RunShellScript" \
-            --instance-ids "i-0xxxxxxxxxxxx" \
+            --instance-ids "i-0617e4b725d90c05b" \
             --parameters 'commands=[
               "sudo -i -u ubuntu bash -c \"cd /home/ubuntu/app && git pull origin dev\"",
               "sudo -i -u ubuntu bash -c \"cd /home/ubuntu/app/closzIT-back && npm install\"",
