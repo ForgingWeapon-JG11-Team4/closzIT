@@ -3,7 +3,7 @@ name: Deploy Backend to Private EC2
 on:
   push:
     branches:
-      - main
+      - dev
 
 jobs:
   deploy:
