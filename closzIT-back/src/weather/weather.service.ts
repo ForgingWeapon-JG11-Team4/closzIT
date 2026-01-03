@@ -418,22 +418,14 @@ export class WeatherService {
    */
   async getWeather(grid: GridCoord, targetDatetime?: Date): Promise<WeatherInfo> {
     const { baseDate, baseTime } = this.getBaseDatetime();
-
     const target = targetDatetime || new Date();
     const targetDate = this.formatDate(target);
     const targetHour = `${String(target.getHours()).padStart(2, '0')}00`;
 
     const defaultWeather = this.getDefaultWeather(target);
 
-    // API 키 검증
     if (!this.weatherApiKey) {
       this.logger.error('WEATHER_API_KEY가 설정되지 않았습니다.');
-      return defaultWeather;
-    }
-
-    // 격자 좌표 유효성 검증 (1~149 범위)
-    if (grid.x < 1 || grid.x > 149 || grid.y < 1 || grid.y > 253) {
-      this.logger.warn(`유효하지 않은 격자 좌표: nx=${grid.x}, ny=${grid.y}`);
       return defaultWeather;
     }
 
@@ -452,88 +444,77 @@ export class WeatherService {
               nx: grid.x,
               ny: grid.y,
             },
-            timeout: 10000, // 10초 타임아웃
+            timeout: 10000,
           },
         ),
       );
 
       const data = response.data;
-
-      // 응답 구조 검증
-      if (!data.response) {
-        this.logger.error('API 응답 구조 오류: response 없음');
+      if (data.response?.header?.resultCode !== '00') {
+        this.handleApiError(data.response?.header?.resultCode);
         return defaultWeather;
       }
 
-      // 에러 코드 처리
-      const resultCode = data.response.header.resultCode;
-      if (resultCode !== '00') {
-        this.handleApiError(resultCode);
+      const items = data.response.body?.items?.item;
+      if (!items || items.length === 0) {
+        this.logger.warn(`[Weather] 응답 아이템이 없습니다. (Date: ${targetDate})`);
         return defaultWeather;
       }
 
-      // body/items 검증
-      if (!data.response.body?.items?.item) {
-        this.logger.warn('날씨 데이터가 비어있습니다.');
+      // 1. 해당 날짜(targetDate)의 데이터만 필터링
+      const dailyItems = items.filter(item => item.fcstDate === targetDate);
+      
+      if (dailyItems.length === 0) {
+        this.logger.warn(`[Weather] 해당 날짜(${targetDate})의 예보가 응답에 포함되지 않았습니다.`);
         return defaultWeather;
       }
 
-      const items = data.response.body.items.item;
+      // 2. 정확한 시간(targetHour) 매칭 시도, 없으면 가장 가까운 시간 선택
+      let targetItems = dailyItems.filter(item => item.fcstTime === targetHour);
+      
+      if (targetItems.length === 0) {
+        // 가장 첫 번째로 나오는 시간대를 대안으로 선택
+        const alternativeHour = dailyItems[0].fcstTime;
+        this.logger.log(`[Weather] ${targetHour} 데이터가 없어 ${alternativeHour} 예보로 대체합니다.`);
+        targetItems = dailyItems.filter(item => item.fcstTime === alternativeHour);
+      }
+
       const weather: WeatherInfo = { ...defaultWeather };
 
-      // 해당 시간대 데이터 추출
-      for (const item of items) {
-        if (item.fcstDate === targetDate && item.fcstTime === targetHour) {
-          const { category, fcstValue } = item;
-          const numValue = parseFloat(fcstValue);
+      // 3. 선택된 시간대의 데이터들로 weather 객체 구성
+      targetItems.forEach((item) => {
+        const { category, fcstValue } = item;
+        const numValue = parseFloat(fcstValue);
 
-          // Missing 값 체크
-          if (!isNaN(numValue) && this.isMissingValue(numValue)) {
-            continue;
-          }
+        if (!isNaN(numValue) && this.isMissingValue(numValue)) return;
 
-          switch (category) {
-            case 'TMP': // 기온
-              weather.temperature = isNaN(numValue) ? null : Math.round(numValue);
-              break;
-            case 'SKY': // 하늘상태
-              weather.sky = this.SKY_CODES[fcstValue] || fcstValue;
-              break;
-            case 'PTY': // 강수형태
-              weather.precipitationType = this.PTY_CODES[fcstValue] || fcstValue;
-              break;
-            case 'POP': // 강수확률
-              weather.rainProbability = isNaN(numValue) ? 0 : numValue;
-              break;
-            case 'REH': // 습도
-              weather.humidity = isNaN(numValue) ? null : numValue;
-              break;
-            case 'WSD': // 풍속
-              weather.windSpeed = isNaN(numValue) ? null : numValue;
-              break;
-            case 'PCP': // 강수량
-              // 범주형 값은 별도 처리
-              break;
-          }
+        switch (category) {
+          case 'TMP':
+            weather.temperature = isNaN(numValue) ? null : Math.round(numValue);
+            break;
+          case 'SKY':
+            weather.sky = this.SKY_CODES[fcstValue] || fcstValue;
+            break;
+          case 'PTY':
+            weather.precipitationType = this.PTY_CODES[fcstValue] || fcstValue;
+            break;
+          case 'POP':
+            weather.rainProbability = isNaN(numValue) ? 0 : numValue;
+            break;
+          case 'REH':
+            weather.humidity = isNaN(numValue) ? null : numValue;
+            break;
+          case 'WSD':
+            weather.windSpeed = isNaN(numValue) ? null : numValue;
+            break;
         }
-      }
+      });
 
-      // 종합 날씨 상태 결정
       weather.condition = this.determineCondition(weather);
-
       return weather;
-    } catch (error: any) {
-      // 에러 유형별 처리
-      if (error.code === 'ECONNABORTED') {
-        this.logger.error('기상청 API 타임아웃 (10초 초과)');
-      } else if (error.response?.status === 500) {
-        this.logger.error('기상청 API 서버 오류');
-      } else if (error.response?.status === 400) {
-        this.logger.error('기상청 API 잘못된 요청');
-      } else {
-        this.logger.error('날씨 API 오류:', error.message);
-      }
 
+    } catch (error: any) {
+      this.logger.error(`[Weather] API 호출 에러: ${error.message}`);
       return defaultWeather;
     }
   }
