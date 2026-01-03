@@ -23,12 +23,11 @@ jobs:
         run: |
           aws ssm send-command \
             --document-name "AWS-RunShellScript" \
-            --instance-ids "i-0617e4b725d90c05b" \
+            --instance-ids "i-0xxxxxxxxxxxx" \
             --parameters 'commands=[
-              "cd /home/ubuntu/app",
-              "sudo -u ubuntu git pull origin dev",
-              "npm install",
-              "npm run build",
-              "pm2 restart all"
+              "sudo -i -u ubuntu bash -c \"cd /home/ubuntu/app && git pull origin dev\"",
+              "sudo -i -u ubuntu bash -c \"cd /home/ubuntu/app/closzIT-back && npm install\"",
+              "sudo -i -u ubuntu bash -c \"cd /home/ubuntu/app/closzIT-back && npm run build\"",
+              "sudo -i -u ubuntu bash -c \"cd /home/ubuntu/app/closzIT-back && pm2 restart all || pm2 start dist/main.js --name backend\""
             ]' \
-            --comment "Deploying backend via GitHub Actions"
+            --comment "Deploying backend from closzIT-back directory"
