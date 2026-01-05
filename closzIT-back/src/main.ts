@@ -12,7 +12,7 @@ async function bootstrap() {
 
   // Enable CORS for frontend
   app.enableCors({
-    origin: ['http://localhost:3001', 'http://localhost:3000'],
+    origin: ['https://www.closzit.shop'],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     credentials: true,
   });
@@ -26,6 +26,6 @@ async function bootstrap() {
     console.log('Check your Security Group settings.');
   }
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(process.env.PORT ?? 42429);
 }
 bootstrap();
