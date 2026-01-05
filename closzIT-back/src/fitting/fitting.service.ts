@@ -1,11 +1,15 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Inject, forwardRef } from '@nestjs/common';
 import { GoogleGenAI } from '@google/genai';
+import { CreditService } from '../credit/credit.service';
 
 @Injectable()
 export class FittingService {
   private readonly ai: GoogleGenAI;
 
-  constructor() {
+  constructor(
+    @Inject(forwardRef(() => CreditService))
+    private readonly creditService: CreditService,
+  ) {
     const apiKey = process.env.GOOGLE_API_KEY;
     if (!apiKey) {
       throw new Error('GOOGLE_API_KEY is not defined in environment variables');
@@ -21,10 +25,27 @@ export class FittingService {
     top: Express.Multer.File;
     bottom: Express.Multer.File;
     shoes: Express.Multer.File;
-  }) {
+  }, userId?: string) {
     const startTime = Date.now();
 
     try {
+      // VTO 사용 전 크레딧 차감 (userId가 제공된 경우)
+      if (userId) {
+        try {
+          await this.creditService.deductVtoCredit(userId);
+          console.log(`Deducted 3 credits from user ${userId} for VTO usage`);
+        } catch (creditError) {
+          console.error('Failed to deduct credits:', creditError);
+          throw new HttpException(
+            {
+              success: false,
+              message: creditError.message || '크레딧이 부족합니다.',
+            },
+            HttpStatus.BAD_REQUEST
+          );
+        }
+      }
+
       console.log('Starting virtual fitting with Gemini...');
 
       // 모든 이미지를 base64로 변환

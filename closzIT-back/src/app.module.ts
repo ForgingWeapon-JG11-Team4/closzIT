@@ -15,6 +15,7 @@ import { CommentsModule } from './comments/comments.module';
 import { LikesModule } from './likes/likes.module';
 import { FollowModule } from './follow/follow.module';
 import { RecommendationModule } from './recommendation/recommendation.module';
+import { CreditModule } from './credit/credit.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { RecommendationModule } from './recommendation/recommendation.module';
     LikesModule,
     FollowModule,
     RecommendationModule,
+    CreditModule,
   ],
   controllers: [AppController],
   providers: [AppService],
