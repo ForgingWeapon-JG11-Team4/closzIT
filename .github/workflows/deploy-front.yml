@@ -41,3 +41,9 @@ jobs:
       - name: Deploy to S3
         run: |
           aws s3 sync ./closzIT-front/build s3://closzit-frontend --delete
+
+
+      # 6. CloudFront 캐시 무효화 (선택 사항)
+      - name: CloudFront Invalidation
+        run: |
+          aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DIST_ID }} --paths "/*"
