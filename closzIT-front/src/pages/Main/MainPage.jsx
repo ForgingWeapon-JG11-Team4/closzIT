@@ -25,6 +25,7 @@ const MainPage = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [showGreeting, setShowGreeting] = useState(true);
+  const [selectedClothDetail, setSelectedClothDetail] = useState(null); // 상세정보 모달용
 
   const [selectedOutfit, setSelectedOutfit] = useState({
     outerwear: null,
@@ -259,18 +260,13 @@ const MainPage = () => {
 
       {/* Header - Luxury glass effect */}
       <div className="px-4 py-3 flex items-center gap-3 glass-warm sticky top-0 z-40 border-b border-gold-light/20">
-        {isSearchExpanded ? (
+        {isSearchExpanded && (
           <button
             onClick={() => setIsSearchExpanded(false)}
             className="w-10 h-10 -ml-2 rounded-full flex items-center justify-center hover:bg-gold-light/20 transition-colors flex-shrink-0"
           >
             <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream">arrow_back</span>
           </button>
-        ) : (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-gold/20 to-gold-light/20 border border-gold/30">
-            <span className="material-symbols-rounded text-lg text-gold">monetization_on</span>
-            <span className="text-sm font-semibold text-gold">{userCredit}</span>
-          </div>
         )}
 
         <div 
@@ -315,12 +311,20 @@ const MainPage = () => {
             <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream">close</span>
           </button>
         ) : (
-          <button
-            onClick={() => navigate('/mypage')}
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-gold to-gold-dark text-warm-white shadow-lg hover:shadow-xl hover:scale-105 transition-all flex-shrink-0"
-          >
-            <span className="material-symbols-rounded text-xl">person</span>
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* 프로필 버튼 */}
+            <button
+              onClick={() => navigate('/mypage')}
+              className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-gold to-gold-dark text-warm-white shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+            >
+              <span className="material-symbols-rounded text-xl">person</span>
+            </button>
+            {/* 크레딧 표시 */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-gold/20 to-gold-light/20 border border-gold/30">
+              <span className="material-symbols-rounded text-base text-gold">monetization_on</span>
+              <span className="text-sm font-semibold text-gold">{userCredit}</span>
+            </div>
+          </div>
         )}
       </div>
 
@@ -430,8 +434,8 @@ const MainPage = () => {
                       </div>
                     </div>
 
-                    {/* Clothes Card - Smaller size */}
-                    <div className={`w-28 h-36 bg-warm-white dark:bg-charcoal rounded-xl overflow-hidden border-2 transition-all duration-300 relative z-40 ${idx === currentClothIndex
+                    {/* Clothes Card - Smaller size with hover overlay */}
+                    <div className={`w-28 h-36 bg-warm-white dark:bg-charcoal rounded-xl overflow-hidden border-2 transition-all duration-300 relative z-40 group/card ${idx === currentClothIndex
                         ? 'border-gold shadow-lifted ring-2 ring-gold/20'
                         : 'border-gold-light/30 dark:border-charcoal-light/30 shadow-soft'
                       }`}>
@@ -440,6 +444,16 @@ const MainPage = () => {
                         className="w-full h-full object-cover"
                         src={cloth.image}
                       />
+                      {/* Hover Overlay with Detail Icon Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedClothDetail(cloth);
+                        }}
+                        className="absolute bottom-1.5 right-1.5 w-7 h-7 bg-white/90 dark:bg-charcoal/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover/card:opacity-100 transition-all duration-200 hover:scale-110 hover:bg-white dark:hover:bg-charcoal"
+                      >
+                        <span className="material-symbols-rounded text-gold text-base">info</span>
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -525,24 +539,8 @@ const MainPage = () => {
                 
                 {/* Styling Message */}
                 <p className="text-center text-charcoal dark:text-cream text-sm font-medium">
-                  오늘의 코디를 추천해 드릴까요?
+                  어떤 옷을 입어보실래요?
                 </p>
-                <p className="text-center text-charcoal-light/60 dark:text-cream-dark/60 text-xs mt-1.5">
-                  위에서 옷을 선택하면 AI가 스타일링을 도와드려요
-                </p>
-                
-                {/* Action Button */}
-                <button 
-                  onClick={() => setIsSearchExpanded(true)}
-                  className="mt-5 px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 hover:scale-105 active:scale-95"
-                  style={{
-                    background: 'linear-gradient(135deg, #D4AF37 0%, #C9A962 100%)',
-                    color: '#FFFAF0',
-                    boxShadow: '0 4px 12px rgba(201, 169, 98, 0.3)',
-                  }}
-                >
-                  AI 스타일리스트에게 물어보기
-                </button>
               </div>
             </div>
 
@@ -575,6 +573,183 @@ const MainPage = () => {
         </button>
 
       </div>
+
+      {/* ========== Cloth Detail Modal ========== */}
+      {selectedClothDetail && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fadeIn"
+          onClick={() => setSelectedClothDetail(null)}
+        >
+          <div 
+            className="bg-warm-white dark:bg-charcoal rounded-3xl shadow-2xl max-w-sm w-full max-h-[80vh] overflow-hidden animate-slideDown"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="relative">
+              <img 
+                src={selectedClothDetail.image} 
+                alt={selectedClothDetail.name}
+                className="w-full h-48 object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              <button
+                onClick={() => setSelectedClothDetail(null)}
+                className="absolute top-3 right-3 w-8 h-8 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/40 transition-colors"
+              >
+                <span className="material-symbols-rounded text-white text-lg">close</span>
+              </button>
+              <div className="absolute bottom-3 left-4 right-4">
+                <h3 className="text-white text-lg font-bold">{selectedClothDetail.name || '의류'}</h3>
+              </div>
+            </div>
+
+            {/* Modal Content - Labeling Info */}
+            <div className="p-5 space-y-4 max-h-[40vh] overflow-y-auto">
+              <h4 className="text-sm font-bold text-charcoal dark:text-cream flex items-center gap-2">
+                <span className="material-symbols-rounded text-gold text-lg">label</span>
+                라벨링 정보
+              </h4>
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* Category */}
+                <div className="bg-cream-dark dark:bg-charcoal-light/20 rounded-xl p-3">
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark uppercase font-semibold mb-1">카테고리</p>
+                  <p className="text-sm font-medium text-charcoal dark:text-cream">
+                    {selectedClothDetail.category === 'Outer' && '외투'}
+                    {selectedClothDetail.category === 'Top' && '상의'}
+                    {selectedClothDetail.category === 'Bottom' && '하의'}
+                    {selectedClothDetail.category === 'Shoes' && '신발'}
+                    {selectedClothDetail.subCategory && ` (${selectedClothDetail.subCategory})`}
+                  </p>
+                </div>
+
+                {/* Colors */}
+                <div className="bg-cream-dark dark:bg-charcoal-light/20 rounded-xl p-3">
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark uppercase font-semibold mb-1">색상</p>
+                  <p className="text-sm font-medium text-charcoal dark:text-cream">
+                    {selectedClothDetail.colors?.length > 0 ? selectedClothDetail.colors.join(', ') : '-'}
+                  </p>
+                </div>
+
+                {/* Patterns */}
+                <div className="bg-cream-dark dark:bg-charcoal-light/20 rounded-xl p-3">
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark uppercase font-semibold mb-1">패턴</p>
+                  <p className="text-sm font-medium text-charcoal dark:text-cream">
+                    {selectedClothDetail.patterns?.length > 0 ? selectedClothDetail.patterns.join(', ') : '-'}
+                  </p>
+                </div>
+
+                {/* Details (Material) */}
+                <div className="bg-cream-dark dark:bg-charcoal-light/20 rounded-xl p-3">
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark uppercase font-semibold mb-1">디테일</p>
+                  <p className="text-sm font-medium text-charcoal dark:text-cream">
+                    {selectedClothDetail.details?.length > 0 ? selectedClothDetail.details.join(', ') : '-'}
+                  </p>
+                </div>
+
+                {/* Style Moods */}
+                <div className="bg-cream-dark dark:bg-charcoal-light/20 rounded-xl p-3">
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark uppercase font-semibold mb-1">스타일</p>
+                  <p className="text-sm font-medium text-charcoal dark:text-cream">
+                    {selectedClothDetail.styleMoods?.length > 0 ? selectedClothDetail.styleMoods.join(', ') : '-'}
+                  </p>
+                </div>
+
+                {/* Seasons */}
+                <div className="bg-cream-dark dark:bg-charcoal-light/20 rounded-xl p-3">
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark uppercase font-semibold mb-1">시즌</p>
+                  <p className="text-sm font-medium text-charcoal dark:text-cream">
+                    {selectedClothDetail.seasons?.length > 0 ? selectedClothDetail.seasons.join(', ') : '-'}
+                  </p>
+                </div>
+              </div>
+
+              {/* TPO Tags */}
+              {selectedClothDetail.tpos && selectedClothDetail.tpos.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark uppercase font-semibold mb-2">TPO</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedClothDetail.tpos.map((t, i) => (
+                      <span key={i} className="px-3 py-1 bg-gold/10 text-gold text-xs font-medium rounded-full border border-gold/20">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Note */}
+              {selectedClothDetail.note && (
+                <div className="bg-cream-dark dark:bg-charcoal-light/20 rounded-xl p-3">
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark uppercase font-semibold mb-1">메모</p>
+                  <p className="text-sm font-medium text-charcoal dark:text-cream">{selectedClothDetail.note}</p>
+                </div>
+              )}
+
+              {/* Wear Count */}
+              {selectedClothDetail.wearCount > 0 && (
+                <div className="bg-cream-dark dark:bg-charcoal-light/20 rounded-xl p-3">
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark uppercase font-semibold mb-1">착용 횟수</p>
+                  <p className="text-sm font-medium text-charcoal dark:text-cream">{selectedClothDetail.wearCount}회</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer - 수정/삭제 버튼 */}
+            <div className="p-4 border-t border-gold-light/20 space-y-2">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    // TODO: 수정 모달로 이동 (추후 구현)
+                    alert('수정 기능은 추후 업데이트 예정입니다.');
+                  }}
+                  className="flex-1 py-3 bg-gold/20 text-gold rounded-xl font-semibold hover:bg-gold/30 transition-colors flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-rounded text-lg">edit</span>
+                  수정
+                </button>
+                <button
+                  onClick={async () => {
+                    if (window.confirm('정말 이 옷을 삭제하시겠습니까?')) {
+                      try {
+                        const token = localStorage.getItem('accessToken');
+                        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000'}/items/${selectedClothDetail.id}`, {
+                          method: 'DELETE',
+                          headers: {
+                            'Authorization': `Bearer ${token}`
+                          }
+                        });
+                        
+                        if (response.ok) {
+                          alert('옷이 삭제되었습니다.');
+                          setSelectedClothDetail(null);
+                          // 옷 목록 새로고침
+                          window.location.reload();
+                        } else {
+                          throw new Error('삭제 실패');
+                        }
+                      } catch (error) {
+                        alert('삭제 중 오류가 발생했습니다.');
+                        console.error(error);
+                      }
+                    }
+                  }}
+                  className="flex-1 py-3 bg-red-500/20 text-red-500 rounded-xl font-semibold hover:bg-red-500/30 transition-colors flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-rounded text-lg">delete</span>
+                  삭제
+                </button>
+              </div>
+              <button
+                onClick={() => setSelectedClothDetail(null)}
+                className="w-full py-3 bg-charcoal dark:bg-cream text-cream dark:text-charcoal rounded-xl font-semibold hover:opacity-90 transition-opacity"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

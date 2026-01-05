@@ -204,8 +204,10 @@ export class AnalysisService {
 
     /**
      * Gemini API를 사용하여 의상 이미지를 펼쳐진 플랫레이 형태로 변환
+     * 성공 시 1 크레딧 차감
      */
     async flattenClothing(
+        userId: string,
         imageBase64: string,
         category?: string,
         subCategory?: string,
@@ -221,7 +223,7 @@ export class AnalysisService {
         }
 
         const startTime = Date.now();
-        this.logger.log(`[flattenClothing] Starting flattening for category: ${category}/${subCategory}`);
+        this.logger.log(`[flattenClothing] Starting flattening for category: ${category}/${subCategory}, userId: ${userId}`);
 
         try {
             // 상세 라벨링 정보 구성
@@ -345,6 +347,16 @@ OUTPUT: Generate ONLY the transformed flat-lay image. No text, no explanation.
                 if (part.inlineData) {
                     const flattenedImageBase64 = part.inlineData.data;
                     this.logger.log('[flattenClothing] Image flattening successful');
+
+                    // 성공 시 1 크레딧 차감
+                    try {
+                        await this.creditService.deductFlattenCredit(userId);
+                        this.logger.log(`[flattenClothing] Deducted 1 credit for userId: ${userId}`);
+                    } catch (creditError) {
+                        this.logger.error('[flattenClothing] Failed to deduct credit:', creditError.message);
+                        // 크레딧 부족 시 에러 throw
+                        throw creditError;
+                    }
 
                     return {
                         success: true,

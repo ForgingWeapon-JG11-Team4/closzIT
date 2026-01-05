@@ -140,6 +140,10 @@ const LabelingPage = () => {
   // 저장 중 상태
   const [isSaving, setIsSaving] = useState(false);
 
+  // 등록 완료 팝업 상태
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [savedItemImages, setSavedItemImages] = useState([]); // 저장된 아이템 이미지들
+
   // 이미지 확대 모달 상태
   const [isImageZoomed, setIsImageZoomed] = useState(false);
   const [zoomedImageSrc, setZoomedImageSrc] = useState(null); // 확대할 이미지 src
@@ -148,6 +152,8 @@ const LabelingPage = () => {
   const [isFlattening, setIsFlattening] = useState(false);
   const [flattenedImages, setFlattenedImages] = useState({}); // { itemIndex: base64Image }
   const [skippedFlattenImages, setSkippedFlattenImages] = useState([]); // 펼쳐진 이미지 제외 목록
+  const [showFlattenConfirm, setShowFlattenConfirm] = useState(false); // 옷 펴기 확인 팝업
+  const [userCredit, setUserCredit] = useState(0); // 사용자 크레딧
 
   // 각 아이템별 수정된 폼 데이터 저장
   const [itemFormData, setItemFormData] = useState([]);
@@ -178,7 +184,8 @@ const LabelingPage = () => {
         if (response.ok) {
           const userData = await response.json();
           setUserId(userData.id);
-          console.log('[LabelingPage] User ID loaded:', userData.id);
+          setUserCredit(userData.credit || 0);
+          console.log('[LabelingPage] User ID loaded:', userData.id, 'Credit:', userData.credit);
         } else {
           console.error('[LabelingPage] Failed to fetch user data');
         }
@@ -369,10 +376,12 @@ const LabelingPage = () => {
 
       console.log('[DEBUG] Flattening clothing:', formData.category, formData.sub_category);
 
+      const token = localStorage.getItem('accessToken');
       const response = await fetch(`${API_BASE_URL}/analysis/flatten`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           image_base64: currentItem.image,
@@ -472,8 +481,18 @@ const LabelingPage = () => {
       }
 
       const result = await response.json();
-      alert(`${result.savedCount}개 아이템이 성공적으로 저장되었습니다!`);
-      navigate('/main');
+      
+      // 저장된 아이템 이미지들 수집
+      const savedImages = itemsToSave.map((item, idx) => {
+        // 펼쳐진 이미지가 있으면 우선 사용
+        const flattenImg = item.flatten_image_base64;
+        const originalImg = item.image_base64;
+        return flattenImg 
+          ? `data:image/png;base64,${flattenImg}`
+          : `data:image/png;base64,${originalImg}`;
+      });
+      setSavedItemImages(savedImages);
+      setShowSuccessPopup(true);
 
     } catch (error) {
       console.error('[ERROR] Save error:', error);
@@ -489,17 +508,183 @@ const LabelingPage = () => {
     : null;
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen font-sans flex flex-col">
+    <div className="min-h-screen font-sans flex flex-col" style={{ backgroundColor: '#FAF8F5' }}>
 
-      {/* Header */}
-      <header className="flex items-center px-4 py-3 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md sticky top-0 z-40">
+      {/* ========== 분석 중 팝업 ========== */}
+      {isAnalyzing && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
+          <div 
+            className="bg-white rounded-3xl shadow-2xl p-8 mx-6 max-w-sm w-full text-center"
+            style={{ border: '1px solid rgba(212, 175, 55, 0.2)' }}
+          >
+            {/* 요정 이미지 - 좌우 흔들림 애니메이션 */}
+            <div className="animate-wiggle mb-4">
+              <img 
+                src="/assets/fairy-analyzing.png" 
+                alt="분석 중인 요정"
+                className="w-40 h-40 mx-auto object-contain"
+              />
+            </div>
+            
+            {/* 메시지 */}
+            <h3 className="text-lg font-bold mb-2" style={{ color: '#2C2C2C' }}>
+              요정이 옷을 분석하고 있어요
+            </h3>
+            <p className="text-sm" style={{ color: '#6B6B6B' }}>
+              잠시만 기다려 주세요...
+            </p>
+            
+            {/* 로딩 인디케이터 */}
+            <div className="mt-4 flex justify-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-gold animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-2 h-2 rounded-full bg-gold animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-2 h-2 rounded-full bg-gold animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== 등록 완료 팝업 ========== */}
+      {showSuccessPopup && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
+          <div 
+            className="bg-white rounded-3xl shadow-2xl p-6 mx-6 max-w-sm w-full text-center"
+            style={{ border: '1px solid rgba(212, 175, 55, 0.2)' }}
+          >
+            {/* 성공 아이콘 */}
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" 
+              style={{ background: 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)' }}>
+              <span className="material-symbols-rounded text-3xl text-white">check</span>
+            </div>
+            
+            <h3 className="text-lg font-bold mb-2" style={{ color: '#2C2C2C' }}>
+              옷이 등록되었어요!
+            </h3>
+            <p className="text-sm mb-4" style={{ color: '#6B6B6B' }}>
+              {savedItemImages.length}벌의 옷이 옷장에 추가되었습니다
+            </p>
+            
+            {/* 등록된 옷 이미지들 */}
+            <div className="flex justify-center gap-2 mb-6 flex-wrap">
+              {savedItemImages.map((img, idx) => (
+                <div 
+                  key={idx}
+                  className="w-16 h-16 rounded-xl overflow-hidden shadow-md"
+                  style={{ border: '2px solid rgba(212, 175, 55, 0.3)' }}
+                >
+                  <img 
+                    src={img} 
+                    alt={`등록된 옷 ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+            
+            {/* 확인 버튼 */}
+            <button
+              onClick={() => {
+                setShowSuccessPopup(false);
+                navigate('/main');
+              }}
+              className="w-full py-3 rounded-xl font-bold text-white transition-all hover:scale-105"
+              style={{
+                background: 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)',
+                boxShadow: '0 4px 14px rgba(184, 134, 11, 0.35)'
+              }}
+            >
+              내 옷장으로 가기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========== 옷 펴기 확인 팝업 ========== */}
+      {showFlattenConfirm && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
+          <div 
+            className="bg-white rounded-3xl shadow-2xl p-6 mx-6 max-w-sm w-full text-center"
+            style={{ border: '1px solid rgba(212, 175, 55, 0.2)' }}
+          >
+            {/* 동전 아이콘 */}
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center bg-gradient-to-br from-gold/20 to-gold-light/20"
+              style={{ border: '2px solid rgba(212, 175, 55, 0.3)' }}>
+              <span className="material-symbols-rounded text-3xl text-gold">monetization_on</span>
+            </div>
+            
+            <h3 className="text-lg font-bold mb-2" style={{ color: '#2C2C2C' }}>
+              1 크레딧을 사용하시겠어요?
+            </h3>
+            <p className="text-sm mb-4" style={{ color: '#6B6B6B' }}>
+              옷 펴기 기능을 이용합니다
+            </p>
+            
+            {/* 크레딧 잔액 표시 */}
+            <div className="flex items-center justify-center gap-2 mb-6 py-2 px-4 rounded-xl bg-cream-dark/50">
+              <span className="material-symbols-rounded text-gold">account_balance_wallet</span>
+              <span className="text-sm" style={{ color: '#6B6B6B' }}>보유 크레딧: </span>
+              <span className="text-lg font-bold text-gold">{userCredit}</span>
+            </div>
+            
+            {/* 버튼들 */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowFlattenConfirm(false)}
+                className="flex-1 py-3 rounded-xl font-medium transition-all"
+                style={{
+                  background: '#F5F0E8',
+                  color: '#6B6B6B',
+                  border: '1px solid rgba(212, 175, 55, 0.2)'
+                }}
+              >
+                취소
+              </button>
+              <button
+                onClick={() => {
+                  setShowFlattenConfirm(false);
+                  handleFlattenClothing();
+                }}
+                disabled={userCredit < 1}
+                className="flex-1 py-3 rounded-xl font-bold text-white transition-all hover:scale-105"
+                style={{
+                  background: userCredit < 1 ? '#9CA3AF' : 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)',
+                  boxShadow: userCredit < 1 ? 'none' : '0 4px 14px rgba(184, 134, 11, 0.35)',
+                  cursor: userCredit < 1 ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {userCredit < 1 ? '크레딧 부족' : '사용하기'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header - Glass Morphism with Gold accent */}
+      <header 
+        className="flex items-center px-4 py-3 sticky top-0 z-40"
+        style={{
+          background: 'rgba(250, 248, 245, 0.85)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          borderBottom: '1px solid rgba(212, 175, 55, 0.15)'
+        }}
+      >
         <button
           onClick={() => navigate('/register')}
-          className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-105"
+          style={{
+            background: 'linear-gradient(135deg, #F5F0E8 0%, #FAF8F5 100%)',
+            border: '1px solid rgba(212, 175, 55, 0.2)'
+          }}
         >
-          <span className="material-symbols-rounded text-2xl text-gray-600 dark:text-gray-300">arrow_back</span>
+          <span className="material-symbols-rounded text-2xl" style={{ color: '#6B6B6B' }}>arrow_back</span>
         </button>
-        <h1 className="flex-1 text-center text-lg font-bold text-gray-900 dark:text-white pr-10">옷 정보 입력</h1>
+        <h1 
+          className="flex-1 text-center text-lg font-bold pr-10"
+          style={{ color: '#2C2C2C' }}
+        >
+          옷 정보 입력
+        </h1>
       </header>
 
       {/* Main Content */}
@@ -519,7 +704,14 @@ const LabelingPage = () => {
               </div>
 
               {/* 새 이미지 선택 버튼 */}
-              <label className="mt-3 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+              <label 
+                className="mt-3 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition-all hover:scale-105"
+                style={{
+                  border: '1px solid rgba(212, 175, 55, 0.3)',
+                  color: '#B8860B',
+                  background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, rgba(250, 248, 245, 0.8) 100%)'
+                }}
+              >
                 다른 이미지 선택
                 <input
                   type="file"
@@ -533,10 +725,16 @@ const LabelingPage = () => {
               <button
                 onClick={handleAnalyze}
                 disabled={isAnalyzing || !currentImageFile}
-                className={`mt-3 px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all ${isAnalyzing || !currentImageFile
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-primary hover:opacity-90 active:scale-[0.98]'
-                  }`}
+                className="mt-3 px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all hover:scale-105 active:scale-95"
+                style={{
+                  background: isAnalyzing || !currentImageFile 
+                    ? '#9CA3AF' 
+                    : 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)',
+                  boxShadow: isAnalyzing || !currentImageFile 
+                    ? 'none' 
+                    : '0 4px 14px rgba(184, 134, 11, 0.35)',
+                  cursor: isAnalyzing || !currentImageFile ? 'not-allowed' : 'pointer'
+                }}
               >
                 {isAnalyzing ? '분석 중...' : '의상 분석'}
               </button>
@@ -559,7 +757,7 @@ const LabelingPage = () => {
                 </div>
                 {/* 새 이미지 선택 버튼 */}
                 <label className="mt-2 block text-center">
-                  <span className="text-xs text-gray-400 hover:text-primary cursor-pointer underline">
+                  <span className="text-xs text-gray-400 hover:text-gold cursor-pointer underline">
                     변경
                   </span>
                   <input
@@ -696,12 +894,18 @@ const LabelingPage = () => {
                 ) : (
                   // 옷 펴기 버튼
                   <button
-                    onClick={handleFlattenClothing}
+                    onClick={() => setShowFlattenConfirm(true)}
                     disabled={isFlattening}
-                    className={`w-20 h-20 rounded-lg shadow-lg flex flex-col items-center justify-center transition-all ${isFlattening
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-gradient-to-br from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 hover:scale-105 active:scale-95'
-                      }`}
+                    className="w-20 h-24 rounded-xl shadow-lg flex flex-col items-center justify-center transition-all hover:scale-105 active:scale-95"
+                    style={{
+                      background: isFlattening 
+                        ? '#9CA3AF' 
+                        : 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)',
+                      boxShadow: isFlattening 
+                        ? 'none' 
+                        : '0 4px 14px rgba(184, 134, 11, 0.35)',
+                      cursor: isFlattening ? 'not-allowed' : 'pointer'
+                    }}
                   >
                     {isFlattening ? (
                       <>
@@ -712,6 +916,9 @@ const LabelingPage = () => {
                       <>
                         <span className="material-symbols-rounded text-2xl text-white">dry_cleaning</span>
                         <span className="text-xs text-white font-medium mt-1">옷 펴기</span>
+                        <span className="text-[10px] text-white/80 mt-0.5">
+                          (1 크레딧)
+                        </span>
                       </>
                     )}
                   </button>
@@ -729,7 +936,7 @@ const LabelingPage = () => {
             <div className="py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center mb-3">
                 <span className="text-gray-900 dark:text-white font-medium">카테고리</span>
-                <span className="text-primary text-sm font-medium">
+                <span className="text-gold text-sm font-medium">
                   {categoryLabels[currentFormData.category] || currentFormData.category} &gt; {subCategoryLabels[currentFormData.sub_category] || currentFormData.sub_category}
                 </span>
               </div>
@@ -742,7 +949,7 @@ const LabelingPage = () => {
                       updateCurrentFormData('sub_category', categoryOptions[cat][0]);
                     }}
                     className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${currentFormData.category === cat
-                      ? 'bg-primary text-white'
+                      ? 'bg-gold text-white'
                       : 'border border-gray-300 dark:border-gray-600 text-gray-500'
                       }`}
                   >
@@ -757,7 +964,7 @@ const LabelingPage = () => {
                       key={sub}
                       onClick={() => updateCurrentFormData('sub_category', sub)}
                       className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${currentFormData.sub_category === sub
-                        ? 'bg-primary/80 text-white'
+                        ? 'bg-gold/80 text-white'
                         : 'border border-gray-200 dark:border-gray-700 text-gray-400'
                         }`}
                     >
@@ -772,7 +979,7 @@ const LabelingPage = () => {
             <div className="py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center mb-3">
                 <span className="text-gray-900 dark:text-white font-medium">계절</span>
-                <span className="text-primary text-sm font-medium">
+                <span className="text-gold text-sm font-medium">
                   {(currentFormData.season || []).map(s => seasonOptions.find(o => o.value === s)?.label || s).join(', ') || '선택해주세요'}
                 </span>
               </div>
@@ -782,7 +989,7 @@ const LabelingPage = () => {
                     key={season.value}
                     onClick={() => toggleSeason(season.value)}
                     className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${(currentFormData.season || []).includes(season.value)
-                      ? 'bg-primary text-white'
+                      ? 'bg-gold text-white'
                       : 'border border-gray-300 dark:border-gray-600 text-gray-500'
                       }`}
                   >
@@ -796,7 +1003,7 @@ const LabelingPage = () => {
             <div className="py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center mb-3">
                 <span className="text-gray-900 dark:text-white font-medium">TPO</span>
-                <span className="text-primary text-sm font-medium">
+                <span className="text-gold text-sm font-medium">
                   {(currentFormData.tpo || []).map(t => tpoOptions.find(o => o.value === t)?.label || t).join(', ') || '선택해주세요'}
                 </span>
               </div>
@@ -806,7 +1013,7 @@ const LabelingPage = () => {
                     key={tpo.value}
                     onClick={() => toggleTpo(tpo.value)}
                     className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${(currentFormData.tpo || []).includes(tpo.value)
-                      ? 'bg-primary text-white'
+                      ? 'bg-gold text-white'
                       : 'border border-gray-300 dark:border-gray-600 text-gray-500'
                       }`}
                   >
@@ -820,7 +1027,7 @@ const LabelingPage = () => {
             <div className="py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center mb-3">
                 <span className="text-gray-900 dark:text-white font-medium">색상</span>
-                <span className="text-primary text-sm font-medium">
+                <span className="text-gold text-sm font-medium">
                   {(currentFormData.colors || []).map(c => colorOptions.find(o => o.value === c)?.name || c).join(', ') || '선택해주세요'}
                 </span>
               </div>
@@ -830,7 +1037,7 @@ const LabelingPage = () => {
                     key={color.value}
                     onClick={() => toggleColor(color.value)}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${(currentFormData.colors || []).includes(color.value)
-                      ? 'bg-primary text-white'
+                      ? 'bg-gold text-white'
                       : 'border border-gray-300 dark:border-gray-600 text-gray-500'
                       }`}
                   >
@@ -846,7 +1053,7 @@ const LabelingPage = () => {
               <div className="py-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex justify-between items-center mb-3">
                   <span className="text-gray-900 dark:text-white font-medium">패턴</span>
-                  <span className="text-primary text-sm font-medium">
+                  <span className="text-gold text-sm font-medium">
                     {(currentFormData.pattern || []).map(p => patternOptions.find(o => o.value === p)?.label || p).join(', ') || '선택해주세요'}
                   </span>
                 </div>
@@ -856,7 +1063,7 @@ const LabelingPage = () => {
                       key={pattern.value}
                       onClick={() => togglePattern(pattern.value)}
                       className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${(currentFormData.pattern || []).includes(pattern.value)
-                        ? 'bg-primary text-white'
+                        ? 'bg-gold text-white'
                         : 'border border-gray-300 dark:border-gray-600 text-gray-500'
                         }`}
                     >
@@ -872,7 +1079,7 @@ const LabelingPage = () => {
               <div className="py-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex justify-between items-center mb-3">
                   <span className="text-gray-900 dark:text-white font-medium">디테일</span>
-                  <span className="text-primary text-sm font-medium">
+                  <span className="text-gold text-sm font-medium">
                     {(currentFormData.detail || []).map(d => detailOptions.find(o => o.value === d)?.label || d).join(', ') || '선택해주세요'}
                   </span>
                 </div>
@@ -882,7 +1089,7 @@ const LabelingPage = () => {
                       key={detail.value}
                       onClick={() => toggleDetail(detail.value)}
                       className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${(currentFormData.detail || []).includes(detail.value)
-                        ? 'bg-primary text-white'
+                        ? 'bg-gold text-white'
                         : 'border border-gray-300 dark:border-gray-600 text-gray-500'
                         }`}
                     >
@@ -897,7 +1104,7 @@ const LabelingPage = () => {
             <div className="py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center mb-3">
                 <span className="text-gray-900 dark:text-white font-medium">스타일</span>
-                <span className="text-primary text-sm font-medium">
+                <span className="text-gold text-sm font-medium">
                   {(currentFormData.style_mood || []).map(s => styleMoodOptions.find(o => o.value === s)?.label || s).join(', ') || '선택해주세요'}
                 </span>
               </div>
@@ -907,7 +1114,7 @@ const LabelingPage = () => {
                     key={style.value}
                     onClick={() => toggleStyleMood(style.value)}
                     className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${(currentFormData.style_mood || []).includes(style.value)
-                      ? 'bg-primary text-white'
+                      ? 'bg-gold text-white'
                       : 'border border-gray-300 dark:border-gray-600 text-gray-500'
                       }`}
                   >
@@ -924,7 +1131,7 @@ const LabelingPage = () => {
                 disabled={isSaving}
                 className={`w-full py-4 rounded-2xl font-bold text-base shadow-lg transition-all ${isSaving
                   ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                  : 'bg-primary text-white hover:opacity-90 active:scale-[0.98]'
+                  : 'bg-gold text-white hover:opacity-90 active:scale-[0.98]'
                   }`}
               >
                 {isSaving
@@ -937,28 +1144,45 @@ const LabelingPage = () => {
         )}
       </main>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 flex items-center justify-around pb-2 z-50">
+      {/* Bottom Navigation - Matching MainPage style */}
+      <div 
+        className="fixed bottom-0 left-0 right-0 h-16 flex items-center justify-around px-4 z-50"
+        style={{
+          background: 'rgba(250, 248, 245, 0.85)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          borderTop: '1px solid rgba(212, 175, 55, 0.15)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0)'
+        }}
+      >
         <button
           onClick={() => navigate('/main')}
-          className="flex flex-col items-center justify-center w-16 h-full text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors gap-1"
+          className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] transition-colors duration-300"
+          style={{ color: '#6B6B6B' }}
         >
-          <span className="material-symbols-rounded text-2xl">home</span>
-          <span className="text-[10px] font-medium">홈</span>
+          <span className="material-symbols-rounded text-[22px]">checkroom</span>
+          <span className="text-[10px] font-semibold">내 옷장</span>
         </button>
 
-        <div className="relative -top-5">
-          <button
-            onClick={() => navigate('/register')}
-            className="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center shadow-lg border-4 border-white dark:border-gray-900"
-          >
-            <span className="material-symbols-rounded text-4xl">add</span>
-          </button>
-        </div>
+        <button 
+          className="flex items-center gap-2 px-5 py-2.5 rounded-full transition-all duration-300 hover:scale-105 active:scale-95"
+          style={{
+            background: 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)',
+            color: '#FFFAF0',
+            boxShadow: '0 4px 14px rgba(184, 134, 11, 0.35)'
+          }}
+        >
+          <span className="material-symbols-rounded text-lg">add</span>
+          <span className="text-sm font-semibold">의류 등록</span>
+        </button>
 
-        <button className="flex flex-col items-center justify-center w-16 h-full text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors gap-1">
-          <span className="material-symbols-rounded text-2xl">grid_view</span>
-          <span className="text-[10px] font-medium">SNS</span>
+        <button 
+          onClick={() => navigate('/feed')}
+          className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] transition-colors duration-300 hover:text-[#D4AF37]"
+          style={{ color: '#6B6B6B' }}
+        >
+          <span className="material-symbols-rounded text-[22px]">grid_view</span>
+          <span className="text-[10px] font-semibold">SNS</span>
         </button>
       </div>
 
@@ -996,7 +1220,7 @@ const LabelingPage = () => {
         </div>
       )}
 
-      {/* 확대 모달 애니메이션 스타일 */}
+      {/* 확대 모달 및 분석 팝업 애니메이션 스타일 */}
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; }
@@ -1012,11 +1236,18 @@ const LabelingPage = () => {
             transform: scale(1);
           }
         }
+        @keyframes wiggle {
+          0%, 100% { transform: rotate(-5deg); }
+          50% { transform: rotate(5deg); }
+        }
         .animate-fadeIn {
           animation: fadeIn 0.2s ease-out forwards;
         }
         .animate-scaleIn {
           animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        .animate-wiggle {
+          animation: wiggle 0.8s ease-in-out infinite;
         }
       `}</style>
     </div>
