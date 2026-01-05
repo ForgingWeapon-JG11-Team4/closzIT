@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ItemsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async getItemsByUser(userId: string, category?: string) {
     const where: any = { userId };
@@ -20,6 +20,7 @@ export class ItemsService {
       select: {
         id: true,
         imageUrl: true,
+        flattenImageUrl: true,
         category: true,
         subCategory: true,
         colors: true,
@@ -39,7 +40,10 @@ export class ItemsService {
     return items.map(item => ({
       id: item.id,
       name: item.subCategory,
-      image: item.imageUrl,
+      // 펼쳐진 이미지가 있으면 우선 사용, 없으면 원본 이미지
+      image: item.flattenImageUrl || item.imageUrl,
+      originalImage: item.imageUrl,
+      flattenImage: item.flattenImageUrl,
       category: item.category,
       subCategory: item.subCategory,
       colors: item.colors,

@@ -140,6 +140,15 @@ const LabelingPage = () => {
   // 저장 중 상태
   const [isSaving, setIsSaving] = useState(false);
 
+  // 이미지 확대 모달 상태
+  const [isImageZoomed, setIsImageZoomed] = useState(false);
+  const [zoomedImageSrc, setZoomedImageSrc] = useState(null); // 확대할 이미지 src
+
+  // 옷 펴기 상태
+  const [isFlattening, setIsFlattening] = useState(false);
+  const [flattenedImages, setFlattenedImages] = useState({}); // { itemIndex: base64Image }
+  const [skippedFlattenImages, setSkippedFlattenImages] = useState([]); // 펼쳐진 이미지 제외 목록
+
   // 각 아이템별 수정된 폼 데이터 저장
   const [itemFormData, setItemFormData] = useState([]);
 
@@ -348,6 +357,58 @@ const LabelingPage = () => {
     }
   };
 
+  // 옷 펴기 API 호출
+  const handleFlattenClothing = async () => {
+    if (!analysisResults[currentItemIndex]) return;
+
+    setIsFlattening(true);
+
+    try {
+      const currentItem = analysisResults[currentItemIndex];
+      const formData = itemFormData[currentItemIndex] || {};
+
+      console.log('[DEBUG] Flattening clothing:', formData.category, formData.sub_category);
+
+      const response = await fetch(`${API_BASE_URL}/analysis/flatten`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image_base64: currentItem.image,
+          category: formData.category,
+          sub_category: formData.sub_category,
+          // 추가 라벨링 정보 (프롬프트 품질 향상용)
+          colors: formData.colors || [],
+          pattern: formData.pattern || [],
+          detail: formData.detail || [],
+          style_mood: formData.style_mood || [],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Flatten request failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('[DEBUG] Flatten result:', result);
+
+      if (result.success && result.flattened_image_base64) {
+        setFlattenedImages(prev => ({
+          ...prev,
+          [currentItemIndex]: result.flattened_image_base64,
+        }));
+      } else {
+        throw new Error('No flattened image received');
+      }
+    } catch (error) {
+      console.error('[ERROR] Flatten error:', error);
+      alert(`옷 펴기 중 오류가 발생했습니다.\n${error.message}`);
+    } finally {
+      setIsFlattening(false);
+    }
+  };
+
   // 저장 API 호출 - 모든 비스킵 아이템 일괄 저장
   const handleSave = async () => {
     setIsSaving(true);
@@ -360,6 +421,10 @@ const LabelingPage = () => {
 
         return {
           image_base64: analysisItem.image, // Backend expects image_base64
+          // 펼쳐진 이미지: 있고 제외되지 않았으면 전송
+          flatten_image_base64: (flattenedImages[index] && !skippedFlattenImages.includes(index))
+            ? flattenedImages[index]
+            : null,
           embedding: analysisItem.embedding,
           label: {
             category: formData.category,
@@ -482,8 +547,15 @@ const LabelingPage = () => {
               {/* 원본 이미지 (작게) + 새 이미지 선택 */}
               <div className="flex-shrink-0">
                 <p className="text-xs text-gray-500 text-center mb-1">원본</p>
-                <div className="w-20 h-20 bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-                  {currentImageUrl && <img src={currentImageUrl} alt="원본" className="w-full h-full object-cover" />}
+                <div className="w-20 h-20 bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all">
+                  {currentImageUrl && (
+                    <img
+                      src={currentImageUrl}
+                      alt="원본"
+                      className="w-full h-full object-contain"
+                      onClick={() => { setZoomedImageSrc(currentImageUrl); setIsImageZoomed(true); }}
+                    />
+                  )}
                 </div>
                 {/* 새 이미지 선택 버튼 */}
                 <label className="mt-2 block text-center">
@@ -533,7 +605,12 @@ const LabelingPage = () => {
                   )}
 
                   {currentAnalyzedImage ? (
-                    <img src={currentAnalyzedImage} alt="분석된 의상" className="w-full h-full object-contain" />
+                    <img
+                      src={currentAnalyzedImage}
+                      alt="분석된 의상"
+                      className="w-full h-full object-contain cursor-pointer transition-transform hover:scale-105"
+                      onClick={() => { setZoomedImageSrc(currentAnalyzedImage); setIsImageZoomed(true); }}
+                    />
                   ) : (
                     <span className="material-symbols-rounded text-6xl text-gray-300">checkroom</span>
                   )}
@@ -567,6 +644,77 @@ const LabelingPage = () => {
                       <span className="material-symbols-rounded text-sm">chevron_right</span>
                     </button>
                   </div>
+                )}
+              </div>
+
+              {/* 옷 펴기 버튼 / 펼쳐진 이미지 (오른쪽) */}
+              <div className="flex-shrink-0 flex flex-col items-center">
+                <p className="text-xs text-gray-500 text-center mb-1">
+                  {flattenedImages[currentItemIndex] ? '펼쳐진 의상' : '복원'}
+                </p>
+
+                {flattenedImages[currentItemIndex] ? (
+                  // 펼쳐진 이미지 표시 + 제외/복구 토글
+                  <div className="relative w-32 h-32 bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+                    {/* 우측 상단 토글 버튼 - 클릭 시 제외/복구 */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSkippedFlattenImages(prev =>
+                          prev.includes(currentItemIndex)
+                            ? prev.filter(i => i !== currentItemIndex)
+                            : [...prev, currentItemIndex]
+                        );
+                      }}
+                      className={`absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center z-10 transition-all ${skippedFlattenImages.includes(currentItemIndex)
+                        ? 'bg-red-500 text-white'
+                        : 'bg-gray-200/80 text-gray-600 hover:bg-red-100 hover:text-red-500'
+                        }`}
+                    >
+                      <span className="material-symbols-rounded text-xs">
+                        {skippedFlattenImages.includes(currentItemIndex) ? 'undo' : 'close'}
+                      </span>
+                    </button>
+
+                    {/* 제외된 이미지 오버레이 */}
+                    {skippedFlattenImages.includes(currentItemIndex) && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-5">
+                        <p className="text-white font-bold text-sm">제외됨</p>
+                      </div>
+                    )}
+
+                    <img
+                      src={`data:image/png;base64,${flattenedImages[currentItemIndex]}`}
+                      alt="펼쳐진 의상"
+                      className="w-full h-full object-contain cursor-pointer hover:scale-105 transition-transform"
+                      onClick={() => {
+                        setZoomedImageSrc(`data:image/png;base64,${flattenedImages[currentItemIndex]}`);
+                        setIsImageZoomed(true);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  // 옷 펴기 버튼
+                  <button
+                    onClick={handleFlattenClothing}
+                    disabled={isFlattening}
+                    className={`w-20 h-20 rounded-lg shadow-lg flex flex-col items-center justify-center transition-all ${isFlattening
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-gradient-to-br from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 hover:scale-105 active:scale-95'
+                      }`}
+                  >
+                    {isFlattening ? (
+                      <>
+                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs text-white font-medium mt-1">생성 중...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-rounded text-2xl text-white">dry_cleaning</span>
+                        <span className="text-xs text-white font-medium mt-1">옷 펴기</span>
+                      </>
+                    )}
+                  </button>
                 )}
               </div>
             </div>
@@ -775,8 +923,8 @@ const LabelingPage = () => {
                 onClick={handleSave}
                 disabled={isSaving}
                 className={`w-full py-4 rounded-2xl font-bold text-base shadow-lg transition-all ${isSaving
-                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                    : 'bg-primary text-white hover:opacity-90 active:scale-[0.98]'
+                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                  : 'bg-primary text-white hover:opacity-90 active:scale-[0.98]'
                   }`}
               >
                 {isSaving
@@ -813,6 +961,64 @@ const LabelingPage = () => {
           <span className="text-[10px] font-medium">SNS</span>
         </button>
       </div>
+
+      {/* 이미지 확대 모달 */}
+      {isImageZoomed && zoomedImageSrc && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center animate-fadeIn"
+          onClick={() => setIsImageZoomed(false)}
+        >
+          {/* 어두운 배경 오버레이 */}
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+
+          {/* 확대된 이미지 */}
+          <div
+            className="relative z-10 animate-scaleIn flex flex-col items-center p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 닫기 버튼 (이미지 외부 상단) */}
+            <button
+              onClick={() => setIsImageZoomed(false)}
+              className="absolute -top-2 -right-2 w-10 h-10 bg-white hover:bg-gray-100 rounded-full flex items-center justify-center shadow-lg transition-colors z-20"
+            >
+              <span className="material-symbols-rounded text-gray-700 text-2xl">close</span>
+            </button>
+
+            {/* 이미지 박스 (흰색 배경) */}
+            <div className="bg-white rounded-2xl shadow-2xl overflow-hidden p-2">
+              <img
+                src={zoomedImageSrc}
+                alt="확대된 의상"
+                className="max-w-[80vw] max-h-[60vh] object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 확대 모달 애니메이션 스타일 */}
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes scaleIn {
+          from { 
+            opacity: 0;
+            transform: scale(0.8);
+          }
+          to { 
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-out forwards;
+        }
+        .animate-scaleIn {
+          animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+      `}</style>
     </div>
   );
 };
