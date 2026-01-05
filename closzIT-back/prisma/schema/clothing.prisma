@@ -14,6 +14,9 @@ model Clothing {
   /// 예: https://s3.../clothes/user_123/blazer_001.png
   imageUrl String @map("image_url")
 
+  /// 펼쳐진 의상 이미지 URL (옷 펴기 기능 사용 시 저장)
+  flattenImageUrl String? @map("flatten_image_url")
+
   // ===== 카테고리 =====
 
   /// 대분류: Outer, Top, Bottom, Shoes, Other

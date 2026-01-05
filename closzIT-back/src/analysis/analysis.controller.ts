@@ -43,4 +43,35 @@ export class AnalysisController {
     async deleteItem(@Param('id') id: string) {
         return this.analysisService.deleteItem(parseInt(id));
     }
+
+    @Post('flatten')
+    async flattenClothing(@Body() body: {
+        image_base64: string;
+        category?: string;
+        sub_category?: string;
+        colors?: string[];
+        pattern?: string[];
+        detail?: string[];
+        style_mood?: string[];
+    }) {
+        this.logger.log(`[flattenClothing] Request received for category: ${body.category}/${body.sub_category}`);
+
+        try {
+            const result = await this.analysisService.flattenClothing(
+                body.image_base64,
+                body.category,
+                body.sub_category,
+                {
+                    colors: body.colors || [],
+                    pattern: body.pattern || [],
+                    detail: body.detail || [],
+                    style_mood: body.style_mood || [],
+                }
+            );
+            return result;
+        } catch (error) {
+            this.logger.error(`[flattenClothing] Error:`, error.message || error);
+            throw error;
+        }
+    }
 }
