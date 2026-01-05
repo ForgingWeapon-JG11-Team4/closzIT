@@ -6,6 +6,7 @@ export enum CreditTransactionType {
   SIGNUP = 'SIGNUP',
   CLOTHING_ADDED = 'CLOTHING_ADDED',
   VTO_USED = 'VTO_USED',
+  FLATTEN_USED = 'FLATTEN_USED',
   ADMIN_ADJUSTMENT = 'ADMIN_ADJUSTMENT',
 }
 
@@ -239,6 +240,18 @@ export class CreditService {
       3,
       CreditTransactionType.VTO_USED,
       'VTO 서비스 사용',
+    );
+  }
+
+  /**
+   * 옷 펴기(Flatten) 사용 시 크레딧 차감 (1 크레딧)
+   */
+  async deductFlattenCredit(userId: string) {
+    return this.deductCredit(
+      userId,
+      1,
+      CreditTransactionType.FLATTEN_USED,
+      '옷 펴기 서비스 사용',
     );
   }
 }
