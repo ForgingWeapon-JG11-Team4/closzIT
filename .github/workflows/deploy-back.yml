@@ -28,6 +28,6 @@ jobs:
               "sudo -i -u ubuntu bash -c \"cd /home/ubuntu/app && git pull origin dev\"",
               "sudo -i -u ubuntu bash -c \"cd /home/ubuntu/app/closzIT-back && npm install\"",
               "sudo -i -u ubuntu bash -c \"cd /home/ubuntu/app/closzIT-back && npm run build\"",
-              "sudo -i -u ubuntu bash -c \"cd /home/ubuntu/app/closzIT-back && pm2 restart all || pm2 start dist/main.js --name backend\""
+              "sudo -i -u ubuntu bash -c \"cd /home/ubuntu/app/closzIT-back && pm2 restart all || pm2 start dist/main.js --name closzIT-backend\""
             ]' \
             --comment "Deploying backend from closzIT-back directory"
