@@ -27,7 +27,7 @@ jobs:
           npm ci
           npm run build
         env:
-          REACT_APP_BACKEND_URL : https://api.closzit.shop
+          REACT_APP_BACKEND_URL: https://api.closzit.shop
           CI: false # 경고가 에러로 간주되어 빌드가 멈추는 것 방지
 
       # 4. AWS 자격 증명 설정 (GitHub Secrets에 미리 등록 필요)
