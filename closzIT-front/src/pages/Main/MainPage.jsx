@@ -4,15 +4,15 @@ import OutfitRecommender from './OutfitRecommender';
 
 // 카테고리 데이터
 const categories = [
-  { id: 'outerwear', name: '외투', icon: 'diversity_1' },
-  { id: 'tops', name: '상의', icon: 'checkroom' },
-  { id: 'bottoms', name: '하의', icon: 'straighten' },
-  { id: 'shoes', name: '신발', icon: 'steps' },
+  { id: 'outerwear', name: '외투' },
+  { id: 'tops', name: '상의' },
+  { id: 'bottoms', name: '하의' },
+  { id: 'shoes', name: '신발' },
 ];
 
 const MainPage = () => {
   const navigate = useNavigate();
-  const [activeCategory, setActiveCategory] = useState('tops');
+  const [activeCategory, setActiveCategory] = useState('outerwear');
   const [currentClothIndex, setCurrentClothIndex] = useState(0);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [userName, setUserName] = useState('');
@@ -23,8 +23,8 @@ const MainPage = () => {
     shoes: [],
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [showGreeting, setShowGreeting] = useState(true);
 
-  // 선택된 코디 (각 카테고리별 선택된 옷)
   const [selectedOutfit, setSelectedOutfit] = useState({
     outerwear: null,
     tops: null,
@@ -32,7 +32,6 @@ const MainPage = () => {
     shoes: null,
   });
 
-  // API에서 유저 정보 및 옷 데이터 불러오기
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -44,7 +43,6 @@ const MainPage = () => {
 
         const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
-        // 유저 프로필 가져오기
         const userResponse = await fetch(`${backendUrl}/user/me`, {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -60,21 +58,15 @@ const MainPage = () => {
           return;
         }
 
-        // 아이템 데이터 가져오기
         const itemsResponse = await fetch(`${backendUrl}/items/by-category`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
 
-        console.log('Items response status:', itemsResponse.status);
-
         if (itemsResponse.ok) {
           const itemsData = await itemsResponse.json();
-          console.log('Items data received:', itemsData);
           setUserClothes(itemsData);
-        } else {
-          console.error('Failed to fetch items:', itemsResponse.status, itemsResponse.statusText);
         }
 
       } catch (error) {
@@ -87,14 +79,58 @@ const MainPage = () => {
     fetchUserData();
   }, [navigate]);
 
+  useEffect(() => {
+    if (userName && showGreeting) {
+      const timer = setTimeout(() => {
+        setShowGreeting(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [userName, showGreeting]);
+
   const currentCategoryData = categories.find(c => c.id === activeCategory);
-  const currentClothes = userClothes[activeCategory] || [];
+  
+  const allClothes = [
+    ...(userClothes.outerwear || []).map(c => ({ ...c, category: 'outerwear' })),
+    ...(userClothes.tops || []).map(c => ({ ...c, category: 'tops' })),
+    ...(userClothes.bottoms || []).map(c => ({ ...c, category: 'bottoms' })),
+    ...(userClothes.shoes || []).map(c => ({ ...c, category: 'shoes' })),
+  ];
 
-  // 스크롤 컨테이너 ref
+  const getCategoryStartIndex = (categoryId) => {
+    if (categoryId === 'outerwear') return 0;
+    if (categoryId === 'tops') return (userClothes.outerwear || []).length;
+    if (categoryId === 'bottoms') return (userClothes.outerwear || []).length + (userClothes.tops || []).length;
+    if (categoryId === 'shoes') return (userClothes.outerwear || []).length + (userClothes.tops || []).length + (userClothes.bottoms || []).length;
+    return 0;
+  };
+
+  const handleCategoryClick = (categoryId) => {
+    setActiveCategory(categoryId);
+    const startIndex = getCategoryStartIndex(categoryId);
+    setCurrentClothIndex(startIndex);
+    
+    if (scrollContainerRef.current) {
+      // 실제 해당 인덱스의 DOM 요소를 찾아서 스크롤
+      const container = scrollContainerRef.current;
+      const targetCard = container.querySelector(`[data-cloth-index="${startIndex}"]`);
+      
+      if (targetCard) {
+        const containerCenter = container.offsetWidth / 2;
+        const targetCenter = targetCard.offsetLeft + (targetCard.offsetWidth / 2);
+        const scrollPosition = targetCenter - containerCenter;
+        
+        container.scrollTo({
+          left: Math.max(0, scrollPosition),
+          behavior: 'smooth'
+        });
+      }
+    }
+  };
+
   const scrollContainerRef = useRef(null);
-  const CARD_WIDTH = 168; // w-36 (144px) + gap-6 (24px)
+  const CARD_WIDTH = 136; // w-28 (112px) + gap-6 (24px)
 
-  // 카테고리 이전/다음 핸들러
   const currentCategoryIndex = categories.findIndex(c => c.id === activeCategory);
 
   const handlePrevCategory = () => {
@@ -111,7 +147,6 @@ const MainPage = () => {
     }
   };
 
-  // 옷 선택 핸들러 (해당 카테고리의 선택 박스에 등록)
   const handleSelectCloth = (cloth) => {
     setSelectedOutfit(prev => ({
       ...prev,
@@ -119,7 +154,6 @@ const MainPage = () => {
     }));
   };
 
-  // 선택 해제
   const handleDeselectCloth = (categoryId) => {
     setSelectedOutfit(prev => ({
       ...prev,
@@ -127,7 +161,6 @@ const MainPage = () => {
     }));
   };
 
-  // 옷 넘기기
   const handlePrevCloth = () => {
     if (currentClothIndex > 0) {
       setCurrentClothIndex(currentClothIndex - 1);
@@ -135,12 +168,11 @@ const MainPage = () => {
   };
 
   const handleNextCloth = () => {
-    if (currentClothIndex < currentClothes.length - 1) {
+    if (currentClothIndex < allClothes.length - 1) {
       setCurrentClothIndex(currentClothIndex + 1);
     }
   };
 
-  // 스와이프 제스처
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
   const minSwipeDistance = 50;
@@ -167,17 +199,14 @@ const MainPage = () => {
     }
   };
 
-  // 모든 카테고리가 선택되었는지 확인
   const isAllSelected = Object.values(selectedOutfit).every(item => item !== null);
 
-  // 스크롤 시 현재 인덱스 업데이트 (중앙에 가장 가까운 아이템 감지)
   const handleScroll = () => {
     if (!scrollContainerRef.current) return;
 
     const container = scrollContainerRef.current;
     const containerCenter = container.scrollLeft + (container.offsetWidth / 2);
 
-    // 각 아이템의 중심 위치를 계산하여 가장 가까운 아이템 찾기
     let closestIndex = 0;
     let minDistance = Infinity;
 
@@ -195,50 +224,93 @@ const MainPage = () => {
 
     if (closestIndex !== currentClothIndex) {
       setCurrentClothIndex(closestIndex);
+      
+      const cloth = allClothes[closestIndex];
+      if (cloth && cloth.category !== activeCategory) {
+        setActiveCategory(cloth.category);
+      }
     }
   };
 
-  return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen font-sans flex flex-col">
+  // CSS Keyframes for character wobble animation
+  const wobbleKeyframes = `
+    @keyframes wobble {
+      0%, 100% { transform: rotate(-3deg); }
+      50% { transform: rotate(3deg); }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(-2deg); }
+      25% { transform: translateY(-4px) rotate(0deg); }
+      50% { transform: translateY(0px) rotate(2deg); }
+      75% { transform: translateY(-2px) rotate(0deg); }
+    }
+    @keyframes bounce-subtle {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+  `;
 
-      {/* Header */}
-      <div className="px-4 py-3 flex items-center gap-3 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md sticky top-0 z-40">
+  return (
+    <div className="bg-cream dark:bg-[#1A1918] min-h-screen font-sans flex flex-col">
+      {/* Inject keyframes */}
+      <style>{wobbleKeyframes}</style>
+
+      {/* Header - Luxury glass effect */}
+      <div className="px-4 py-3 flex items-center gap-3 glass-warm sticky top-0 z-40 border-b border-gold-light/20">
         {isSearchExpanded ? (
           <button
             onClick={() => setIsSearchExpanded(false)}
-            className="w-10 h-10 -ml-2 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
+            className="w-10 h-10 -ml-2 rounded-full flex items-center justify-center hover:bg-gold-light/20 transition-colors flex-shrink-0"
           >
-            <span className="material-symbols-rounded text-2xl text-gray-700 dark:text-gray-200">arrow_back</span>
+            <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream">arrow_back</span>
           </button>
         ) : null}
 
-        {/* Search Bar - 클릭하면 추천 페이지로 */}
         <div 
           onClick={() => setIsSearchExpanded(true)}
-          className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer transition-all ${
+          className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer transition-all duration-300 ${
             isSearchExpanded 
-              ? 'bg-primary/10 border-2 border-primary' 
-              : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'
+              ? 'bg-gold/10 border-2 border-gold shadow-glow-gold' 
+              : 'bg-cream-dark dark:bg-charcoal/50 hover:bg-gold-light/30 border border-gold-light/30'
           }`}
         >
-          <span className="material-symbols-rounded text-xl text-gray-400">auto_awesome</span>
-          <span className={`text-sm ${isSearchExpanded ? 'text-primary font-medium' : 'text-gray-400'}`}>
-            {isSearchExpanded ? 'AI 스타일리스트에게 물어보세요' : '오늘 뭐 입지? AI에게 물어보기'}
-          </span>
+          <span className="material-symbols-rounded text-xl text-gold">auto_awesome</span>
+          <div className="relative flex-1 h-5 overflow-hidden">
+            <span 
+              className={`absolute inset-0 text-sm text-charcoal-light dark:text-cream-dark transition-all duration-500 ease-in-out ${
+                showGreeting && userName 
+                  ? 'translate-y-0 opacity-100' 
+                  : '-translate-y-full opacity-0'
+              }`}
+            >
+              반가워요, <span className="text-gold font-semibold">{userName}</span>님!
+            </span>
+            <span 
+              className={`absolute inset-0 text-sm transition-all duration-500 ease-in-out ${
+                showGreeting && userName
+                  ? 'translate-y-full opacity-0' 
+                  : 'translate-y-0 opacity-100'
+              } ${isSearchExpanded ? 'text-gold font-semibold' : 'text-charcoal-light dark:text-cream-dark'}`}
+            >
+              {isSearchExpanded 
+                ? 'AI 스타일리스트에게 물어보세요' 
+                : <>오늘 뭐 입지? <span className="text-gold font-semibold">AI에게 추천받기</span></>
+              }
+            </span>
+          </div>
         </div>
 
         {isSearchExpanded ? (
           <button
             onClick={() => setIsSearchExpanded(false)}
-            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
+            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gold-light/20 transition-colors flex-shrink-0"
           >
-            <span className="material-symbols-rounded text-2xl text-gray-700 dark:text-gray-200">close</span>
+            <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream">close</span>
           </button>
         ) : (
-          /* 마이페이지 버튼 */
           <button
             onClick={() => navigate('/mypage')}
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-primary to-indigo-500 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all flex-shrink-0"
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-gold to-gold-dark text-warm-white shadow-lg hover:shadow-xl hover:scale-105 transition-all flex-shrink-0"
           >
             <span className="material-symbols-rounded text-xl">person</span>
           </button>
@@ -254,75 +326,107 @@ const MainPage = () => {
           </div>
         ) : (
           <div className="animate-fadeIn">
-            {/* Greeting */}
-            {userName && (
-              <div className="text-center mt-4 mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  반가워요, <span className="text-primary">{userName}</span>님! 👋
-                </h1>
-              </div>
-            )}
 
-            {/* Category Title with arrows */}
-            <div className="flex items-center justify-center space-x-8 mt-4 mb-4">
-              <button
-                onClick={handlePrevCategory}
-                disabled={currentCategoryIndex === 0}
-                className={`p-2 transition-colors ${currentCategoryIndex === 0 ? 'text-gray-200 dark:text-gray-700 cursor-not-allowed' : 'text-gray-400 hover:text-gray-800 dark:hover:text-white'}`}
-              >
-                <span className="material-symbols-rounded text-3xl">chevron_left</span>
-              </button>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white tracking-wide min-w-[120px] text-center">
-                {currentCategoryData?.name}
-              </h2>
-              <button
-                onClick={handleNextCategory}
-                disabled={currentCategoryIndex === categories.length - 1}
-                className={`p-2 transition-colors ${currentCategoryIndex === categories.length - 1 ? 'text-gray-200 dark:text-gray-700 cursor-not-allowed' : 'text-gray-400 hover:text-gray-800 dark:hover:text-white'}`}
-              >
-                <span className="material-symbols-rounded text-3xl">chevron_right</span>
-              </button>
+            {/* Category Pill Buttons - More spacing */}
+            <div className="flex items-center gap-4 overflow-x-auto hide-scrollbar py-3 px-1 mt-2 mb-4">
+              {categories.map((category, index) => (
+                <button
+                  key={category.id}
+                  onClick={() => handleCategoryClick(category.id)}
+                  className={`flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 animate-reveal animate-reveal-${index + 1} ${
+                    activeCategory === category.id
+                      ? 'bg-charcoal dark:bg-cream text-cream dark:text-charcoal shadow-soft'
+                      : 'bg-cream-dark dark:bg-charcoal/50 text-charcoal-light dark:text-cream-dark hover:bg-gold-light/30 border border-transparent hover:border-gold-light/50'
+                  }`}
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                >
+                  {category.name}
+                </button>
+              ))}
             </div>
 
-            {/* Closet Rail with Hanging Clothes */}
-            <div className="relative mb-6">
-              {/* The Rail */}
-              <div className="absolute top-4 left-0 right-0 h-2 bg-gradient-to-r from-gray-300 via-gray-400 to-gray-300 dark:from-gray-600 dark:via-gray-500 dark:to-gray-600 rounded-full shadow-md z-0"></div>
+            {/* ========== Closet Rail with Wardrobe Background ========== */}
+            <div className="relative mb-6 animate-reveal animate-reveal-2">
+              
+              {/* Wardrobe Background Container */}
+              <div 
+                className="absolute inset-0 -top-2 -bottom-4 -left-4 -right-4 rounded-3xl overflow-hidden z-0"
+                style={{
+                  background: 'linear-gradient(180deg, rgba(250, 248, 245, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%)',
+                }}
+              >
+              <img 
+                  src="/assets/wardrobe-background.png" 
+                  alt="wardrobe background"
+                  className="max-w-[300px] max-h-[200px] object-contain opacity-40 mx-auto mt-4"
+                  style={{ mixBlendMode: 'multiply' }}
+                />
+                <div 
+                  className="absolute inset-0"
+                  style={{
+                    background: 'linear-gradient(180deg, transparent 0%, rgba(250, 248, 245, 0.3) 50%, rgba(250, 248, 245, 0.6) 100%)',
+                  }}
+                />
+              </div>
+
+              {/* ========== The Rail - Modern & Minimal Gold ========== */}
+              <div className="absolute top-4 left-0 right-0 z-10">
+                {/* Simple Clean Rail */}
+                <div 
+                  className="h-[6px] rounded-full"
+                  style={{
+                    background: 'linear-gradient(90deg, #C9A962 0%, #D4AF37 50%, #C9A962 100%)',
+                    boxShadow: '0 2px 8px rgba(201, 169, 98, 0.25)',
+                  }}
+                />
+              </div>
 
               {/* Horizontal Scroll Container */}
               <div
                 ref={scrollContainerRef}
-                className="flex gap-6 overflow-x-auto pt-0 pb-4 hide-scrollbar scroll-smooth"
+                className="relative z-20 flex gap-6 overflow-x-auto pt-1 pb-4 hide-scrollbar scroll-smooth"
                 style={{ scrollSnapType: 'x mandatory' }}
                 onScroll={handleScroll}
                 onTouchStart={onTouchStart}
                 onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
               >
-                {/* Left Spacer for centering first item */}
-                <div className="flex-shrink-0" style={{ width: 'calc(50vw - 84px)' }}></div>
+                <div className="flex-shrink-0" style={{ width: 'calc(50vw - 64px)' }}></div>
 
-                {currentClothes.map((cloth, idx) => (
+                {allClothes.map((cloth, idx) => (
                   <div
                     key={`${cloth.id}-${idx === currentClothIndex ? 'active' : 'inactive'}`}
                     data-cloth-index={idx}
                     onClick={() => handleSelectCloth(cloth)}
-                    className={`flex-shrink-0 cursor-pointer transition-all duration-300 ${idx === currentClothIndex ? 'scale-105 animate-swing' : 'scale-95 opacity-70 hover:opacity-100'
+                    className={`flex-shrink-0 cursor-pointer transition-all duration-300 ${idx === currentClothIndex ? 'scale-105 animate-swing' : 'scale-95 opacity-60 hover:opacity-90'
                       }`}
                     style={{ scrollSnapAlign: 'center', transformOrigin: 'top center' }}
                   >
-                    {/* Hook */}
-                    <div className="flex justify-center relative z-10">
-                      <div className={`w-6 h-8 border-4 rounded-t-full border-b-0 bg-transparent transition-colors ${idx === currentClothIndex
-                          ? 'border-primary'
-                          : 'border-gray-400 dark:border-gray-500'
-                        }`}></div>
+                    {/* ========== Hook - Modern Minimal Style ========== */}
+                    <div className="flex justify-center relative z-30">
+                      <div className="relative w-16 h-10 -mb-2">
+                        {/* Simple Hook Circle */}
+                        <div 
+                          className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full"
+                          style={{
+                            background: 'linear-gradient(135deg, #D4AF37 0%, #C9A962 100%)',
+                            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.15)',
+                          }}
+                        />
+                        {/* Simple Vertical Line */}
+                        <div 
+                          className="absolute top-3.5 left-1/2 -translate-x-1/2 w-[2px] h-6"
+                          style={{
+                            background: 'linear-gradient(180deg, #D4AF37 0%, #C9A962 100%)',
+                          }}
+                        />
+                      </div>
                     </div>
 
-                    {/* Clothes Card */}
-                    <div className={`w-36 h-44 bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border-2 transition-all ${idx === currentClothIndex
-                        ? 'border-primary shadow-xl ring-2 ring-primary/30'
-                        : 'border-gray-200 dark:border-gray-700'
+                    {/* Clothes Card - Smaller size */}
+                    <div className={`w-28 h-36 bg-warm-white dark:bg-charcoal rounded-xl overflow-hidden border-2 transition-all duration-300 relative z-40 ${idx === currentClothIndex
+                        ? 'border-gold shadow-lifted ring-2 ring-gold/20'
+                        : 'border-gold-light/30 dark:border-charcoal-light/30 shadow-soft'
                       }`}>
                       <img
                         alt={cloth.name}
@@ -333,23 +437,35 @@ const MainPage = () => {
                   </div>
                 ))}
 
-                {/* Right Spacer for centering last item */}
-                <div className="flex-shrink-0" style={{ width: 'calc(50vw - 84px)' }}></div>
+                <div className="flex-shrink-0" style={{ width: 'calc(50vw - 64px)' }}></div>
 
-                {/* Empty State - Full width centered */}
-                {currentClothes.length === 0 && (
+                {/* Empty State */}
+                {allClothes.length === 0 && (
                   <div className="flex-shrink-0 w-full flex justify-center">
                     <div 
                       onClick={() => navigate('/register')}
                       className="w-44 cursor-pointer group"
                     >
                       <div className="flex justify-center">
-                        <div className="w-6 h-8 border-4 border-gray-300 dark:border-gray-600 rounded-t-full border-b-0 group-hover:border-primary transition-colors"></div>
+                        <div className="relative w-6 h-8">
+                          <div 
+                            className="absolute top-0 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full"
+                            style={{
+                              background: 'linear-gradient(135deg, #D4AF37 0%, #C9A962 100%)',
+                            }}
+                          />
+                          <div 
+                            className="absolute top-2.5 left-1/2 -translate-x-1/2 w-[2px] h-5"
+                            style={{
+                              background: 'linear-gradient(180deg, #D4AF37 0%, #C9A962 100%)',
+                            }}
+                          />
+                        </div>
                       </div>
-                      <div className="w-44 h-52 bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 group-hover:border-primary group-hover:bg-primary/5 transition-all">
-                        <span className="material-symbols-rounded text-5xl text-gray-400 dark:text-gray-500 group-hover:text-primary transition-colors">add_circle</span>
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-2 group-hover:text-primary transition-colors">옷장이 비어있어요</p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">탭하여 옷 등록하기</p>
+                      <div className="w-44 h-52 bg-gradient-to-br from-cream-dark to-cream dark:from-charcoal dark:to-charcoal-light/20 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-gold-light/50 dark:border-charcoal-light/30 group-hover:border-gold group-hover:bg-gold/5 transition-all">
+                        <span className="material-symbols-rounded text-5xl text-gold-light dark:text-charcoal-light group-hover:text-gold transition-colors">add_circle</span>
+                        <p className="text-sm font-medium text-charcoal-light dark:text-cream-dark mt-2 group-hover:text-gold transition-colors">옷장이 비어있어요</p>
+                        <p className="text-xs text-charcoal-light/60 dark:text-cream-dark/60 mt-1">탭하여 옷 등록하기</p>
                       </div>
                     </div>
                   </div>
@@ -357,67 +473,70 @@ const MainPage = () => {
               </div>
             </div>
 
-            {/* Selection Boxes - 4 category boxes */}
-            <div className="grid grid-cols-4 gap-3 px-2 mb-6">
-              {categories.map((category) => {
-                const selected = selectedOutfit[category.id];
-                const isActive = activeCategory === category.id;
-
-                return (
-                  <div key={category.id} className="flex flex-col items-center">
-                    <span className={`text-xs font-semibold mb-2 ${isActive ? 'text-primary' : 'text-gray-500'}`}>
-                      {category.name}
-                    </span>
-                    <div
-                      onClick={() => {
-                        if (selected) {
-                          handleDeselectCloth(category.id);
-                        } else {
-                          setActiveCategory(category.id);
-                          setCurrentClothIndex(0);
-                        }
-                      }}
-                      className={`w-full aspect-square rounded-xl overflow-hidden cursor-pointer transition-all ${isActive
-                          ? 'ring-2 ring-primary shadow-lg'
-                          : 'ring-2 ring-gray-200 dark:ring-gray-700'
-                        } ${selected ? 'bg-white' : 'bg-gray-100 dark:bg-gray-800'}`}
-                    >
-                      {selected ? (
-                        <div className="relative w-full h-full">
-                          <img
-                            src={selected.image}
-                            alt={selected.name}
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-                            <span className="material-symbols-rounded text-white text-xs">close</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <span className="material-symbols-rounded text-3xl text-gray-400">
-                            {category.icon}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Generate Button */}
-            <div className="px-2 mb-4">
-              <button
-                disabled={!isAllSelected}
-                className={`w-full h-14 rounded-2xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${isAllSelected
-                    ? 'bg-gradient-to-r from-orange-300 via-pink-400 to-purple-500 text-white hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                  }`}
+            {/* ========== Character Styling Area with Animation ========== */}
+            <div className="relative mt-4 mb-6 animate-reveal animate-reveal-3">
+              <div 
+                className="rounded-3xl p-6 min-h-[220px] flex flex-col items-center justify-center"
+                style={{
+                  background: 'linear-gradient(180deg, rgba(250, 248, 245, 0.8) 0%, rgba(255, 255, 255, 0.95) 100%)',
+                  border: '1px solid rgba(212, 175, 55, 0.15)',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+                }}
               >
-                <span className="material-symbols-rounded">auto_awesome</span>
-                {isAllSelected ? '코디 생성하기' : '모든 카테고리를 선택해주세요'}
-              </button>
+                {/* Character Image with Wobble Animation */}
+                <div 
+                  className="w-36 h-36 mb-4 flex items-center justify-center"
+                  style={{
+                    animation: 'float 3s ease-in-out infinite',
+                    transformOrigin: 'center bottom',
+                  }}
+                >
+                  <img 
+                    src="/assets/stylist-character.png" 
+                    alt="AI Stylist Character"
+                    className="w-full h-full object-contain drop-shadow-lg"
+                    style={{
+                      filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1))',
+                    }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                  {/* Fallback Character */}
+                  <div 
+                    className="hidden w-28 h-28 rounded-full items-center justify-center"
+                    style={{
+                      background: 'linear-gradient(135deg, #FFE4B5 0%, #DEB887 100%)',
+                      boxShadow: '0 4px 12px rgba(222, 184, 135, 0.3)',
+                      animation: 'wobble 2s ease-in-out infinite',
+                    }}
+                  >
+                    <span className="material-symbols-rounded text-5xl text-amber-700">face</span>
+                  </div>
+                </div>
+                
+                {/* Styling Message */}
+                <p className="text-center text-charcoal dark:text-cream text-sm font-medium">
+                  오늘의 코디를 추천해 드릴까요?
+                </p>
+                <p className="text-center text-charcoal-light/60 dark:text-cream-dark/60 text-xs mt-1.5">
+                  위에서 옷을 선택하면 AI가 스타일링을 도와드려요
+                </p>
+                
+                {/* Action Button */}
+                <button 
+                  onClick={() => setIsSearchExpanded(true)}
+                  className="mt-5 px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 hover:scale-105 active:scale-95"
+                  style={{
+                    background: 'linear-gradient(135deg, #D4AF37 0%, #C9A962 100%)',
+                    color: '#FFFAF0',
+                    boxShadow: '0 4px 12px rgba(201, 169, 98, 0.3)',
+                  }}
+                >
+                  AI 스타일리스트에게 물어보기
+                </button>
+              </div>
             </div>
 
           </div>
@@ -425,28 +544,29 @@ const MainPage = () => {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 flex items-center justify-around pb-2 z-50 safe-area-pb">
-        <button className="flex flex-col items-center justify-center w-16 h-full text-primary transition-colors gap-1">
-          <span className="material-symbols-rounded text-2xl">home</span>
-          <span className="text-[10px] font-medium">홈</span>
+      <div className="fixed bottom-0 left-0 right-0 h-16 glass-warm border-t border-gold-light/20 flex items-center justify-around px-4 z-50 safe-area-pb">
+        
+        <button className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] text-gold">
+          <span className="material-symbols-rounded text-[22px]">checkroom</span>
+          <span className="text-[10px] font-semibold">내 옷장</span>
         </button>
 
-        <div className="relative -top-5">
-          <button
-            onClick={() => navigate('/register')}
-            className="w-16 h-16 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform border-4 border-white dark:border-gray-900"
-          >
-            <span className="material-symbols-rounded text-4xl">add</span>
-          </button>
-        </div>
+        <button
+          onClick={() => navigate('/register')}
+          className="flex items-center gap-2 px-5 py-2.5 btn-premium rounded-full"
+        >
+          <span className="material-symbols-rounded text-lg">add</span>
+          <span className="text-sm font-semibold">의류 등록</span>
+        </button>
 
         <button
           onClick={() => navigate('/feed')}
-          className="flex flex-col items-center justify-center w-16 h-full text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors gap-1"
+          className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] text-charcoal-light dark:text-cream-dark hover:text-gold transition-colors"
         >
-          <span className="material-symbols-rounded text-2xl">grid_view</span>
-          <span className="text-[10px] font-medium">SNS</span>
+          <span className="material-symbols-rounded text-[22px]">grid_view</span>
+          <span className="text-[10px] font-semibold">SNS</span>
         </button>
+
       </div>
     </div>
   );

@@ -15,6 +15,16 @@ module.exports = {
         "brand-purple": "#8B5CF6", // Violet-500
         "brand-purple-dark": "#7C3AED", // Violet-600
         "secondary": "#10B981",
+        // Luxury Wardrobe Colors
+        cream: "#FAF8F5",
+        "cream-dark": "#F5F2ED",
+        gold: "#C9A86C",
+        "gold-light": "#E5D4B3",
+        "gold-dark": "#A68B4C",
+        charcoal: "#2D2A26",
+        "charcoal-light": "#4A4541",
+        "warm-white": "#FFFEF9",
+        // Legacy
         "background-light": "#f9fafb",
         "background-dark": "#111827",
         "surface-light": "#ffffff",
@@ -31,13 +41,18 @@ module.exports = {
         "divider-dark": "#374151",
       },
       fontFamily: {
-        display: ["'Noto Sans KR'", "sans-serif"],
-        sans: ["'Noto Sans KR'", "sans-serif"],
+        display: ["'Outfit'", "'Noto Sans KR'", "sans-serif"],
+        sans: ["'Noto Sans KR'", "'Outfit'", "sans-serif"],
       },
       borderRadius: {
         DEFAULT: "0.75rem",
         'xl': '1rem',
         '2xl': '1.5rem',
+      },
+      boxShadow: {
+        'soft': '0 4px 20px rgba(45, 42, 38, 0.08)',
+        'lifted': '0 8px 32px rgba(45, 42, 38, 0.12)',
+        'glow-gold': '0 0 24px rgba(201, 168, 108, 0.3)',
       },
     },
   },
