@@ -3,6 +3,7 @@ enum CreditTransactionType {
   SIGNUP           // 회원가입 보상
   CLOTHING_ADDED   // 의류 등록 보상
   VTO_USED         // VTO 서비스 사용
+  FLATTEN_USED     // 옷 펴기 서비스 사용
   ADMIN_ADJUSTMENT // 관리자 조정
 }
 

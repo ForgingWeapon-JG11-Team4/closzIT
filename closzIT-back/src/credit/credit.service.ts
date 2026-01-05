@@ -1,13 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-
-export enum CreditTransactionType {
-  SIGNUP = 'SIGNUP',
-  CLOTHING_ADDED = 'CLOTHING_ADDED',
-  VTO_USED = 'VTO_USED',
-  FLATTEN_USED = 'FLATTEN_USED',
-  ADMIN_ADJUSTMENT = 'ADMIN_ADJUSTMENT',
-}
+import { CreditTransactionType } from '@prisma/client';
 
 @Injectable()
 export class CreditService {
