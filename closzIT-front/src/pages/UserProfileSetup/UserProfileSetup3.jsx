@@ -121,7 +121,7 @@ const UserProfileSetup3 = () => {
         fullBodyImage: imageData
       };
 
-      const backendUrl = 'https://api.closzit.shop';
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
       const response = await fetch(`${backendUrl}/user/profile`, {
         method: 'PUT',
         headers: {
