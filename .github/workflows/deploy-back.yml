@@ -10,7 +10,6 @@ on:
       - 'closzIT-back/**'
       - '.github/workflows/deploy-back.yml'
 
-# 중복 실행 방지 ⭐
 concurrency:
   group: deploy-backend-${{ github.ref }}
   cancel-in-progress: true
@@ -31,33 +30,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-2
       
-      - name: Check if previous deployment is running
-        run: |
-          echo "🔍 Checking for running deployments..."
-          
-          # 최근 5개 명령 확인
-          RUNNING=$(aws ssm list-commands \
-            --instance-id "i-0617e4b725d90c05b" \
-            --max-items 5 \
-            --query 'Commands[?Status==`InProgress`].CommandId' \
-            --output text)
-          
-          if [ ! -z "$RUNNING" ]; then
-            echo "⚠️  Found running deployment(s): $RUNNING"
-            echo "Cancelling previous deployment..."
-            
-            for CMD_ID in $RUNNING; do
-              aws ssm cancel-command \
-                --command-id "$CMD_ID" \
-                --instance-ids "i-0617e4b725d90c05b" || true
-            done
-            
-            echo "Waiting 10 seconds..."
-            sleep 10
-          else
-            echo "✅ No running deployments"
-          fi
-      
       - name: Deploy to EC2
         timeout-minutes: 12
         run: |
@@ -67,17 +39,22 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --instance-ids "i-0617e4b725d90c05b" \
             --parameters 'commands=[
-              "echo \"=== Killing previous npm processes ===\"",
-              "pkill -9 npm || true",
-              "sleep 2",
-              "echo \"=== Starting deployment ===\"",
-              "cd /home/ubuntu/app || exit 1",
-              "git fetch origin || exit 1",
-              "git reset --hard origin/dev || exit 1",
-              "cd closzIT-back || exit 1",
-              "npm ci || exit 1",
-              "npm run build || exit 1",
+              "#!/bin/bash",
+              "echo \"=== Deployment Started ===\"",
+              "",
+              "sudo pkill -9 npm || true",
+              "",
+              "sudo su - ubuntu << '\''EOF'\''",
+              "cd /home/ubuntu/app",
+              "git fetch origin",
+              "git reset --hard origin/dev",
+              "cd closzIT-back",
+              "npm ci",
+              "npm run build",
               "pm2 restart closzIT-backend || pm2 start dist/main.js --name closzIT-backend",
+              "pm2 list",
+              "EOF",
+              "",
               "echo \"=== Deployment Complete ===\""
             ]' \
             --timeout-seconds 600 \
@@ -124,8 +101,17 @@ jobs:
           
           echo ""
           echo "================================================"
-          echo "Final Status: $STATUS"
+          echo "❌ Errors (if any):"
           echo "================================================"
+          
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "i-0617e4b725d90c05b" \
+            --query 'StandardErrorContent' \
+            --output text 2>/dev/null || echo "No errors"
+          
+          echo ""
+          echo "Final Status: $STATUS"
           
           if [ "$STATUS" != "Success" ]; then
             echo "❌ Deployment failed!"
