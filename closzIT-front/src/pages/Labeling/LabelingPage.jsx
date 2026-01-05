@@ -112,7 +112,7 @@ const styleMoodOptions = [
   { label: '고프코어', value: 'Gorpcore' },
 ];
 
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
 const LabelingPage = () => {
   const navigate = useNavigate();
@@ -481,13 +481,13 @@ const LabelingPage = () => {
       }
 
       const result = await response.json();
-      
+
       // 저장된 아이템 이미지들 수집
       const savedImages = itemsToSave.map((item, idx) => {
         // 펼쳐진 이미지가 있으면 우선 사용
         const flattenImg = item.flatten_image_base64;
         const originalImg = item.image_base64;
-        return flattenImg 
+        return flattenImg
           ? `data:image/png;base64,${flattenImg}`
           : `data:image/png;base64,${originalImg}`;
       });
@@ -513,19 +513,19 @@ const LabelingPage = () => {
       {/* ========== 분석 중 팝업 ========== */}
       {isAnalyzing && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
-          <div 
+          <div
             className="bg-white rounded-3xl shadow-2xl p-8 mx-6 max-w-sm w-full text-center"
             style={{ border: '1px solid rgba(212, 175, 55, 0.2)' }}
           >
             {/* 요정 이미지 - 좌우 흔들림 애니메이션 */}
             <div className="animate-wiggle mb-4">
-              <img 
-                src="/assets/fairy-analyzing.png" 
+              <img
+                src="/assets/fairy-analyzing.png"
                 alt="분석 중인 요정"
                 className="w-40 h-40 mx-auto object-contain"
               />
             </div>
-            
+
             {/* 메시지 */}
             <h3 className="text-lg font-bold mb-2" style={{ color: '#2C2C2C' }}>
               요정이 옷을 분석하고 있어요
@@ -533,7 +533,7 @@ const LabelingPage = () => {
             <p className="text-sm" style={{ color: '#6B6B6B' }}>
               잠시만 기다려 주세요...
             </p>
-            
+
             {/* 로딩 인디케이터 */}
             <div className="mt-4 flex justify-center gap-1">
               <div className="w-2 h-2 rounded-full bg-gold animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -547,40 +547,40 @@ const LabelingPage = () => {
       {/* ========== 등록 완료 팝업 ========== */}
       {showSuccessPopup && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
-          <div 
+          <div
             className="bg-white rounded-3xl shadow-2xl p-6 mx-6 max-w-sm w-full text-center"
             style={{ border: '1px solid rgba(212, 175, 55, 0.2)' }}
           >
             {/* 성공 아이콘 */}
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" 
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"
               style={{ background: 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)' }}>
               <span className="material-symbols-rounded text-3xl text-white">check</span>
             </div>
-            
+
             <h3 className="text-lg font-bold mb-2" style={{ color: '#2C2C2C' }}>
               옷이 등록되었어요!
             </h3>
             <p className="text-sm mb-4" style={{ color: '#6B6B6B' }}>
               {savedItemImages.length}벌의 옷이 옷장에 추가되었습니다
             </p>
-            
+
             {/* 등록된 옷 이미지들 */}
             <div className="flex justify-center gap-2 mb-6 flex-wrap">
               {savedItemImages.map((img, idx) => (
-                <div 
+                <div
                   key={idx}
                   className="w-16 h-16 rounded-xl overflow-hidden shadow-md"
                   style={{ border: '2px solid rgba(212, 175, 55, 0.3)' }}
                 >
-                  <img 
-                    src={img} 
+                  <img
+                    src={img}
                     alt={`등록된 옷 ${idx + 1}`}
                     className="w-full h-full object-cover"
                   />
                 </div>
               ))}
             </div>
-            
+
             {/* 확인 버튼 */}
             <button
               onClick={() => {
@@ -602,7 +602,7 @@ const LabelingPage = () => {
       {/* ========== 옷 펴기 확인 팝업 ========== */}
       {showFlattenConfirm && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
-          <div 
+          <div
             className="bg-white rounded-3xl shadow-2xl p-6 mx-6 max-w-sm w-full text-center"
             style={{ border: '1px solid rgba(212, 175, 55, 0.2)' }}
           >
@@ -611,21 +611,21 @@ const LabelingPage = () => {
               style={{ border: '2px solid rgba(212, 175, 55, 0.3)' }}>
               <span className="material-symbols-rounded text-3xl text-gold">monetization_on</span>
             </div>
-            
+
             <h3 className="text-lg font-bold mb-2" style={{ color: '#2C2C2C' }}>
               1 크레딧을 사용하시겠어요?
             </h3>
             <p className="text-sm mb-4" style={{ color: '#6B6B6B' }}>
               옷 펴기 기능을 이용합니다
             </p>
-            
+
             {/* 크레딧 잔액 표시 */}
             <div className="flex items-center justify-center gap-2 mb-6 py-2 px-4 rounded-xl bg-cream-dark/50">
               <span className="material-symbols-rounded text-gold">account_balance_wallet</span>
               <span className="text-sm" style={{ color: '#6B6B6B' }}>보유 크레딧: </span>
               <span className="text-lg font-bold text-gold">{userCredit}</span>
             </div>
-            
+
             {/* 버튼들 */}
             <div className="flex gap-3">
               <button
@@ -660,7 +660,7 @@ const LabelingPage = () => {
       )}
 
       {/* Header - Glass Morphism with Gold accent */}
-      <header 
+      <header
         className="flex items-center px-4 py-3 sticky top-0 z-40"
         style={{
           background: 'rgba(250, 248, 245, 0.85)',
@@ -679,7 +679,7 @@ const LabelingPage = () => {
         >
           <span className="material-symbols-rounded text-2xl" style={{ color: '#6B6B6B' }}>arrow_back</span>
         </button>
-        <h1 
+        <h1
           className="flex-1 text-center text-lg font-bold pr-10"
           style={{ color: '#2C2C2C' }}
         >
@@ -704,7 +704,7 @@ const LabelingPage = () => {
               </div>
 
               {/* 새 이미지 선택 버튼 */}
-              <label 
+              <label
                 className="mt-3 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition-all hover:scale-105"
                 style={{
                   border: '1px solid rgba(212, 175, 55, 0.3)',
@@ -727,11 +727,11 @@ const LabelingPage = () => {
                 disabled={isAnalyzing || !currentImageFile}
                 className="mt-3 px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all hover:scale-105 active:scale-95"
                 style={{
-                  background: isAnalyzing || !currentImageFile 
-                    ? '#9CA3AF' 
+                  background: isAnalyzing || !currentImageFile
+                    ? '#9CA3AF'
                     : 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)',
-                  boxShadow: isAnalyzing || !currentImageFile 
-                    ? 'none' 
+                  boxShadow: isAnalyzing || !currentImageFile
+                    ? 'none'
                     : '0 4px 14px rgba(184, 134, 11, 0.35)',
                   cursor: isAnalyzing || !currentImageFile ? 'not-allowed' : 'pointer'
                 }}
@@ -898,11 +898,11 @@ const LabelingPage = () => {
                     disabled={isFlattening}
                     className="w-20 h-24 rounded-xl shadow-lg flex flex-col items-center justify-center transition-all hover:scale-105 active:scale-95"
                     style={{
-                      background: isFlattening 
-                        ? '#9CA3AF' 
+                      background: isFlattening
+                        ? '#9CA3AF'
                         : 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)',
-                      boxShadow: isFlattening 
-                        ? 'none' 
+                      boxShadow: isFlattening
+                        ? 'none'
                         : '0 4px 14px rgba(184, 134, 11, 0.35)',
                       cursor: isFlattening ? 'not-allowed' : 'pointer'
                     }}
@@ -1145,7 +1145,7 @@ const LabelingPage = () => {
       </main>
 
       {/* Bottom Navigation - Matching MainPage style */}
-      <div 
+      <div
         className="fixed bottom-0 left-0 right-0 h-16 flex items-center justify-around px-4 z-50"
         style={{
           background: 'rgba(250, 248, 245, 0.85)',
@@ -1164,7 +1164,7 @@ const LabelingPage = () => {
           <span className="text-[10px] font-semibold">내 옷장</span>
         </button>
 
-        <button 
+        <button
           className="flex items-center gap-2 px-5 py-2.5 rounded-full transition-all duration-300 hover:scale-105 active:scale-95"
           style={{
             background: 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)',
@@ -1176,7 +1176,7 @@ const LabelingPage = () => {
           <span className="text-sm font-semibold">의류 등록</span>
         </button>
 
-        <button 
+        <button
           onClick={() => navigate('/feed')}
           className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] transition-colors duration-300 hover:text-[#D4AF37]"
           style={{ color: '#6B6B6B' }}
