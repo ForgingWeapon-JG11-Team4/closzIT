@@ -16,7 +16,7 @@ const LoginPage = () => {
       }
 
       try {
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://api.closzit.shop';
         const response = await fetch(`${backendUrl}/user/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -41,7 +41,7 @@ const LoginPage = () => {
 
   // 백엔드 Google OAuth 엔드포인트로 리다이렉트
   const handleGoogleLogin = () => {
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://api.closzit.shop';
     window.location.href = `${backendUrl}/auth/google`;
   };
 

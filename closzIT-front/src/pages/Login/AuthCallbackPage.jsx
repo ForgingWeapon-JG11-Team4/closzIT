@@ -19,7 +19,7 @@ const AuthCallbackPage = () => {
 
     // refresh token 없으면 consent 화면으로 리다이렉트
     if (needConsent === 'true') {
-      window.location.href = 'http://localhost:3000/auth/google?prompt=consent';
+      window.location.href = 'https://api.closzit.shop/auth/google?prompt=consent';
       return;
     }
 
