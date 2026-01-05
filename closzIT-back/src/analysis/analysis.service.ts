@@ -360,4 +360,80 @@ OUTPUT: Generate ONLY the transformed flat-lay image. No text, no explanation.
             throw error;
         }
     }
+
+    /**
+     * 이미지 임베딩을 기반으로 유사한 의상을 DB에서 검색
+     */
+    async findSimilarItems(
+        userId: string,
+        embedding?: number[],
+        category?: string,
+        subCategory?: string,
+        limit: number = 5,
+    ) {
+        this.logger.log(`[findSimilarItems] Searching for userId: ${userId}, category: ${category}/${subCategory}`);
+
+        if (!embedding || embedding.length === 0) {
+            return { success: false, similar_items: [], message: 'No embedding provided' };
+        }
+
+        try {
+            const embeddingString = `[${embedding.join(',')}]`;
+
+            // pgvector를 사용한 유사도 검색
+            // category는 필수 조건으로 사용
+            let query = `
+                SELECT 
+                    id,
+                    category,
+                    sub_category as "subCategory",
+                    CASE 
+                        WHEN flatten_image_url IS NOT NULL THEN flatten_image_url
+                        ELSE image_url
+                    END as "imageUrl",
+                    1 - (image_embedding <=> '${embeddingString}'::vector) as similarity
+                FROM clothes
+                WHERE user_id = $1
+            `;
+
+            const params: any[] = [userId];
+
+            if (category) {
+                params.push(category);
+                query += ` AND category = $${params.length}::"Category"`;
+            }
+
+            if (subCategory) {
+                params.push(subCategory);
+                query += ` AND sub_category = $${params.length}`;
+            }
+
+            query += ` ORDER BY image_embedding <=> '${embeddingString}'::vector LIMIT $${params.length + 1}`;
+            params.push(limit);
+
+            const similarItems = await (this.prismaService as any).$queryRawUnsafe(query, ...params);
+
+            const formattedItems = (similarItems as any[]).map((item: any) => ({
+                id: item.id,
+                category: item.category,
+                subCategory: item.subCategory,
+                image: item.imageUrl,
+                similarity: parseFloat(item.similarity) || 0,
+            }));
+
+            this.logger.log(`[findSimilarItems] Found ${formattedItems.length} similar items`);
+
+            return {
+                success: true,
+                similar_items: formattedItems,
+            };
+        } catch (error) {
+            this.logger.error('[findSimilarItems] Error:', error.message);
+            return {
+                success: false,
+                similar_items: [],
+                message: error.message,
+            };
+        }
+    }
 }
