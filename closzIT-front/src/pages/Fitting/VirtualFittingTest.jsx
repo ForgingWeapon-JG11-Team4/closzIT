@@ -48,7 +48,8 @@ const VirtualFittingTest = () => {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch('http://localhost:3000/api/fitting/virtual-try-on', {
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+      const response = await fetch(`${backendUrl}/api/fitting/virtual-try-on`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -107,11 +108,10 @@ const VirtualFittingTest = () => {
               />
               <label
                 htmlFor={`upload-${key}`}
-                className={`block aspect-square rounded-2xl border-2 border-dashed cursor-pointer transition-all ${
-                  files[key]
+                className={`block aspect-square rounded-2xl border-2 border-dashed cursor-pointer transition-all ${files[key]
                     ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
                     : 'border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-primary'
-                }`}
+                  }`}
               >
                 {previews[key] ? (
                   <div className="w-full h-full p-2">
@@ -141,11 +141,10 @@ const VirtualFittingTest = () => {
         <button
           onClick={handleSubmit}
           disabled={!allFilesUploaded || loading}
-          className={`w-full h-14 rounded-2xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${
-            !allFilesUploaded || loading
+          className={`w-full h-14 rounded-2xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${!allFilesUploaded || loading
               ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
               : 'bg-gradient-to-r from-orange-300 via-pink-400 to-purple-500 text-white hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0'
-          }`}
+            }`}
         >
           {loading ? (
             <>
