@@ -72,4 +72,51 @@ export class ItemsService {
 
     return grouped;
   }
+
+  async updateItem(userId: string, itemId: string, data: {
+    colors?: string[];
+    patterns?: string[];
+    details?: string[];
+    styleMoods?: string[];
+    tpos?: string[];
+    seasons?: string[];
+    note?: string;
+  }) {
+    // 해당 아이템이 사용자의 것인지 확인
+    const item = await this.prisma.clothing.findFirst({
+      where: { id: itemId, userId }
+    });
+
+    if (!item) {
+      throw new Error('아이템을 찾을 수 없습니다.');
+    }
+
+    return this.prisma.clothing.update({
+      where: { id: itemId },
+      data: {
+        colors: data.colors as any,
+        patterns: data.patterns as any,
+        details: data.details as any,
+        styleMoods: data.styleMoods as any,
+        tpos: data.tpos as any,
+        seasons: data.seasons as any,
+        note: data.note,
+      },
+    });
+  }
+
+  async deleteItem(userId: string, itemId: string) {
+    // 해당 아이템이 사용자의 것인지 확인
+    const item = await this.prisma.clothing.findFirst({
+      where: { id: itemId, userId }
+    });
+
+    if (!item) {
+      throw new Error('아이템을 찾을 수 없습니다.');
+    }
+
+    return this.prisma.clothing.delete({
+      where: { id: itemId }
+    });
+  }
 }

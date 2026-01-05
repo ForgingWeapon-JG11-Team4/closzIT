@@ -45,7 +45,8 @@ export class AnalysisController {
     }
 
     @Post('flatten')
-    async flattenClothing(@Body() body: {
+    @UseGuards(JwtAuthGuard)
+    async flattenClothing(@Req() req, @Body() body: {
         image_base64: string;
         category?: string;
         sub_category?: string;
@@ -54,10 +55,12 @@ export class AnalysisController {
         detail?: string[];
         style_mood?: string[];
     }) {
-        this.logger.log(`[flattenClothing] Request received for category: ${body.category}/${body.sub_category}`);
+        const userId = req.user.id;
+        this.logger.log(`[flattenClothing] Request received for category: ${body.category}/${body.sub_category}, userId: ${userId}`);
 
         try {
             const result = await this.analysisService.flattenClothing(
+                userId,
                 body.image_base64,
                 body.category,
                 body.sub_category,
