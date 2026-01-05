@@ -13,7 +13,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15  # ⭐ Job 전체 타임아웃
+    timeout-minutes: 15
     
     steps:
       - name: Checkout
@@ -27,7 +27,7 @@ jobs:
           aws-region: ap-northeast-2
       
       - name: Deploy to EC2
-        timeout-minutes: 12  # ⭐ Step 타임아웃
+        timeout-minutes: 12
         run: |
           echo "🚀 Starting deployment..."
           
@@ -35,37 +35,46 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --instance-ids "i-0617e4b725d90c05b" \
             --parameters 'commands=[
-              "echo \"=== Starting deployment ===\"",
+              "echo \"=== Deployment Started ===\"",
               "cd /home/ubuntu/app || exit 1",
-              "echo \"📥 Git pull...\"",
               "git fetch origin || exit 1",
               "git reset --hard origin/dev || exit 1",
               "cd closzIT-back || exit 1",
-              "echo \"📦 Installing dependencies...\"",
               "npm ci || exit 1",
-              "echo \"🔨 Building...\"",
               "npm run build || exit 1",
-              "echo \"🔄 Restarting PM2...\"",
               "pm2 restart closzIT-backend || pm2 start dist/main.js --name closzIT-backend",
-              "pm2 list",
-              "echo \"✅ Deployment complete!\""
+              "echo \"=== Deployment Complete ===\""
             ]' \
             --timeout-seconds 600 \
             --output text \
             --query 'Command.CommandId')
           
           echo "Command ID: $COMMAND_ID"
-          echo "⏳ Waiting for deployment (up to 10 minutes)..."
+          echo "⏳ Waiting for deployment..."
+          echo ""
           
-          # 10분 대기
-          set +e
-          aws ssm wait command-executed \
-            --command-id "$COMMAND_ID" \
-            --instance-id "i-0617e4b725d90c05b" \
-            --max-attempts 60 \
-            --delay 10
-          WAIT_EXIT=$?
-          set -e
+          # 수동 대기 루프
+          MAX_ATTEMPTS=60
+          DELAY=10
+          ATTEMPT=0
+          STATUS="Pending"
+          
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            sleep $DELAY
+            ATTEMPT=$((ATTEMPT + 1))
+            
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "i-0617e4b725d90c05b" \
+              --query 'Status' \
+              --output text 2>/dev/null || echo "Pending")
+            
+            echo "[$ATTEMPT/$MAX_ATTEMPTS] Status: $STATUS"
+            
+            if [ "$STATUS" = "Success" ] || [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ]; then
+              break
+            fi
+          done
           
           echo ""
           echo "================================================"
@@ -76,45 +85,26 @@ jobs:
             --command-id "$COMMAND_ID" \
             --instance-id "i-0617e4b725d90c05b" \
             --query 'StandardOutputContent' \
-            --output text
+            --output text 2>/dev/null || echo "No output"
           
           echo ""
           echo "================================================"
-          echo "❌ Errors (if any):"
+          echo "❌ Errors:"
           echo "================================================"
           
-          ERROR_OUTPUT=$(aws ssm get-command-invocation \
+          aws ssm get-command-invocation \
             --command-id "$COMMAND_ID" \
             --instance-id "i-0617e4b725d90c05b" \
             --query 'StandardErrorContent' \
-            --output text 2>/dev/null || echo "None")
-          
-          if [ "$ERROR_OUTPUT" != "None" ] && [ ! -z "$ERROR_OUTPUT" ]; then
-            echo "$ERROR_OUTPUT"
-          else
-            echo "No errors"
-          fi
+            --output text 2>/dev/null || echo "No errors"
           
           echo ""
           echo "================================================"
-          
-          STATUS=$(aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" \
-            --instance-id "i-0617e4b725d90c05b" \
-            --query 'Status' \
-            --output text)
-          
           echo "Final Status: $STATUS"
+          echo "================================================"
           
           if [ "$STATUS" != "Success" ]; then
-            echo "❌ Deployment failed with status: $STATUS"
-            
-            # InProgress면 타임아웃
-            if [ "$STATUS" = "InProgress" ]; then
-              echo "⚠️  Deployment is still running but timed out"
-              echo "Check EC2 manually: sudo systemctl status amazon-ssm-agent"
-            fi
-            
+            echo "❌ Deployment failed!"
             exit 1
           fi
           
