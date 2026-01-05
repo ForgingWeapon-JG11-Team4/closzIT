@@ -1,14 +1,17 @@
 // src/user/user.service.ts
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { User } from '@prisma/client';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { CreditService } from '../credit/credit.service';
 
 @Injectable()
 export class UserService {
   constructor(
     private prisma: PrismaService,
+    @Inject(forwardRef(() => CreditService))
+    private creditService: CreditService,
   ) {}
 
   async findById(id: string): Promise<User | null> {
@@ -30,7 +33,7 @@ export class UserService {
     accessToken: string;
     refreshToken?: string;
   }): Promise<User> {
-    return this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         googleId: googleProfile.googleId,
         email: googleProfile.email,
@@ -39,6 +42,15 @@ export class UserService {
         googleRefreshToken: googleProfile.refreshToken,
       },
     });
+
+    // 회원가입 시 100크레딧 지급
+    try {
+      await this.creditService.grantSignupCredit(user.id);
+    } catch (error) {
+      console.error('Failed to grant signup credit:', error);
+    }
+
+    return user;
   }
 
   async updateGoogleTokens(

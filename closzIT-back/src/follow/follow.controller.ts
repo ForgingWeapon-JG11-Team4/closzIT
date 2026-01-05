@@ -9,7 +9,7 @@ export class FollowController {
 
   @Post('toggle')
   async toggleFollow(@Request() req, @Body() body: { userId: string }) {
-    const followerId = req.user.userId;
+    const followerId = req.user.id;
     return this.followService.toggleFollow(followerId, body.userId);
   }
 
@@ -25,7 +25,7 @@ export class FollowController {
 
   @Get('is-following/:userId')
   async isFollowing(@Request() req, @Param('userId') targetUserId: string) {
-    const currentUserId = req.user.userId;
+    const currentUserId = req.user.id;
     const following = await this.followService.isFollowing(currentUserId, targetUserId);
     return { following };
   }

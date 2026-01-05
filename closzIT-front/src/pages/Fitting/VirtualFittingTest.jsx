@@ -47,8 +47,12 @@ const VirtualFittingTest = () => {
     setResult(null);
 
     try {
+      const token = localStorage.getItem('accessToken');
       const response = await fetch('http://localhost:3000/api/fitting/virtual-try-on', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
         body: formData,
       });
 

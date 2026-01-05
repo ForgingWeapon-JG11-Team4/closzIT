@@ -16,6 +16,7 @@ const MainPage = () => {
   const [currentClothIndex, setCurrentClothIndex] = useState(0);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [userName, setUserName] = useState('');
+  const [userCredit, setUserCredit] = useState(0);
   const [userClothes, setUserClothes] = useState({
     outerwear: [],
     tops: [],
@@ -52,6 +53,7 @@ const MainPage = () => {
         if (userResponse.ok) {
           const userData = await userResponse.json();
           setUserName(userData.name || '');
+          setUserCredit(userData.credit || 0);
         } else if (userResponse.status === 401) {
           localStorage.removeItem('accessToken');
           navigate('/login');
@@ -264,7 +266,12 @@ const MainPage = () => {
           >
             <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream">arrow_back</span>
           </button>
-        ) : null}
+        ) : (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-gold/20 to-gold-light/20 border border-gold/30">
+            <span className="material-symbols-rounded text-lg text-gold">monetization_on</span>
+            <span className="text-sm font-semibold text-gold">{userCredit}</span>
+          </div>
+        )}
 
         <div 
           onClick={() => setIsSearchExpanded(true)}

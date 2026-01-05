@@ -99,6 +99,15 @@ const MyPage = () => {
           {/* Profile Info */}
           <div className="space-y-4 border-t border-gray-100 dark:border-gray-700 pt-4">
             <div className="flex justify-between items-center py-2">
+              <span className="text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                <span className="material-symbols-rounded text-lg text-amber-500">monetization_on</span>
+                보유 크레딧
+              </span>
+              <span className="text-gray-900 dark:text-white font-bold text-lg text-amber-600">
+                {user?.credit || 0}
+              </span>
+            </div>
+            <div className="flex justify-between items-center py-2">
               <span className="text-gray-500 dark:text-gray-400">성별</span>
               <span className="text-gray-900 dark:text-white font-medium">
                 {user?.gender === 'male' ? '남성' : user?.gender === 'female' ? '여성' : '-'}

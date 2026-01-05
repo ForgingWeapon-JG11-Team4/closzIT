@@ -49,6 +49,7 @@ model User {
   likes              Like[]
   followers          Follow[]   @relation("Following")
   following          Follow[]   @relation("Follower")
+  creditHistory      CreditHistory[]
 
   @@map("users")
 }

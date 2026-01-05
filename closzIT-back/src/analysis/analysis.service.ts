@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { BedrockService } from '../ai/bedrock.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreditService } from '../credit/credit.service';
 import { GoogleGenAI } from '@google/genai';
 import FormData = require('form-data');
 
@@ -18,6 +19,8 @@ export class AnalysisService {
         private readonly configService: ConfigService,
         private readonly bedrockService: BedrockService,
         private readonly prismaService: PrismaService,
+        @Inject(forwardRef(() => CreditService))
+        private readonly creditService: CreditService,
     ) {
         this.fastApiUrl = this.configService.get<string>('FASTAPI_URL', 'http://localhost:8000');
 
@@ -165,6 +168,17 @@ export class AnalysisService {
             }));
 
             this.logger.log(`[saveItems] Successfully saved ${results.length} items.`);
+
+            // 각 의류 등록마다 10크레딧 지급
+            try {
+                for (let i = 0; i < results.length; i++) {
+                    await this.creditService.grantClothingAddedCredit(userId);
+                }
+                this.logger.log(`[saveItems] Granted ${results.length * 10} credits for clothing registration`);
+            } catch (creditError) {
+                this.logger.error('[saveItems] Failed to grant credits', creditError);
+            }
+
             return { savedCount: results.length, ids: results.map(r => r.id) };
 
         } catch (error) {

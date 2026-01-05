@@ -82,7 +82,10 @@ const FeedPage = () => {
       {/* Header */}
       <div className="sticky top-0 z-50 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-indigo-500 bg-clip-text text-transparent">
+          <h1
+            onClick={() => window.location.href = '/'}
+            className="cursor-pointer text-2xl font-bold bg-gradient-to-r from-primary to-indigo-500 bg-clip-text text-transparent"
+          >
             CloszIT
           </h1>
           <div className="flex items-center gap-3">
@@ -156,11 +159,10 @@ const FeedPage = () => {
                       onClick={() => handleLike(post.id)}
                       className="flex items-center gap-1 group"
                     >
-                      <span className={`material-symbols-rounded text-2xl transition-all ${
-                        post.isLiked
-                          ? 'text-red-500 fill-1'
-                          : 'text-gray-700 dark:text-gray-300 group-hover:text-red-500'
-                      }`}>
+                      <span className={`material-symbols-rounded text-2xl transition-all ${post.isLiked
+                        ? 'text-red-500 fill-1'
+                        : 'text-gray-700 dark:text-gray-300 group-hover:text-red-500'
+                        }`}>
                         {post.isLiked ? 'favorite' : 'favorite_border'}
                       </span>
                     </button>

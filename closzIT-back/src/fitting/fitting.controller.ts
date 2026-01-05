@@ -5,11 +5,15 @@ import {
   UploadedFiles,
   BadRequestException,
   Body,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { FittingService } from './fitting.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('api/fitting')
+@UseGuards(JwtAuthGuard)
 export class FittingController {
   constructor(private readonly fittingService: FittingService) {}
 
@@ -24,6 +28,7 @@ export class FittingController {
     ]),
   )
   async virtualTryOn(
+    @Request() req,
     @UploadedFiles()
     files: {
       person?: Express.Multer.File[];
@@ -33,6 +38,9 @@ export class FittingController {
       shoes?: Express.Multer.File[];
     },
   ) {
+    const userId = req.user.id;
+    console.log('VTO Request - userId:', userId);
+
     // 모든 필수 이미지가 있는지 확인
     if (
       !files.person?.[0] ||
@@ -54,7 +62,7 @@ export class FittingController {
       shoes: files.shoes[0],
     };
 
-    const result = await this.fittingService.processVirtualFitting(imageMap);
+    const result = await this.fittingService.processVirtualFitting(imageMap, userId);
     return result;
   }
 
