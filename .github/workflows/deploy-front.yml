@@ -46,4 +46,5 @@ jobs:
       # 6. CloudFront 캐시 무효화 (선택 사항)
       - name: CloudFront Invalidation
         run: |
-          aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DIST_ID }} --paths "/*"
+          aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DIST_ID }} --paths "/*" 
+      ###
