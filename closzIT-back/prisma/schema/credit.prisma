@@ -6,7 +6,29 @@ enum CreditTransactionType {
   ADMIN_ADJUSTMENT // 관리자 조정
 }
 
-/// 크레딧 이력 테이블
+/// 크레딧 잔액 테이블 (별도 관리)
+model Credit {
+  /// 고유 ID (자동 생성 UUID)
+  id        String   @id @default(uuid())
+  /// 사용자 ID (1:1 관계)
+  userId    String   @unique @map("user_id")
+  /// 현재 잔액
+  balance   Int      @default(0)
+  /// 버전 (Optimistic Locking용)
+  version   Int      @default(0)
+  /// 생성일 (자동 생성)
+  createdAt DateTime @default(now()) @map("created_at")
+  /// 수정일 (자동 업데이트)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /// 사용자 관계
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("credits")
+  @@index([userId])
+}
+
+/// 크레딧 거래 이력 테이블 (불변)
 model CreditHistory {
   /// 고유 ID (자동 생성 UUID)
   id            String                 @id @default(uuid())
@@ -16,6 +38,8 @@ model CreditHistory {
   type          CreditTransactionType
   /// 변동 금액 (양수: 증가, 음수: 감소)
   amount        Int
+  /// 거래 전 잔액
+  balanceBefore Int                    @map("balance_before")
   /// 거래 후 잔액
   balanceAfter  Int                    @map("balance_after")
   /// 설명

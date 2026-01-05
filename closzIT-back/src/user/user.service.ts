@@ -43,11 +43,14 @@ export class UserService {
       },
     });
 
-    // 회원가입 시 100크레딧 지급
+    // 크레딧 레코드 초기화 및 회원가입 보상 지급
     try {
+      // 1. Credit 레코드 생성
+      await this.creditService.initializeCredit(user.id);
+      // 2. 회원가입 시 100크레딧 지급
       await this.creditService.grantSignupCredit(user.id);
     } catch (error) {
-      console.error('Failed to grant signup credit:', error);
+      console.error('Failed to initialize credit or grant signup credit:', error);
     }
 
     return user;

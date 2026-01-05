@@ -29,8 +29,6 @@ model User {
   preferredStyles    String[]       @map("preferred_styles")
   /// 프로필 완성 여부
   isProfileComplete  Boolean        @default(false) @map("is_profile_complete")
-  /// 보유 크레딧
-  credit             Int            @default(0)
   /// 등록일 (자동 생성)
   createdAt          DateTime       @default(now()) @map("created_at")
   /// 수정일 (자동 업데이트)
@@ -49,6 +47,7 @@ model User {
   likes              Like[]
   followers          Follow[]   @relation("Following")
   following          Follow[]   @relation("Follower")
+  credit             Credit?
   creditHistory      CreditHistory[]
 
   @@map("users")
