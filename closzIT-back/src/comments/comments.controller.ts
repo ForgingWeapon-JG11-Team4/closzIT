@@ -22,13 +22,13 @@ export class CommentsController {
     @Request() req,
     @Body() body: { postId: string; content: string },
   ) {
-    const userId = req.user.userId;
+    const userId = req.user.id;
     return this.commentsService.createComment(body.postId, userId, body.content);
   }
 
   @Delete(':id')
   async deleteComment(@Request() req, @Param('id') commentId: string) {
-    const userId = req.user.userId;
+    const userId = req.user.id;
     const success = await this.commentsService.deleteComment(commentId, userId);
 
     if (!success) {

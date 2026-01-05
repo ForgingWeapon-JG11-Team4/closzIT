@@ -12,7 +12,7 @@ export class CreditController {
    */
   @Get()
   async getMyCredit(@Request() req) {
-    const userId = req.user.userId;
+    const userId = req.user.id;
     const credit = await this.creditService.getCredit(userId);
     return { credit };
   }
@@ -22,7 +22,7 @@ export class CreditController {
    */
   @Get('history')
   async getMyCreditHistory(@Request() req) {
-    const userId = req.user.userId;
+    const userId = req.user.id;
     const history = await this.creditService.getCreditHistory(userId);
     return { history };
   }
