@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 const UserProfileSetup3 = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
-  
+
   // State 관리
   const [fullBodyImage, setFullBodyImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -95,7 +95,7 @@ const UserProfileSetup3 = () => {
       const token = localStorage.getItem('accessToken');
       const setup1Data = JSON.parse(localStorage.getItem('userProfile') || '{}');
       const setup2Data = JSON.parse(localStorage.getItem('userProfileSetup2') || '{}');
-      
+
       // 생년월일 포맷 변환
       let birthday = null;
       if (setup1Data.birthday) {
@@ -121,7 +121,7 @@ const UserProfileSetup3 = () => {
         fullBodyImage: imageData
       };
 
-      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+      const backendUrl = 'https://api.closzit.shop';
       const response = await fetch(`${backendUrl}/user/profile`, {
         method: 'PUT',
         headers: {
@@ -159,7 +159,7 @@ const UserProfileSetup3 = () => {
       {/* 헤더 */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-surface-light dark:bg-surface-dark border-b border-gray-100 dark:border-gray-800">
         <div className="flex items-center justify-between px-4 h-14">
-          <button 
+          <button
             onClick={() => navigate('/setup2')}
             className="w-10 h-10 flex items-center justify-center -ml-2"
           >
@@ -168,7 +168,7 @@ const UserProfileSetup3 = () => {
           <h1 className="text-lg font-bold text-gray-900 dark:text-white">회원정보 입력</h1>
           <div className="w-10"></div>
         </div>
-        
+
         {/* 프로그레스 바 */}
         <div className="h-1 bg-gray-200 dark:bg-gray-700">
           <div className="h-full bg-brand-blue transition-all duration-300" style={{ width: '100%' }}></div>
@@ -199,7 +199,7 @@ const UserProfileSetup3 = () => {
           {/* 이미지 업로드 영역 */}
           <section className="space-y-4">
             {!imagePreview ? (
-              <div 
+              <div
                 onClick={handleCameraCapture}
                 className="w-full aspect-[3/4] max-w-xs mx-auto rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 flex flex-col items-center justify-center cursor-pointer hover:border-brand-blue hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-all"
               >
@@ -215,9 +215,9 @@ const UserProfileSetup3 = () => {
               </div>
             ) : (
               <div className="relative w-full aspect-[3/4] max-w-xs mx-auto rounded-2xl overflow-hidden shadow-lg">
-                <img 
-                  src={imagePreview} 
-                  alt="전신 사진 미리보기" 
+                <img
+                  src={imagePreview}
+                  alt="전신 사진 미리보기"
                   className="w-full h-full object-cover"
                 />
                 <button
@@ -305,11 +305,10 @@ const UserProfileSetup3 = () => {
           <button
             onClick={handleComplete}
             disabled={isSubmitting || !fullBodyImage}
-            className={`flex-1 py-4 rounded-xl font-bold text-white transition-all ${
-              fullBodyImage
-                ? 'bg-brand-blue hover:bg-blue-600'
-                : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
-            } disabled:opacity-50`}
+            className={`flex-1 py-4 rounded-xl font-bold text-white transition-all ${fullBodyImage
+              ? 'bg-brand-blue hover:bg-blue-600'
+              : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
+              } disabled:opacity-50`}
           >
             {isSubmitting ? (
               <span className="flex items-center justify-center gap-2">

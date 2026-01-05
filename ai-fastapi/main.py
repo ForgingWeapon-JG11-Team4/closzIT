@@ -7,7 +7,7 @@ import os
 import numpy as np
 
 # 환경 변수 설정
-USE_SAM2 = os.getenv('USE_SAM2', 'true').lower() == 'true'
+USE_SAM2 = os.getenv('USE_SAM2', 'true').lower() == 'false'
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
