@@ -4,12 +4,14 @@ import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { BedrockService } from '../ai/bedrock.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { GoogleGenAI } from '@google/genai';
 import FormData = require('form-data');
 
 @Injectable()
 export class AnalysisService {
     private readonly logger = new Logger(AnalysisService.name);
     private readonly fastApiUrl: string;
+    private readonly ai: GoogleGenAI;
 
     constructor(
         private readonly httpService: HttpService,
@@ -18,6 +20,13 @@ export class AnalysisService {
         private readonly prismaService: PrismaService,
     ) {
         this.fastApiUrl = this.configService.get<string>('FASTAPI_URL', 'http://localhost:8000');
+
+        // Gemini AI 초기화
+        const googleApiKey = this.configService.get<string>('GOOGLE_API_KEY');
+        if (googleApiKey) {
+            this.ai = new GoogleGenAI({ apiKey: googleApiKey });
+            this.logger.log('Gemini AI initialized for clothes flattening');
+        }
     }
 
     async analyzeImage(file: Express.Multer.File) {
@@ -111,9 +120,11 @@ export class AnalysisService {
             const results = await Promise.all(validItems.map(async (item, index) => {
                 const { category, sub_category, colors, pattern, detail, style_mood, tpo, season } = item.label || {};
                 const imageBase64 = item.image_base64;
+                const flattenImageBase64 = item.flatten_image_base64;
                 const embedding = item.embedding;
 
                 const imageDataUrl = `data:image/png;base64,${imageBase64}`;
+                const flattenImageDataUrl = flattenImageBase64 ? `data:image/png;base64,${flattenImageBase64}` : null;
                 const embeddingString = `[${embedding.join(',')}]`;
                 const textEmbeddingString = `[${textEmbeddings[index].join(',')}]`;
 
@@ -128,7 +139,8 @@ export class AnalysisService {
                         style_mood,
                         tpos,
                         seasons,
-                        image_url, 
+                        image_url,
+                        flatten_image_url,
                         image_embedding,
                         text_embedding
                     )
@@ -143,6 +155,7 @@ export class AnalysisService {
                         ${tpo || []}::"TPO"[],
                         ${season || []}::"Season"[],
                         ${imageDataUrl},
+                        ${flattenImageDataUrl},
                         ${embeddingString}::vector,
                         ${textEmbeddingString}::vector
                     )
@@ -173,5 +186,164 @@ export class AnalysisService {
         return (this.prismaService as any).item.delete({
             where: { id },
         });
+    }
+
+    /**
+     * Gemini API를 사용하여 의상 이미지를 펼쳐진 플랫레이 형태로 변환
+     */
+    async flattenClothing(
+        imageBase64: string,
+        category?: string,
+        subCategory?: string,
+        labelInfo?: {
+            colors?: string[];
+            pattern?: string[];
+            detail?: string[];
+            style_mood?: string[];
+        }
+    ) {
+        if (!this.ai) {
+            throw new Error('Gemini AI is not initialized. Check GOOGLE_API_KEY.');
+        }
+
+        const startTime = Date.now();
+        this.logger.log(`[flattenClothing] Starting flattening for category: ${category}/${subCategory}`);
+
+        try {
+            // 상세 라벨링 정보 구성
+            const categoryInfo = category && subCategory
+                ? `Clothing Type: ${category} - ${subCategory}`
+                : category
+                    ? `Clothing Type: ${category}`
+                    : 'Clothing item';
+
+            const colorsInfo = labelInfo?.colors?.length
+                ? `Colors: ${labelInfo.colors.join(', ')}`
+                : '';
+            const patternInfo = labelInfo?.pattern?.length
+                ? `Patterns: ${labelInfo.pattern.join(', ')}`
+                : '';
+            const detailInfo = labelInfo?.detail?.length
+                ? `Details/Features: ${labelInfo.detail.join(', ')}`
+                : '';
+            const styleInfo = labelInfo?.style_mood?.length
+                ? `Style/Mood: ${labelInfo.style_mood.join(', ')}`
+                : '';
+
+            // 카테고리별 특화 지시사항
+            let categorySpecificInstructions = '';
+            if (category === 'Top' || category === 'Outer') {
+                categorySpecificInstructions = `
+SPECIFIC INSTRUCTIONS FOR TOPS/OUTERWEAR:
+- Spread BOTH sleeves fully extended horizontally outward in a T-shape
+- Front should face upward (camera perspective)
+- Collar/neckline should be at the top center
+- If it has buttons/zipper, show it closed but lying flat
+- Maintain the natural shape of shoulders`;
+            } else if (category === 'Bottom') {
+                categorySpecificInstructions = `
+SPECIFIC INSTRUCTIONS FOR PANTS/BOTTOMS:
+- Spread BOTH legs fully extended downward
+- Waistband should be at the top
+- Show the front side facing upward
+- Legs should be parallel and not overlapping`;
+            } else if (category === 'Shoes') {
+                categorySpecificInstructions = `
+SPECIFIC INSTRUCTIONS FOR SHOES:
+- Show both shoes side by side
+- Position them symmetrically
+- Show them from a top-down angle
+- Maintain the exact shape and design`;
+            }
+
+            const prompt = `
+You are a professional fashion product photographer. Transform this clothing item into a perfect e-commerce flat-lay product photo.
+
+=== CLOTHING INFORMATION ===
+${categoryInfo}
+${colorsInfo}
+${patternInfo}
+${detailInfo}
+${styleInfo}
+
+=== TRANSFORMATION REQUIREMENTS ===
+1. CREATE A PERFECT FLAT-LAY PHOTO: The garment should look like it's professionally laid flat on a pure white surface
+2. COMPLETELY UNFOLD THE GARMENT: NO folding, NO creasing, NO overlapping parts
+3. FULLY EXTEND ALL PARTS: Sleeves must spread outward horizontally, legs must spread downward
+4. MAINTAIN EXACT APPEARANCE: Preserve the EXACT same colors, patterns, textures, logos, prints, and all visual details from the original image
+5. PURE WHITE BACKGROUND: Clean, bright white background with no shadows
+6. TOP-DOWN CAMERA ANGLE: Bird's eye view, looking straight down at the garment
+7. PROFESSIONAL LIGHTING: Even, soft lighting with no harsh shadows
+8. HIGH QUALITY: Sharp, clear, high-resolution output suitable for e-commerce
+9. VERTICAL/PORTRAIT ORIENTATION: The garment MUST be positioned upright in portrait orientation (like online shopping thumbnails)
+   - For tops: collar/neckline at TOP, hem at BOTTOM
+   - For bottoms: waistband at TOP, leg hems at BOTTOM
+   - NEVER place the garment sideways or horizontally rotated
+
+${categorySpecificInstructions}
+
+=== CRITICAL RULES ===
+- DO NOT fold sleeves inward or across the body
+- DO NOT add any text, watermarks, or labels
+- DO NOT change the color or pattern of the clothing
+- DO NOT add any accessories or items not in the original
+- DO NOT rotate the garment sideways - it must be upright like a shopping site thumbnail
+- The result should look like a real product photo from an online clothing store
+
+OUTPUT: Generate ONLY the transformed flat-lay image. No text, no explanation.
+`;
+
+            const response = await (this.ai.models as any).generateContent({
+                model: 'gemini-3-pro-image-preview',
+                contents: [
+                    {
+                        role: 'user',
+                        parts: [
+                            { text: prompt },
+                            {
+                                inlineData: {
+                                    mimeType: 'image/png',
+                                    data: imageBase64,
+                                },
+                            },
+                        ],
+                    },
+                ],
+                generationConfig: {
+                    temperature: 0.1,
+                },
+            });
+
+            const processingTime = (Date.now() - startTime) / 1000;
+            this.logger.log(`[flattenClothing] Gemini API took ${processingTime.toFixed(2)}s`);
+
+            // 응답에서 이미지 추출
+            if (!response.candidates || response.candidates.length === 0) {
+                throw new Error('Gemini did not generate any candidates');
+            }
+
+            const candidate = response.candidates[0];
+            if (!candidate.content || !candidate.content.parts) {
+                throw new Error('Invalid response structure from Gemini');
+            }
+
+            for (const part of candidate.content.parts) {
+                if (part.inlineData) {
+                    const flattenedImageBase64 = part.inlineData.data;
+                    this.logger.log('[flattenClothing] Image flattening successful');
+
+                    return {
+                        success: true,
+                        flattened_image_base64: flattenedImageBase64,
+                        processingTime,
+                    };
+                }
+            }
+
+            throw new Error('No image data in Gemini response');
+        } catch (error) {
+            this.logger.error('[flattenClothing] Error:', error.message);
+            throw error;
+        }
     }
 }
