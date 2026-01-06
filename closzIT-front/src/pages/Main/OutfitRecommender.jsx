@@ -5,7 +5,7 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
   const navigate = useNavigate();
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(true);
-  const [selectedEventTitle, setSelectedEventTitle] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null); // 캘린더 일정 단일 선택
 
   // TPO 목록
   const tpoList = [
@@ -48,11 +48,12 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
     fetchCalendarEvents();
   }, []);
 
-  const handleEventClick = (title) => {
-    if (selectedEventTitle === title) {
-      setSelectedEventTitle(null);
+  // 캘린더 일정 클릭 (단일 선택, 토글)
+  const handleEventClick = (event) => {
+    if (selectedEvent?.title === event.title) {
+      setSelectedEvent(null);
     } else {
-      setSelectedEventTitle(title);
+      setSelectedEvent(event);
     }
   };
 
@@ -65,13 +66,13 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
   };
 
   const handleGenerate = () => {
-    const allKeywords = selectedEventTitle 
-      ? [selectedEventTitle, ...selectedKeywords]
-      : selectedKeywords;
-    navigate('/fitting', { state: { selectedKeywords: allKeywords } });
+    navigate('/fitting', { 
+      state: { 
+        calendarEvent: selectedEvent.title,
+        isToday: selectedEvent.isToday,
+      } 
+    });
   };
-
-  const hasSelection = selectedEventTitle || selectedKeywords.length > 0;
 
   return (
     <div className="animate-slideDown">
@@ -94,9 +95,9 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
             {calendarEvents.map((event, idx) => (
               <div 
                 key={idx}
-                onClick={() => handleEventClick(event.title)}
+                onClick={() => handleEventClick(event)}
                 className={`flex items-center gap-3 p-3 rounded-xl border transition-colors cursor-pointer ${
-                  selectedEventTitle === event.title
+                  selectedEvent?.title === event.title
                     ? 'bg-gold/10 border-gold'
                     : 'bg-warm-white dark:bg-charcoal border-gold-light/30 dark:border-charcoal-light/30 hover:border-gold'
                 }`}
@@ -111,7 +112,7 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
                     <span className="text-[10px] text-gold font-medium">오늘</span>
                   )}
                 </div>
-                {selectedEventTitle === event.title ? (
+                {selectedEvent?.title === event.title ? (
                   <span className="material-symbols-rounded text-lg text-gold">check_circle</span>
                 ) : (
                   <span className="material-symbols-rounded text-lg text-gold-light dark:text-charcoal-light">chevron_right</span>
@@ -163,14 +164,14 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
       </div>
 
       {/* Generate Button */}
-      {hasSelection && (
+      {selectedEvent && (
         <div className="mb-4 animate-fadeIn">
           <button
             onClick={handleGenerate}
             className="w-full py-4 bg-gold text-cream rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-gold-dark active:scale-[0.98] transition-all"
           >
             <span className="material-symbols-rounded text-xl">auto_awesome</span>
-            <span>스타일 추천받기</span>
+            <span>코디 추천받기</span>
           </button>
         </div>
       )}

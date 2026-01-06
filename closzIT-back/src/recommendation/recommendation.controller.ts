@@ -28,8 +28,8 @@ export class RecommendationController {
   ) {}
 
   /**
-   * 코디 추천 검색
-   * POST /api/recommendation/search
+   * 캘린더 기반 코디 추천
+   * POST /recommendation/search
    */
   @Post('search')
   @HttpCode(HttpStatus.OK)
@@ -38,29 +38,49 @@ export class RecommendationController {
     @Body() dto: SearchRequestDto,
   ): Promise<SearchResponseDto> {
     const userId = req.user.id;
-    const targetDate = dto.date ? new Date(dto.date) : new Date();
+    
+    // 1. 날짜 결정: isToday 기반 또는 직접 전달된 date
+    let targetDate: Date;
+    if (dto.date) {
+      targetDate = new Date(dto.date);
+    } else if (dto.isToday === false) {
+      targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() + 1);
+    } else {
+      targetDate = new Date();
+    }
 
-    let tpo: TPO = dto.tpo || 'Daily';
+    let tpo: TPO = 'Daily';
     let weather: any = null;
 
-    // TPO가 직접 입력되지 않은 경우 캘린더에서 추출
-    if (!dto.tpo) {
-      try {
-        const events = await this.calendarService.getEventsWithWeather(
-          userId,
-          targetDate,
-        );
+    // 2. 캘린더에서 해당 일정 찾아서 TPO와 날씨 추출
+    try {
+      const events = await this.calendarService.getEventsWithWeather(
+        userId,
+        targetDate,
+      );
 
+      // 선택된 일정 제목과 매칭되는 이벤트 찾기
+      const matchedEvent = events.find(
+        (e) => e.summary === dto.calendarEvent
+      );
+
+      if (matchedEvent) {
+        tpo = matchedEvent.tpo as TPO;
+        weather = matchedEvent.weather;
+        console.log(`[Recommendation] 일정 "${dto.calendarEvent}" → TPO: ${tpo}`);
+      } else {
         if (events.length > 0) {
           tpo = events[0].tpo as TPO;
           weather = events[0].weather;
+          console.log(`[Recommendation] 일정 미매칭, 첫 번째 이벤트 사용 → TPO: ${tpo}`);
         }
-      } catch (error) {
-        console.log('캘린더 조회 실패, 기본 TPO 사용:', error.message);
       }
+    } catch (error) {
+      console.error('[Recommendation] 캘린더 조회 실패:', error.message);
     }
 
-    // 검색 컨텍스트 구성
+    // 3. 검색 컨텍스트 구성
     const context: SearchContext = {
       tpo,
       weather: weather
@@ -73,7 +93,14 @@ export class RecommendationController {
       date: targetDate,
     };
 
-    // RAG 검색 실행
+    console.log('[Recommendation] 검색 컨텍스트:', {
+      calendarEvent: dto.calendarEvent,
+      tpo: context.tpo,
+      weather: context.weather,
+      date: context.date,
+    });
+
+    // 4. RAG 검색 실행
     const results = await this.ragSearchService.search(userId, context);
 
     return {
@@ -85,7 +112,7 @@ export class RecommendationController {
 
   /**
    * 피드백 기록
-   * POST /api/recommendation/feedback
+   * POST /recommendation/feedback
    */
   @Post('feedback')
   @HttpCode(HttpStatus.OK)
