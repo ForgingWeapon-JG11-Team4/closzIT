@@ -130,7 +130,43 @@ Return ONLY a valid JSON object. No markdown code blocks, no explanations.
             const jsonMatch = resultText.match(/\{[\s\S]*\}/);
             const jsonStr = jsonMatch ? jsonMatch[0] : resultText;
 
-            return JSON.parse(jsonStr);
+            const result = JSON.parse(jsonStr);
+
+            // 유효한 enum 값 목록
+            const validPatterns = ['Solid', 'Stripe', 'Check', 'Dot', 'Floral', 'Animal', 'Graphic', 'Camouflage', 'Argyle', 'Other'];
+            const validDetails = ['Logo', 'Pocket', 'Button', 'Zipper', 'Hood', 'Embroidery', 'Quilted', 'Distressed', 'Knit-rib', 'Other'];
+            const validColors = ['Black', 'White', 'Gray', 'Beige', 'Brown', 'Navy', 'Blue', 'Sky-blue', 'Red', 'Pink', 'Orange', 'Yellow', 'Green', 'Mint', 'Purple', 'Khaki', 'Silver', 'Gold', 'Other'];
+            const validStyleMoods = ['Casual', 'Street', 'Minimal', 'Formal', 'Sporty', 'Vintage', 'Gorpcore', 'Other'];
+            const validTPOs = ['Date', 'Daily', 'Commute', 'Sports', 'Travel', 'Wedding', 'Party', 'Home', 'School', 'Other'];
+            const validSeasons = ['Spring', 'Summer', 'Autumn', 'Winter'];
+
+            // 배열 필드 검증 및 필터링
+            if (result.pattern && Array.isArray(result.pattern)) {
+                result.pattern = result.pattern.filter((p: string) => validPatterns.includes(p));
+                if (result.pattern.length === 0) result.pattern = ['Other'];
+            }
+            if (result.detail && Array.isArray(result.detail)) {
+                result.detail = result.detail.filter((d: string) => validDetails.includes(d));
+                if (result.detail.length === 0) result.detail = ['Other'];
+            }
+            if (result.colors && Array.isArray(result.colors)) {
+                result.colors = result.colors.filter((c: string) => validColors.includes(c));
+                if (result.colors.length === 0) result.colors = ['Other'];
+            }
+            if (result.style_mood && Array.isArray(result.style_mood)) {
+                result.style_mood = result.style_mood.filter((s: string) => validStyleMoods.includes(s));
+                if (result.style_mood.length === 0) result.style_mood = ['Other'];
+            }
+            if (result.tpo && Array.isArray(result.tpo)) {
+                result.tpo = result.tpo.filter((t: string) => validTPOs.includes(t));
+                if (result.tpo.length === 0) result.tpo = ['Other'];
+            }
+            if (result.season && Array.isArray(result.season)) {
+                result.season = result.season.filter((s: string) => validSeasons.includes(s));
+            }
+
+            this.logger.log(`[Bedrock] Validated result: ${JSON.stringify(result)}`);
+            return result;
 
         } catch (error) {
             this.logger.error('Bedrock invocation failed', error);
@@ -139,15 +175,15 @@ Return ONLY a valid JSON object. No markdown code blocks, no explanations.
     }
 
     async extractTPOFromCalendar(event: {
-    summary: string;
-    location?: string;
-    description?: string;
-    start: string;
+        summary: string;
+        location?: string;
+        description?: string;
+        start: string;
     }): Promise<string> {
-    try {
-        const hour = new Date(event.start).getHours();
-        
-        const prompt = `
+        try {
+            const hour = new Date(event.start).getHours();
+
+            const prompt = `
 You are an expert at understanding daily schedules and recommending appropriate dress codes.
 
 TASK: Analyze the calendar event and determine the most appropriate TPO (Time, Place, Occasion).
@@ -178,36 +214,36 @@ Return ONLY a valid JSON object. No markdown, no explanations.
 }
 `;
 
-        const payload = {
-        anthropic_version: 'bedrock-2023-05-31',
-        max_tokens: 200,
-        messages: [
-            {
-            role: 'user',
-            content: [{ type: 'text', text: prompt }],
-            },
-        ],
-        };
+            const payload = {
+                anthropic_version: 'bedrock-2023-05-31',
+                max_tokens: 200,
+                messages: [
+                    {
+                        role: 'user',
+                        content: [{ type: 'text', text: prompt }],
+                    },
+                ],
+            };
 
-        const command = new InvokeModelCommand({
-        modelId: this.modelId,
-        contentType: 'application/json',
-        body: JSON.stringify(payload),
-        });
+            const command = new InvokeModelCommand({
+                modelId: this.modelId,
+                contentType: 'application/json',
+                body: JSON.stringify(payload),
+            });
 
-        const response = await this.client.send(command);
-        const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+            const response = await this.client.send(command);
+            const responseBody = JSON.parse(new TextDecoder().decode(response.body));
 
-        const resultText = responseBody.content[0].text;
-        const jsonMatch = resultText.match(/\{[\s\S]*\}/);
-        const jsonStr = jsonMatch ? jsonMatch[0] : resultText;
-        
-        const result = JSON.parse(jsonStr);
-        return result.tpo;
+            const resultText = responseBody.content[0].text;
+            const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+            const jsonStr = jsonMatch ? jsonMatch[0] : resultText;
 
-    } catch (error) {
-        this.logger.error('TPO extraction failed', error);
-        return 'Daily';
-    }
+            const result = JSON.parse(jsonStr);
+            return result.tpo;
+
+        } catch (error) {
+            this.logger.error('TPO extraction failed', error);
+            return 'Daily';
+        }
     }
 }
