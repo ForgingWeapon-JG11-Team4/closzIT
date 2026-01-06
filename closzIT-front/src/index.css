@@ -221,3 +221,19 @@ code {
 .safe-area-pb {
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
+
+/* Fly to Header Animation (VTO) */
+@keyframes flyToHeader {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(calc(var(--fly-end-x) * 0.5), calc(var(--fly-end-y) * 0.5 - 30px)) scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--fly-end-x), var(--fly-end-y)) scale(0.5);
+    opacity: 0;
+  }
+}

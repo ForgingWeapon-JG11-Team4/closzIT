@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { addVtoResult } from '../utils/vtoStorage';
 
 const PostDetailPage = () => {
   const { postId } = useParams();
@@ -8,6 +9,8 @@ const PostDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [tryOnLoading, setTryOnLoading] = useState(false);
+  const [tryOnCompleted, setTryOnCompleted] = useState(false);
 
   useEffect(() => {
     fetchPost();
@@ -106,6 +109,58 @@ const PostDetailPage = () => {
     }
   };
 
+  const handleTryOn = async () => {
+    if (tryOnLoading || tryOnCompleted) return;
+
+    setTryOnLoading(true);
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+
+      const response = await fetch(`${backendUrl}/api/fitting/sns-virtual-try-on`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ postId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.code === 'NO_FULL_BODY_IMAGE') {
+          const confirm = window.confirm(
+            '피팅 모델 이미지가 없어서 착장서비스 이용이 불가합니다. 등록하시겠습니까?'
+          );
+          // 현재 등록 기능 미구현으로 안내만 표시
+          if (confirm) {
+            alert('피팅 모델 이미지 등록 기능은 준비 중입니다.');
+          }
+          return;
+        }
+        throw new Error(data.message || '가상 착장에 실패했습니다.');
+      }
+
+      if (data.success) {
+        // 결과를 localStorage에 저장
+        addVtoResult({
+          imageUrl: data.imageUrl,
+          postId: data.postId,
+          appliedClothing: data.appliedClothing,
+        });
+        setTryOnCompleted(true);
+        alert('가상 착장이 완료되었습니다! SNS 피드에서 결과를 확인하세요.');
+      }
+    } catch (error) {
+      console.error('VTO Error:', error);
+      alert(error.message || '가상 착장 처리 중 오류가 발생했습니다.');
+    } finally {
+      setTryOnLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-cream dark:bg-[#1A1918] flex items-center justify-center">
@@ -168,8 +223,8 @@ const PostDetailPage = () => {
           <div className="flex items-center gap-4 mb-3">
             <button onClick={handleLike} className="flex items-center gap-1 group">
               <span className={`material-symbols-rounded text-2xl transition-all ${post.isLiked
-                  ? 'text-red-500 fill-1'
-                  : 'text-charcoal dark:text-cream group-hover:text-red-500'
+                ? 'text-red-500 fill-1'
+                : 'text-charcoal dark:text-cream group-hover:text-red-500'
                 }`}>
                 {post.isLiked ? 'favorite' : 'favorite_border'}
               </span>
@@ -205,6 +260,35 @@ const PostDetailPage = () => {
                   </div>
                 ))}
               </div>
+
+              {/* 입어보기 버튼 */}
+              <button
+                onClick={handleTryOn}
+                disabled={tryOnLoading || tryOnCompleted}
+                className={`mt-4 w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${tryOnCompleted
+                    ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                    : tryOnLoading
+                      ? 'bg-gold-light/50 text-charcoal cursor-wait'
+                      : 'btn-premium hover:scale-[1.02]'
+                  }`}
+              >
+                {tryOnLoading ? (
+                  <>
+                    <span className="material-symbols-rounded animate-spin">progress_activity</span>
+                    생성 중...
+                  </>
+                ) : tryOnCompleted ? (
+                  <>
+                    <span className="material-symbols-rounded">check_circle</span>
+                    생성 완료
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-rounded">checkroom</span>
+                    입어보기
+                  </>
+                )}
+              </button>
             </div>
           )}
         </div>
