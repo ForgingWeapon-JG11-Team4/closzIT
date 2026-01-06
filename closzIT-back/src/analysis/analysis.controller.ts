@@ -77,4 +77,32 @@ export class AnalysisController {
             throw error;
         }
     }
+
+    @Post('similar')
+    @UseGuards(JwtAuthGuard)
+    async findSimilarClothing(
+        @Req() req: any,
+        @Body() body: {
+            image_base64?: string;
+            embedding?: number[];
+            category?: string;
+            sub_category?: string;
+        }
+    ) {
+        const userId = req.user.id;
+        this.logger.log(`[findSimilar] Request for user: ${userId}, category: ${body.category}/${body.sub_category}`);
+
+        try {
+            const result = await this.analysisService.findSimilarItems(
+                userId,
+                body.embedding,
+                body.category,
+                body.sub_category,
+            );
+            return result;
+        } catch (error) {
+            this.logger.error(`[findSimilar] Error:`, error.message || error);
+            throw error;
+        }
+    }
 }
