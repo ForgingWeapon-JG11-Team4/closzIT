@@ -358,4 +358,204 @@ Output ONLY the final image. No text or explanations.
       HttpStatus.NOT_IMPLEMENTED
     );
   }
+
+  /**
+   * URL에서 이미지를 Buffer로 가져오기
+   */
+  private async fetchImageAsBuffer(url: string): Promise<Buffer> {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status}`);
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      return Buffer.from(arrayBuffer);
+    } catch (error) {
+      console.error(`Error fetching image from ${url}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * URL 기반 VTO 처리 (SNS용) - 가용한 카테고리만 사용
+   */
+  async processVirtualFittingFromUrls(
+    personImageUrl: string,
+    clothingUrls: {
+      outer?: string;
+      top?: string;
+      bottom?: string;
+      shoes?: string;
+    },
+    userId?: string
+  ) {
+    const startTime = Date.now();
+
+    try {
+      // VTO 사용 전 크레딧 차감 (userId가 제공된 경우)
+      if (userId) {
+        try {
+          await this.creditService.deductVtoCredit(userId);
+          console.log(`Deducted 3 credits from user ${userId} for VTO usage`);
+        } catch (creditError) {
+          console.error('Failed to deduct credits:', creditError);
+          throw new HttpException(
+            {
+              success: false,
+              message: creditError.message || '크레딧이 부족합니다.',
+            },
+            HttpStatus.BAD_REQUEST
+          );
+        }
+      }
+
+      console.log('Starting virtual fitting from URLs with Gemini...');
+
+      // 사람 이미지 가져오기
+      const personBuffer = await this.fetchImageAsBuffer(personImageUrl);
+      const personBase64 = personBuffer.toString('base64');
+
+      // 가용한 의상 이미지들 가져오기
+      const clothingImages: { category: string; base64: string }[] = [];
+
+      for (const [category, url] of Object.entries(clothingUrls)) {
+        if (url) {
+          try {
+            const buffer = await this.fetchImageAsBuffer(url);
+            clothingImages.push({
+              category,
+              base64: buffer.toString('base64'),
+            });
+          } catch (error) {
+            console.warn(`Failed to fetch ${category} image, skipping:`, error.message);
+          }
+        }
+      }
+
+      if (clothingImages.length === 0) {
+        throw new HttpException(
+          {
+            success: false,
+            message: '착장할 의상이 없습니다.',
+          },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      // 동적 프롬프트 생성
+      const clothingDescriptions = clothingImages.map((img, idx) => {
+        const categoryNames: Record<string, string> = {
+          outer: '아우터(겉옷)',
+          top: '상의',
+          bottom: '하의',
+          shoes: '신발',
+        };
+        return `Image ${idx + 2}: ${categoryNames[img.category] || img.category}`;
+      }).join('\n');
+
+      const prompt = `
+Rules:
+1. SINGLE SUBJECT CONSTRAINT: 
+   - There is ONLY ONE PERSON in the final output, who must be the exact person from Image 1.
+   - Other images are for CLOTHING REFERENCE ONLY. Do not add extra people or create a collage.
+
+2. PERFECT PRESERVATION: 
+   - Maintain the identical face, expression, hair, body, and pose of the person in Image 1. 
+   - The background, lighting, and framing must remain 100% unchanged.
+
+3. CLOTHING ADAPTATION:
+   - Replace only the relevant clothing items with the garments from the reference images.
+${clothingImages.some(i => i.category === 'outer') ? '   - Outerwear MUST be fully open at the front. Inner top MUST be visible.\n' : ''}   - Adjust the fabric's wrinkles and fit to match the person's specific pose and body shape in Image 1 naturally.
+
+Image descriptions:
+Image 1: Person to dress (base)
+${clothingDescriptions}
+
+Output ONLY the final image. No text or explanations.
+`;
+
+      // API 요청 구성
+      const contentParts: any[] = [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: 'image/jpeg',
+            data: personBase64,
+          },
+        },
+      ];
+
+      // 의상 이미지들 추가
+      for (const img of clothingImages) {
+        contentParts.push({
+          inlineData: {
+            mimeType: 'image/jpeg',
+            data: img.base64,
+          },
+        });
+      }
+
+      const apiCallStartTime = Date.now();
+      const response = await (this.ai.models as any).generateContent({
+        model: 'gemini-3-pro-image-preview',
+        contents: [
+          {
+            role: 'user',
+            parts: contentParts,
+          },
+        ],
+        generationConfig: {
+          temperature: 0.1
+        },
+      });
+      const apiCallTime = (Date.now() - apiCallStartTime) / 1000;
+      const totalTime = (Date.now() - startTime) / 1000;
+
+      console.log(`API call time: ${apiCallTime.toFixed(2)}s`);
+      console.log(`Total processing time: ${totalTime.toFixed(2)}s`);
+
+      // 응답 처리
+      if (!response.candidates || response.candidates.length === 0) {
+        console.error('No candidates in response');
+        throw new Error('Gemini did not generate any candidates.');
+      }
+
+      const candidate = response.candidates[0];
+      if (!candidate.content || !candidate.content.parts) {
+        console.error('No content parts in candidate');
+        throw new Error('Invalid response structure from Gemini');
+      }
+
+      for (const part of candidate.content.parts) {
+        if (part.inlineData) {
+          const imageData = part.inlineData.data;
+          const dataUrl = `data:image/png;base64,${imageData}`;
+          console.log('Image generated successfully');
+
+          return {
+            success: true,
+            imageUrl: dataUrl,
+            message: '가상 피팅이 완료되었습니다',
+            appliedClothing: clothingImages.map(i => i.category),
+            processingTime: {
+              total: totalTime,
+              apiCall: apiCallTime,
+            },
+          };
+        }
+      }
+
+      throw new Error('No image data in Gemini response.');
+    } catch (error) {
+      console.error('Virtual fitting from URLs error:', error);
+      throw new HttpException(
+        {
+          success: false,
+          message: '가상 피팅 처리 중 오류가 발생했습니다',
+          error: error.message,
+        },
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
 }
