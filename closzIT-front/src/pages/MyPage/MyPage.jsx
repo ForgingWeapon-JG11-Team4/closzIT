@@ -160,6 +160,37 @@ const MyPage = () => {
                 </div>
               </div>
             )}
+            
+            {/* 전신 사진 섹션 */}
+            <div className="py-4 border-t border-gold-light/30 mt-2">
+              <span className="text-charcoal-light dark:text-cream-dark block mb-3">전신 사진</span>
+              {user?.fullBodyImage ? (
+                <div className="flex items-center gap-4">
+                  <div className="w-24 h-32 rounded-xl overflow-hidden border-2 border-gold-light/30 bg-charcoal/5 dark:bg-charcoal/30">
+                    <img 
+                      src={user.fullBodyImage} 
+                      alt="전신 사진" 
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <button
+                    onClick={() => navigate('/setup3?edit=true')}
+                    className="flex items-center gap-2 px-4 py-2 bg-gold/10 text-gold rounded-xl text-sm font-medium border border-gold/20 hover:bg-gold/20 transition-colors"
+                  >
+                    <span className="material-symbols-rounded text-base">edit</span>
+                    사진 변경
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => navigate('/setup3?edit=true')}
+                  className="flex items-center justify-center gap-2 w-full py-4 bg-gold/10 text-gold rounded-xl text-sm font-medium border border-dashed border-gold/30 hover:bg-gold/20 transition-colors"
+                >
+                  <span className="material-symbols-rounded text-lg">add_a_photo</span>
+                  전신 사진 등록하기
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

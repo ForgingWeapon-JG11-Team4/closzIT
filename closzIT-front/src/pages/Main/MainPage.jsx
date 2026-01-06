@@ -204,6 +204,7 @@ const MainPage = () => {
   };
 
   const isAllSelected = Object.values(selectedOutfit).every(item => item !== null);
+  const hasAnySelected = Object.values(selectedOutfit).some(item => item !== null);
 
   const handleScroll = () => {
     if (!scrollContainerRef.current) return;
@@ -527,53 +528,161 @@ const MainPage = () => {
               </div>
             </div>
 
-            {/* ========== Character Styling Area with Animation ========== */}
+            {/* ========== Selected Outfit Area ========== */}
             <div className="relative mt-4 mb-6 animate-reveal animate-reveal-3">
               <div 
-                className="rounded-3xl p-6 min-h-[220px] flex flex-col items-center justify-center"
+                className="rounded-2xl p-3 flex flex-col"
                 style={{
                   background: 'linear-gradient(180deg, rgba(250, 248, 245, 0.8) 0%, rgba(255, 255, 255, 0.95) 100%)',
                   border: '1px solid rgba(212, 175, 55, 0.15)',
                   boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
                 }}
               >
-                {/* Character Image with Wobble Animation */}
-                <div 
-                  className="w-36 h-36 mb-4 flex items-center justify-center"
-                  style={{
-                    animation: 'float 3s ease-in-out infinite',
-                    transformOrigin: 'center bottom',
-                  }}
-                >
-                  <img 
-                    src="/assets/stylist-character.png" 
-                    alt="AI Stylist Character"
-                    className="w-full h-full object-contain drop-shadow-lg"
-                    style={{
-                      filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1))',
-                    }}
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
-                    }}
-                  />
-                  {/* Fallback Character */}
-                  <div 
-                    className="hidden w-28 h-28 rounded-full items-center justify-center"
-                    style={{
-                      background: 'linear-gradient(135deg, #FFE4B5 0%, #DEB887 100%)',
-                      boxShadow: '0 4px 12px rgba(222, 184, 135, 0.3)',
-                      animation: 'wobble 2s ease-in-out infinite',
-                    }}
-                  >
-                    <span className="material-symbols-rounded text-5xl text-amber-700">face</span>
-                  </div>
-                </div>
-                
-                {/* Styling Message */}
-                <p className="text-center text-charcoal dark:text-cream text-sm font-medium">
-                  어떤 옷을 입어보실래요?
-                </p>
+                {/* 선택된 옷이 하나라도 있으면 러프하게 던져진 의류, 아니면 캐릭터 */}
+                {Object.values(selectedOutfit).some(item => item !== null) ? (
+                  <>
+                    {/* 가로로 펼쳐진 의류 - 카드처럼 */}
+                    <div className="flex justify-center items-end flex-1 py-4 -space-x-4">
+                      {/* 외투 */}
+                      {selectedOutfit.outerwear && (
+                        <div 
+                          className="w-20 cursor-pointer group z-10"
+                          onClick={() => handleDeselectCloth('outerwear')}
+                          style={{ transform: 'rotate(-6deg) translateY(-8px)' }}
+                        >
+                          <div className="relative bg-warm-white dark:bg-charcoal/50 rounded-xl shadow-lifted overflow-hidden border-2 border-gold/30 transition-all group-hover:scale-110 group-hover:shadow-xl group-hover:z-50">
+                            <img 
+                              src={selectedOutfit.outerwear.image || selectedOutfit.outerwear.imageUrl}
+                              alt=""
+                              className="w-full aspect-square object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="material-symbols-rounded text-white text-lg">close</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* 상의 */}
+                      {selectedOutfit.tops && (
+                        <div 
+                          className="w-20 cursor-pointer group z-20"
+                          onClick={() => handleDeselectCloth('tops')}
+                          style={{ transform: 'rotate(-2deg) translateY(-4px)' }}
+                        >
+                          <div className="relative bg-warm-white dark:bg-charcoal/50 rounded-xl shadow-lifted overflow-hidden border-2 border-gold/30 transition-all group-hover:scale-110 group-hover:shadow-xl group-hover:z-50">
+                            <img 
+                              src={selectedOutfit.tops.image || selectedOutfit.tops.imageUrl}
+                              alt=""
+                              className="w-full aspect-square object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="material-symbols-rounded text-white text-lg">close</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* 하의 */}
+                      {selectedOutfit.bottoms && (
+                        <div 
+                          className="w-20 cursor-pointer group z-30"
+                          onClick={() => handleDeselectCloth('bottoms')}
+                          style={{ transform: 'rotate(3deg) translateY(-6px)' }}
+                        >
+                          <div className="relative bg-warm-white dark:bg-charcoal/50 rounded-xl shadow-lifted overflow-hidden border-2 border-gold/30 transition-all group-hover:scale-110 group-hover:shadow-xl group-hover:z-50">
+                            <img 
+                              src={selectedOutfit.bottoms.image || selectedOutfit.bottoms.imageUrl}
+                              alt=""
+                              className="w-full aspect-square object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="material-symbols-rounded text-white text-lg">close</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* 신발 */}
+                      {selectedOutfit.shoes && (
+                        <div 
+                          className="w-20 cursor-pointer group z-40"
+                          onClick={() => handleDeselectCloth('shoes')}
+                          style={{ transform: 'rotate(7deg) translateY(-10px)' }}
+                        >
+                          <div className="relative bg-warm-white dark:bg-charcoal/50 rounded-xl shadow-lifted overflow-hidden border-2 border-gold/30 transition-all group-hover:scale-110 group-hover:shadow-xl group-hover:z-50">
+                            <img 
+                              src={selectedOutfit.shoes.image || selectedOutfit.shoes.imageUrl}
+                              alt=""
+                              className="w-full aspect-square object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="material-symbols-rounded text-white text-lg">close</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* 피팅하기 버튼 - 모두 선택했을 때만 표시 */}
+                    {hasAnySelected && (
+                      <button
+                        onClick={() => {
+                          navigate('/fitting/direct', { 
+                            state: { 
+                              outfit: selectedOutfit,
+                              fromMain: true 
+                            } 
+                          });
+                        }}
+                        className="mt-3 w-full py-3.5 rounded-xl btn-premium font-bold text-sm flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all animate-fadeIn"
+                      >
+                        <span className="material-symbols-rounded text-lg">checkroom</span>
+                        피팅해보기
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {/* 캐릭터 이미지 - 아무것도 선택 안했을 때 */}
+                    <div className="flex-1 flex flex-col items-center justify-center">
+                      <div 
+                        className="w-28 h-28 mb-3 flex items-center justify-center"
+                        style={{
+                          animation: 'float 3s ease-in-out infinite',
+                          transformOrigin: 'center bottom',
+                        }}
+                      >
+                        <img 
+                          src="/assets/stylist-character.png" 
+                          alt="AI Stylist Character"
+                          className="w-full h-full object-contain drop-shadow-lg"
+                          style={{
+                            filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1))',
+                          }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                        {/* Fallback Character */}
+                        <div 
+                          className="hidden w-24 h-24 rounded-full items-center justify-center"
+                          style={{
+                            background: 'linear-gradient(135deg, #FFE4B5 0%, #DEB887 100%)',
+                            boxShadow: '0 4px 12px rgba(222, 184, 135, 0.3)',
+                            animation: 'wobble 2s ease-in-out infinite',
+                          }}
+                        >
+                          <span className="material-symbols-rounded text-4xl text-amber-700">face</span>
+                        </div>
+                      </div>
+                      <p className="text-center text-charcoal dark:text-cream text-sm font-medium">
+                        오늘 입고 싶은 옷을 골라보세요 ✨
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

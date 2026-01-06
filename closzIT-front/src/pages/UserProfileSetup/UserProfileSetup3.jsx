@@ -1,8 +1,10 @@
-import React, { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const UserProfileSetup3 = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isEditMode = searchParams.get('edit') === 'true';
   const fileInputRef = useRef(null);
 
   // State 관리
@@ -10,6 +12,35 @@ const UserProfileSetup3 = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Edit 모드일 때 기존 전신 사진 불러오기
+  useEffect(() => {
+    if (isEditMode) {
+      const fetchExistingImage = async () => {
+        const token = localStorage.getItem('accessToken');
+        if (!token) return;
+
+        try {
+          const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+          const response = await fetch(`${backendUrl}/user/me`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+
+          if (response.ok) {
+            const userData = await response.json();
+            if (userData.fullBodyImage) {
+              setFullBodyImage(userData.fullBodyImage);
+              setImagePreview(userData.fullBodyImage);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch user data:', error);
+        }
+      };
+
+      fetchExistingImage();
+    }
+  }, [isEditMode]);
 
   // 이미지 압축 함수 - 세로(height) 기준으로 리사이즈
   const compressImage = (file, maxHeight = 1200, quality = 0.8) => {
@@ -78,7 +109,11 @@ const UserProfileSetup3 = () => {
   };
 
   const handleSkip = async () => {
-    await submitProfile(null);
+    if (isEditMode) {
+      navigate('/mypage');
+    } else {
+      await submitProfile(null);
+    }
   };
 
   const submitProfile = async (imageData) => {
@@ -87,48 +122,68 @@ const UserProfileSetup3 = () => {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const setup1Data = JSON.parse(localStorage.getItem('userProfile') || '{}');
-      const setup2Data = JSON.parse(localStorage.getItem('userProfileSetup2') || '{}');
-
-      let birthday = null;
-      if (setup1Data.birthday) {
-        const { year, month, day } = setup1Data.birthday;
-        birthday = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      }
-
-      const profileData = {
-        name: setup1Data.name,
-        gender: setup1Data.gender,
-        birthday,
-        province: setup1Data.province,
-        city: setup1Data.city,
-        hairColor: setup2Data.hairColor,
-        personalColor: setup2Data.personalColor,
-        height: setup2Data.height,
-        weight: setup2Data.weight,
-        bodyType: setup2Data.bodyType,
-        preferredStyles: setup2Data.preferredStyles || [],
-        fullBodyImage: imageData
-      };
-
       const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-      const response = await fetch(`${backendUrl}/user/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(profileData)
-      });
 
-      if (!response.ok) {
-        throw new Error('프로필 저장에 실패했습니다');
+      // Edit 모드일 때는 전신 사진만 업데이트
+      if (isEditMode) {
+        const response = await fetch(`${backendUrl}/user/profile`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ fullBodyImage: imageData })
+        });
+
+        if (!response.ok) {
+          throw new Error('전신 사진 저장에 실패했습니다');
+        }
+
+        navigate('/mypage');
+      } else {
+        // 신규 등록 모드
+        const setup1Data = JSON.parse(localStorage.getItem('userProfile') || '{}');
+        const setup2Data = JSON.parse(localStorage.getItem('userProfileSetup2') || '{}');
+
+        let birthday = null;
+        if (setup1Data.birthday) {
+          const { year, month, day } = setup1Data.birthday;
+          birthday = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        }
+
+        const profileData = {
+          name: setup1Data.name,
+          gender: setup1Data.gender,
+          birthday,
+          province: setup1Data.province,
+          city: setup1Data.city,
+          hairColor: setup2Data.hairColor,
+          personalColor: setup2Data.personalColor,
+          height: setup2Data.height,
+          weight: setup2Data.weight,
+          bodyType: setup2Data.bodyType,
+          preferredStyles: setup2Data.preferredStyles || [],
+          fullBodyImage: imageData
+        };
+
+        const response = await fetch(`${backendUrl}/user/profile`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(profileData)
+        });
+
+        if (!response.ok) {
+          throw new Error('프로필 저장에 실패했습니다');
+        }
+
+        localStorage.removeItem('userProfile');
+        localStorage.removeItem('userProfileSetup2');
+
+        navigate('/main');
       }
-
-      localStorage.removeItem('userProfile');
-      localStorage.removeItem('userProfileSetup2');
-
-      navigate('/main');
     } catch (err) {
       console.error('Profile update error:', err);
       setError(err.message || '오류가 발생했습니다');
@@ -147,19 +202,23 @@ const UserProfileSetup3 = () => {
       <header className="fixed top-0 left-0 right-0 z-50 glass-warm border-b border-gold-light/20">
         <div className="flex items-center justify-between px-4 h-14">
           <button
-            onClick={() => navigate('/setup2')}
+            onClick={() => navigate(isEditMode ? '/mypage' : '/setup2')}
             className="w-10 h-10 flex items-center justify-center -ml-2 rounded-full hover:bg-gold-light/20 transition-colors"
           >
             <span className="material-symbols-rounded text-charcoal dark:text-cream">arrow_back</span>
           </button>
-          <h1 className="text-lg font-bold text-charcoal dark:text-cream">회원정보 입력</h1>
+          <h1 className="text-lg font-bold text-charcoal dark:text-cream">
+            {isEditMode ? '전신 사진 수정' : '회원정보 입력'}
+          </h1>
           <div className="w-10"></div>
         </div>
 
-        {/* 프로그레스 바 */}
-        <div className="h-1 bg-gold-light/20">
-          <div className="h-full bg-gold transition-all duration-300" style={{ width: '100%' }}></div>
-        </div>
+        {/* 프로그레스 바 - edit 모드에서는 숨김 */}
+        {!isEditMode && (
+          <div className="h-1 bg-gold-light/20">
+            <div className="h-full bg-gold transition-all duration-300" style={{ width: '100%' }}></div>
+          </div>
+        )}
       </header>
 
       {/* 메인 컨텐츠 */}
