@@ -309,24 +309,22 @@ ${categorySpecificInstructions}
 OUTPUT: Generate ONLY the transformed flat-lay image. No text, no explanation.
 `;
 
-            const response = await (this.ai.models as any).generateContent({
+            // 디버깅: 이미지 크기 로깅
+            this.logger.log(`[flattenClothing] Image base64 length: ${imageBase64.length} chars`);
+
+            const response = await this.ai.models.generateContent({
                 model: 'gemini-3-pro-image-preview',
                 contents: [
+                    { text: prompt },
                     {
-                        role: 'user',
-                        parts: [
-                            { text: prompt },
-                            {
-                                inlineData: {
-                                    mimeType: 'image/png',
-                                    data: imageBase64,
-                                },
-                            },
-                        ],
+                        inlineData: {
+                            mimeType: 'image/png',
+                            data: imageBase64,
+                        },
                     },
                 ],
-                generationConfig: {
-                    temperature: 0.1,
+                config: {
+                    responseModalities: ['image', 'text'],
                 },
             });
 
@@ -354,7 +352,6 @@ OUTPUT: Generate ONLY the transformed flat-lay image. No text, no explanation.
                         this.logger.log(`[flattenClothing] Deducted 1 credit for userId: ${userId}`);
                     } catch (creditError) {
                         this.logger.error('[flattenClothing] Failed to deduct credit:', creditError.message);
-                        // 크레딧 부족 시 에러 throw
                         throw creditError;
                     }
 
@@ -367,9 +364,11 @@ OUTPUT: Generate ONLY the transformed flat-lay image. No text, no explanation.
             }
 
             throw new Error('No image data in Gemini response');
+
         } catch (error) {
             this.logger.error('[flattenClothing] Error:', error.message);
             throw error;
         }
     }
 }
+
