@@ -42,4 +42,11 @@ export class CalendarController {
     );
     return { events };
   }
+
+  @Get('upcoming')
+  @UseGuards(JwtAuthGuard)
+  async getUpcomingEvents(@Req() req) {
+    const events = await this.calendarService.getUpcomingEvents(req.user.id);
+    return { events };
+  }
 }
