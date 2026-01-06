@@ -159,57 +159,57 @@ const ProfilePage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-gray-600 dark:text-gray-400">Loading...</div>
+      <div className="min-h-screen bg-cream dark:bg-[#1A1918] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gold"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
+    <div className="min-h-screen bg-cream dark:bg-[#1A1918] pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-50 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+      <div className="sticky top-0 z-50 glass-warm border-b border-gold-light/20 px-4 py-3">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate(-1)}
-            className="w-10 h-10 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center transition-colors"
+            className="w-10 h-10 rounded-full hover:bg-gold-light/20 flex items-center justify-center transition-colors"
           >
-            <span className="material-symbols-rounded text-2xl text-gray-700 dark:text-gray-200">arrow_back</span>
+            <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream">arrow_back</span>
           </button>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-            {user?.name || user?.email || 'Profile'}
+          <h1 className="text-xl font-bold text-charcoal dark:text-cream">
+            {user?.name || user?.email || '프로필'}
           </h1>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6">
         {/* Profile Header */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg mb-6">
+        <div className="bg-warm-white dark:bg-charcoal rounded-2xl p-6 shadow-soft border border-gold-light/20 mb-6">
           <div className="flex items-center gap-6 mb-6">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-indigo-500 flex items-center justify-center text-white text-3xl font-bold">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-gold to-gold-dark flex items-center justify-center text-warm-white text-3xl font-bold">
               {user?.name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
             </div>
             <div className="flex-1">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+              <h2 className="text-2xl font-bold text-charcoal dark:text-cream mb-1">
                 {user?.name || 'User'}
               </h2>
-              <p className="text-gray-500 dark:text-gray-400 mb-3">{user?.email}</p>
+              <p className="text-charcoal-light dark:text-cream-dark">{user?.email}</p>
             </div>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="text-center">
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{posts.length}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Posts</p>
+              <p className="text-2xl font-bold text-charcoal dark:text-cream">{posts.length}</p>
+              <p className="text-sm text-charcoal-light dark:text-cream-dark">게시물</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">0</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Followers</p>
+              <p className="text-2xl font-bold text-charcoal dark:text-cream">0</p>
+              <p className="text-sm text-charcoal-light dark:text-cream-dark">팔로워</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">0</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Following</p>
+              <p className="text-2xl font-bold text-charcoal dark:text-cream">0</p>
+              <p className="text-sm text-charcoal-light dark:text-cream-dark">팔로잉</p>
             </div>
           </div>
 
@@ -217,27 +217,26 @@ const ProfilePage = () => {
           {isOwnProfile ? (
             <button
               onClick={() => navigate('/mypage')}
-              className="w-full py-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              className="w-full py-3 bg-cream-dark dark:bg-charcoal-light/30 text-charcoal dark:text-cream rounded-xl font-semibold hover:bg-gold-light/30 transition-colors border border-gold-light/30"
             >
-              Edit Profile
+              프로필 수정
             </button>
           ) : (
             <button
               onClick={handleFollowToggle}
-              className={`w-full py-3 rounded-xl font-semibold transition-colors ${
-                isFollowing
-                  ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
-                  : 'bg-primary text-white hover:bg-primary/90'
-              }`}
+              className={`w-full py-3 rounded-xl font-semibold transition-colors ${isFollowing
+                  ? 'bg-cream-dark dark:bg-charcoal-light/30 text-charcoal dark:text-cream hover:bg-gold-light/30 border border-gold-light/30'
+                  : 'btn-premium'
+                }`}
             >
-              {isFollowing ? 'Following' : 'Follow'}
+              {isFollowing ? '팔로잉' : '팔로우'}
             </button>
           )}
         </div>
 
         {/* Posts Grid */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Posts</h3>
+        <div className="bg-warm-white dark:bg-charcoal rounded-2xl p-4 shadow-soft border border-gold-light/20">
+          <h3 className="text-lg font-bold text-charcoal dark:text-cream mb-4">게시물</h3>
 
           {posts.length > 0 ? (
             <div className="grid grid-cols-3 gap-2">
@@ -245,7 +244,7 @@ const ProfilePage = () => {
                 <div
                   key={post.id}
                   onClick={() => navigate(`/post/${post.id}`)}
-                  className="relative aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                  className="relative aspect-square bg-cream-dark dark:bg-charcoal-light rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
                 >
                   <img
                     src={post.imageUrl}
@@ -254,15 +253,15 @@ const ProfilePage = () => {
                   />
                   <div className="absolute top-2 right-2 flex gap-1">
                     {post.likesCount > 0 && (
-                      <div className="bg-black/50 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
-                        <span className="material-symbols-rounded text-white text-xs">favorite</span>
-                        <span className="text-white text-xs">{post.likesCount}</span>
+                      <div className="bg-charcoal/50 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
+                        <span className="material-symbols-rounded text-warm-white text-xs">favorite</span>
+                        <span className="text-warm-white text-xs">{post.likesCount}</span>
                       </div>
                     )}
                     {post.commentsCount > 0 && (
-                      <div className="bg-black/50 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
-                        <span className="material-symbols-rounded text-white text-xs">chat_bubble</span>
-                        <span className="text-white text-xs">{post.commentsCount}</span>
+                      <div className="bg-charcoal/50 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
+                        <span className="material-symbols-rounded text-warm-white text-xs">chat_bubble</span>
+                        <span className="text-warm-white text-xs">{post.commentsCount}</span>
                       </div>
                     )}
                   </div>
@@ -271,14 +270,14 @@ const ProfilePage = () => {
             </div>
           ) : (
             <div className="text-center py-20">
-              <span className="material-symbols-rounded text-6xl text-gray-300 dark:text-gray-700">photo_library</span>
-              <p className="mt-4 text-gray-500 dark:text-gray-400">No posts yet</p>
+              <span className="material-symbols-rounded text-6xl text-gold-light dark:text-charcoal-light">photo_library</span>
+              <p className="mt-4 text-charcoal-light dark:text-cream-dark">아직 게시물이 없습니다</p>
               {isOwnProfile && (
                 <button
                   onClick={() => navigate('/create-post')}
-                  className="mt-6 px-6 py-3 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors"
+                  className="mt-6 px-6 py-3 btn-premium rounded-full"
                 >
-                  Create your first post
+                  첫 게시물 작성하기
                 </button>
               )}
             </div>
@@ -286,32 +285,33 @@ const ProfilePage = () => {
         </div>
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 flex items-center justify-around pb-2 z-50">
+      {/* Bottom Navigation - Unified with MainPage */}
+      <div className="fixed bottom-0 left-0 right-0 h-16 glass-warm border-t border-gold-light/20 flex items-center justify-around px-4 z-50 safe-area-pb">
+
         <button
-          onClick={() => navigate('/')}
-          className="flex flex-col items-center justify-center w-16 h-full text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors gap-1"
+          onClick={() => navigate('/main')}
+          className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] text-charcoal-light dark:text-cream-dark hover:text-gold transition-colors"
         >
-          <span className="material-symbols-rounded text-2xl">home</span>
-          <span className="text-[10px] font-medium">Home</span>
+          <span className="material-symbols-rounded text-[22px]">checkroom</span>
+          <span className="text-[10px] font-semibold">내 옷장</span>
         </button>
 
-        <div className="relative -top-5">
-          <button
-            onClick={() => navigate('/create-post')}
-            className="w-16 h-16 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform border-4 border-white dark:border-gray-900"
-          >
-            <span className="material-symbols-rounded text-4xl">add</span>
-          </button>
-        </div>
+        <button
+          onClick={() => navigate('/create-post')}
+          className="flex items-center gap-2 px-5 py-2.5 btn-premium rounded-full"
+        >
+          <span className="material-symbols-rounded text-lg">add</span>
+          <span className="text-sm font-semibold">게시물 작성</span>
+        </button>
 
         <button
           onClick={() => navigate('/feed')}
-          className="flex flex-col items-center justify-center w-16 h-full text-gray-400 hover:text-primary transition-colors gap-1"
+          className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] text-charcoal-light dark:text-cream-dark hover:text-gold transition-colors"
         >
-          <span className="material-symbols-rounded text-2xl">grid_view</span>
-          <span className="text-[10px] font-medium">SNS</span>
+          <span className="material-symbols-rounded text-[22px]">grid_view</span>
+          <span className="text-[10px] font-semibold">SNS</span>
         </button>
+
       </div>
     </div>
   );

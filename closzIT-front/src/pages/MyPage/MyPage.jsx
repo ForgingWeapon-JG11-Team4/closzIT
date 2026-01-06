@@ -63,96 +63,96 @@ const MyPage = () => {
 
   if (isLoading) {
     return (
-      <div className="bg-gray-50 dark:bg-gray-900 min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="bg-cream dark:bg-[#1A1918] min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gold"></div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen font-sans">
+    <div className="bg-cream dark:bg-[#1A1918] min-h-screen font-sans">
       {/* Header */}
-      <div className="px-4 py-4 flex items-center gap-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div className="px-4 py-4 flex items-center gap-3 glass-warm border-b border-gold-light/20 sticky top-0 z-40">
         <button
           onClick={() => navigate(-1)}
-          className="w-10 h-10 -ml-2 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          className="w-10 h-10 -ml-2 rounded-full flex items-center justify-center hover:bg-gold-light/20 transition-colors"
         >
-          <span className="material-symbols-rounded text-2xl text-gray-700 dark:text-gray-200">arrow_back</span>
+          <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream">arrow_back</span>
         </button>
-        <h1 className="text-lg font-bold text-gray-900 dark:text-white">마이페이지</h1>
+        <h1 className="text-lg font-bold text-charcoal dark:text-cream">마이페이지</h1>
       </div>
 
       {/* Profile Section */}
       <div className="p-6">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
+        <div className="bg-warm-white dark:bg-charcoal rounded-2xl p-6 shadow-soft border border-gold-light/20">
           {/* Profile Header */}
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-indigo-500 flex items-center justify-center text-white text-3xl font-bold shadow-lg">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gold to-gold-dark flex items-center justify-center text-warm-white text-3xl font-bold shadow-lg">
               {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
             </div>
             <div className="flex-1">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">{user?.name || '사용자'}</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{user?.email || ''}</p>
+              <h2 className="text-xl font-bold text-charcoal dark:text-cream">{user?.name || '사용자'}</h2>
+              <p className="text-sm text-charcoal-light dark:text-cream-dark">{user?.email || ''}</p>
             </div>
           </div>
 
           {/* Profile Info */}
-          <div className="space-y-4 border-t border-gray-100 dark:border-gray-700 pt-4">
+          <div className="space-y-4 border-t border-gold-light/30 pt-4">
             <div className="flex justify-between items-center py-2">
-              <span className="text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                <span className="material-symbols-rounded text-lg text-amber-500">monetization_on</span>
+              <span className="text-charcoal-light dark:text-cream-dark flex items-center gap-2">
+                <span className="material-symbols-rounded text-lg text-gold">monetization_on</span>
                 보유 크레딧
               </span>
-              <span className="text-gray-900 dark:text-white font-bold text-lg text-amber-600">
+              <span className="text-charcoal dark:text-cream font-bold text-lg text-gold">
                 {user?.credit || 0}
               </span>
             </div>
             <div className="flex justify-between items-center py-2">
-              <span className="text-gray-500 dark:text-gray-400">성별</span>
-              <span className="text-gray-900 dark:text-white font-medium">
+              <span className="text-charcoal-light dark:text-cream-dark">성별</span>
+              <span className="text-charcoal dark:text-cream font-medium">
                 {user?.gender === 'male' ? '남성' : user?.gender === 'female' ? '여성' : '-'}
               </span>
             </div>
             <div className="flex justify-between items-center py-2">
-              <span className="text-gray-500 dark:text-gray-400">생년월일</span>
-              <span className="text-gray-900 dark:text-white font-medium">
+              <span className="text-charcoal-light dark:text-cream-dark">생년월일</span>
+              <span className="text-charcoal dark:text-cream font-medium">
                 {user?.birthday ? new Date(user.birthday).toLocaleDateString('ko-KR') : '-'}
               </span>
             </div>
             <div className="flex justify-between items-center py-2">
-              <span className="text-gray-500 dark:text-gray-400">지역</span>
-              <span className="text-gray-900 dark:text-white font-medium">
+              <span className="text-charcoal-light dark:text-cream-dark">지역</span>
+              <span className="text-charcoal dark:text-cream font-medium">
                 {user?.province && user?.city ? `${user.province} ${user.city}` : '-'}
               </span>
             </div>
             <div className="flex justify-between items-center py-2">
-              <span className="text-gray-500 dark:text-gray-400">퍼스널 컬러</span>
-              <span className="text-gray-900 dark:text-white font-medium">
+              <span className="text-charcoal-light dark:text-cream-dark">퍼스널 컬러</span>
+              <span className="text-charcoal dark:text-cream font-medium">
                 {user?.personalColor === 'spring' ? '봄 웜톤' :
-                 user?.personalColor === 'summer' ? '여름 쿨톤' :
-                 user?.personalColor === 'autumn' ? '가을 웜톤' :
-                 user?.personalColor === 'winter' ? '겨울 쿨톤' : '-'}
+                  user?.personalColor === 'summer' ? '여름 쿨톤' :
+                    user?.personalColor === 'autumn' ? '가을 웜톤' :
+                      user?.personalColor === 'winter' ? '겨울 쿨톤' : '-'}
               </span>
             </div>
             <div className="flex justify-between items-center py-2">
-              <span className="text-gray-500 dark:text-gray-400">체형</span>
-              <span className="text-gray-900 dark:text-white font-medium">
+              <span className="text-charcoal-light dark:text-cream-dark">체형</span>
+              <span className="text-charcoal dark:text-cream font-medium">
                 {user?.bodyType === 'triangle' ? '삼각형' :
-                 user?.bodyType === 'invertedTriangle' ? '역삼각형' :
-                 user?.bodyType === 'oval' ? '둥근형' :
-                 user?.bodyType === 'rectangle' ? '직사각형' :
-                 user?.bodyType === 'trapezoid' ? '사다리꼴형' :
-                 user?.bodyType === 'unknown' ? '잘 모르겠어요' : '-'}
+                  user?.bodyType === 'invertedTriangle' ? '역삼각형' :
+                    user?.bodyType === 'oval' ? '둥근형' :
+                      user?.bodyType === 'rectangle' ? '직사각형' :
+                        user?.bodyType === 'trapezoid' ? '사다리꼴형' :
+                          user?.bodyType === 'unknown' ? '잘 모르겠어요' : '-'}
               </span>
             </div>
             {user?.preferredStyles && user.preferredStyles.length > 0 && (
               <div className="py-2">
-                <span className="text-gray-500 dark:text-gray-400 block mb-2">선호 스타일</span>
+                <span className="text-charcoal-light dark:text-cream-dark block mb-2">선호 스타일</span>
                 <div className="flex flex-wrap gap-2">
                   {user.preferredStyles.map((style, index) => (
-                    <span 
+                    <span
                       key={index}
-                      className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium"
+                      className="px-3 py-1 bg-gold/10 text-gold rounded-full text-sm font-medium border border-gold/20"
                     >
                       {style}
                     </span>
@@ -164,34 +164,34 @@ const MyPage = () => {
         </div>
 
         {/* Menu Items */}
-        <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm">
+        <div className="mt-6 bg-warm-white dark:bg-charcoal rounded-2xl overflow-hidden shadow-soft border border-gold-light/20">
           <button
             onClick={() => navigate('/setup/profile1?edit=true')}
-            className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700"
+            className="w-full flex items-center justify-between px-6 py-4 hover:bg-gold-light/20 transition-colors border-b border-gold-light/20"
           >
             <div className="flex items-center gap-3">
-              <span className="material-symbols-rounded text-gray-500">edit</span>
-              <span className="text-gray-900 dark:text-white">프로필 수정</span>
+              <span className="material-symbols-rounded text-charcoal-light dark:text-cream-dark">edit</span>
+              <span className="text-charcoal dark:text-cream">프로필 수정</span>
             </div>
-            <span className="material-symbols-rounded text-gray-400">chevron_right</span>
+            <span className="material-symbols-rounded text-charcoal-light dark:text-cream-dark">chevron_right</span>
           </button>
           <button
-            className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700"
+            className="w-full flex items-center justify-between px-6 py-4 hover:bg-gold-light/20 transition-colors border-b border-gold-light/20"
           >
             <div className="flex items-center gap-3">
-              <span className="material-symbols-rounded text-gray-500">notifications</span>
-              <span className="text-gray-900 dark:text-white">알림 설정</span>
+              <span className="material-symbols-rounded text-charcoal-light dark:text-cream-dark">notifications</span>
+              <span className="text-charcoal dark:text-cream">알림 설정</span>
             </div>
-            <span className="material-symbols-rounded text-gray-400">chevron_right</span>
+            <span className="material-symbols-rounded text-charcoal-light dark:text-cream-dark">chevron_right</span>
           </button>
           <button
-            className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="w-full flex items-center justify-between px-6 py-4 hover:bg-gold-light/20 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <span className="material-symbols-rounded text-gray-500">help</span>
-              <span className="text-gray-900 dark:text-white">고객센터</span>
+              <span className="material-symbols-rounded text-charcoal-light dark:text-cream-dark">help</span>
+              <span className="text-charcoal dark:text-cream">고객센터</span>
             </div>
-            <span className="material-symbols-rounded text-gray-400">chevron_right</span>
+            <span className="material-symbols-rounded text-charcoal-light dark:text-cream-dark">chevron_right</span>
           </button>
         </div>
 
@@ -205,7 +205,7 @@ const MyPage = () => {
         </button>
 
         {/* App Version */}
-        <p className="text-center text-gray-400 text-xs mt-8">
+        <p className="text-center text-charcoal-light/60 dark:text-cream-dark/60 text-xs mt-8">
           closzIT v1.0.0
         </p>
       </div>
