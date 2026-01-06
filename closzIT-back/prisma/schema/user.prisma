@@ -50,6 +50,7 @@ model User {
   followers          Follow[]   @relation("Following")
   following          Follow[]   @relation("Follower")
   creditHistory      CreditHistory[]
+  outfitLogs         OutfitLog[]
 
   @@map("users")
 }

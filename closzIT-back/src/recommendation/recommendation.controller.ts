@@ -17,6 +17,7 @@ import { SearchRequestDto } from './dto/search-request.dto';
 import { FeedbackRequestDto } from './dto/feedback-request.dto';
 import { SearchResponseDto } from './dto/search-response.dto';
 import { SearchContext, TPO } from './types/clothing.types';
+import { OutfitRagService } from './services/outfit-rag.service';
 
 @Controller('recommendation')
 @UseGuards(JwtAuthGuard)
@@ -25,6 +26,7 @@ export class RecommendationController {
     private readonly ragSearchService: RagSearchService,
     private readonly feedbackService: FeedbackService,
     private readonly calendarService: CalendarService,
+    private readonly outfitRagService: OutfitRagService,
   ) {}
 
   /**
@@ -104,5 +106,23 @@ export class RecommendationController {
     );
 
     return { success: true };
+  }
+
+  /**
+   * 대화형 코디 추천
+   * POST /api/recommendation/conversational
+   */
+  @Post('conversational')
+  @HttpCode(HttpStatus.OK)
+  async conversational(
+    @Req() req: any,
+    @Body() body: { query: string },
+  ) {
+    const userId = req.user.id;
+    const result = await this.outfitRagService.recommendFromNaturalLanguage(
+      userId,
+      body.query,
+    );
+    return result;
   }
 }

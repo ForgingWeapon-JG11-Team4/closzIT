@@ -84,6 +84,12 @@ model Clothing {
   // ===== 관계 =====
   postClothes PostClothing[]
 
+  // OutfitLog 관계
+  outfitLogsAsOuter  OutfitLog[] @relation("OutfitLogOuter")
+  outfitLogsAsTop    OutfitLog[] @relation("OutfitLogTop")
+  outfitLogsAsBottom OutfitLog[] @relation("OutfitLogBottom")
+  outfitLogsAsShoes  OutfitLog[] @relation("OutfitLogShoes")
+
   // ===== 테이블 매핑 =====
   @@index([userId])
   @@map("clothes")

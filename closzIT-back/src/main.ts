@@ -27,7 +27,7 @@ async function bootstrap() {
     console.log('Check your Security Group settings.');
   }
 
-  const port = process.env.PORT ?? 42429;
+  const port = process.env.PORT ?? 3000;
   await app.listen(port, '0.0.0.0');
 
 }

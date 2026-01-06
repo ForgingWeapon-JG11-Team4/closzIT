@@ -1,0 +1,258 @@
+.conversational-recommendation-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.page-header h1 {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.page-header p {
+  font-size: 1.1rem;
+  color: #666;
+}
+
+.query-section {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.query-input {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  resize: vertical;
+  font-family: inherit;
+  margin-bottom: 1rem;
+  transition: border-color 0.3s;
+}
+
+.query-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.submit-button {
+  width: 100%;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: white;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.submit-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+}
+
+.submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.example-queries {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.example-label {
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.example-button {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.95rem;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.example-button:hover {
+  background: #ebebeb;
+  border-color: #667eea;
+}
+
+.error-message {
+  background: #fee;
+  border: 1px solid #fcc;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 2rem;
+  color: #c33;
+  text-align: center;
+}
+
+.result-section {
+  margin-top: 2rem;
+}
+
+.parsed-query-section,
+.reference-outfit-section,
+.fixed-items-section,
+.recommendations-section {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.parsed-query-section h2,
+.reference-outfit-section h2,
+.fixed-items-section h2,
+.recommendations-section h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.parsed-info {
+  background: #f9f9f9;
+  border-left: 4px solid #667eea;
+  padding: 1rem;
+  border-radius: 4px;
+}
+
+.parsed-info p {
+  margin: 0.5rem 0;
+  font-size: 0.95rem;
+}
+
+.outfit-info {
+  background: #f9f9f9;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.outfit-info p {
+  margin: 0.25rem 0;
+  font-size: 0.95rem;
+}
+
+.outfit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.clothing-item {
+  position: relative;
+  text-align: center;
+  background: #fafafa;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.clothing-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.clothing-item.fixed {
+  border-color: #ffd700;
+  background: #fffbea;
+}
+
+.clothing-item img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+}
+
+.clothing-item p {
+  font-weight: bold;
+  color: #333;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.fixed-badge {
+  display: inline-block;
+  background: #ffd700;
+  color: #333;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  margin-top: 0.25rem;
+}
+
+.item-stats {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.5rem;
+}
+
+.category-recommendations {
+  margin-bottom: 2rem;
+}
+
+.category-recommendations h3 {
+  font-size: 1.2rem;
+  color: #667eea;
+  margin-bottom: 1rem;
+  text-transform: capitalize;
+}
+
+@media (max-width: 768px) {
+  .conversational-recommendation-page {
+    padding: 1rem;
+  }
+
+  .page-header h1 {
+    font-size: 2rem;
+  }
+
+  .outfit-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .query-section,
+  .parsed-query-section,
+  .reference-outfit-section,
+  .fixed-items-section,
+  .recommendations-section {
+    padding: 1rem;
+  }
+}

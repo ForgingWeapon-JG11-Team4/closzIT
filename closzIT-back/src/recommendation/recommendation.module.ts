@@ -9,10 +9,13 @@ import { VectorDBService } from './services/vector-db.service';
 import { EmbeddingService } from './services/embedding.service';
 import { ScoringService } from './services/scoring.service';
 import { FeedbackService } from './services/feedback.service';
+import { ConversationalRagService } from './services/conversational-rag.service';
+import { OutfitRagService } from './services/outfit-rag.service';
 
 import { UserModule } from '../user/user.module';
 import { CalendarModule } from '../calendar/calendar.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { OutfitLogModule } from '../outfit-log/outfit-log.module';
 
 @Module({
   imports: [
@@ -20,6 +23,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     UserModule,
     CalendarModule,
     PrismaModule,
+    OutfitLogModule,
   ],
   controllers: [RecommendationController],
   providers: [
@@ -28,6 +32,8 @@ import { PrismaModule } from '../prisma/prisma.module';
     EmbeddingService,
     ScoringService,
     FeedbackService,
+    ConversationalRagService,
+    OutfitRagService,
   ],
   exports: [VectorDBService, FeedbackService],
 })

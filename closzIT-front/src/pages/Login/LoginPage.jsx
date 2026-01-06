@@ -81,9 +81,9 @@ const LoginPage = () => {
             다른 방법으로 로그인
           </button>
         </div>
-        
+
         <p className="mt-8 text-xs text-center text-gray-400 leading-relaxed">
-          계속 진행하면 CloszIT의 <a className="underline" href="#">서비스 이용약관</a> 및 <br/>
+          계속 진행하면 CloszIT의 <a className="underline" href="#">서비스 이용약관</a> 및 <br />
           <a className="underline" href="#">개인정보 처리방침</a>에 동의하게 됩니다.
         </p>
       </div>
