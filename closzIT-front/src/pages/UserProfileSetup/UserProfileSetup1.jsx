@@ -33,7 +33,7 @@ const UserProfileSetup1 = () => {
   const [formData, setFormData] = useState({
     name: '',
     gender: '',
-    birthday: null, // { year, month, day } 객체로 변경
+    birthday: null,
     province: '',
     city: ''
   });
@@ -60,7 +60,6 @@ const UserProfileSetup1 = () => {
         if (response.ok) {
           const userData = await response.json();
           
-          // 생년월일 파싱
           let birthday = null;
           if (userData.birthday) {
             const date = new Date(userData.birthday);
@@ -71,7 +70,6 @@ const UserProfileSetup1 = () => {
             };
           }
 
-          // 도 설정 시 시/군/구 목록도 설정
           if (userData.province) {
             setAvailableCities(locationData[userData.province] || []);
           }
@@ -99,11 +97,9 @@ const UserProfileSetup1 = () => {
     setIsValid(name.trim() !== '' && gender !== '' && birthday !== null && province !== '' && city !== '');
   }, [formData]);
 
-  // 도가 변경되면 해당 시/군/구 목록 업데이트
   useEffect(() => {
     if (formData.province && isLoaded) {
       setAvailableCities(locationData[formData.province] || []);
-      // 도가 바뀌면 시 초기화 (최초 로드 시에는 초기화하지 않음)
       setFormData(prev => ({ ...prev, city: '' }));
     }
   }, [formData.province, isLoaded]);
@@ -116,7 +112,6 @@ const UserProfileSetup1 = () => {
     }));
   };
 
-  // 생년월일 변경 핸들러
   const handleBirthdayChange = (dateObj) => {
     setFormData(prev => ({
       ...prev,
@@ -124,7 +119,6 @@ const UserProfileSetup1 = () => {
     }));
   };
 
-  // 생년월일 표시 형식
   const formatBirthday = (birthday) => {
     if (!birthday) return '';
     return `${birthday.year}. ${birthday.month}. ${birthday.day}.`;
@@ -132,48 +126,46 @@ const UserProfileSetup1 = () => {
 
   const handleNext = () => {
     if (isValid) {
-      // localStorage에 유저 정보 저장
       localStorage.setItem('userProfile', JSON.stringify(formData));
-      // edit 모드면 파라미터 유지
       navigate(isEditMode ? '/setup/profile2?edit=true' : '/setup/profile2');
     }
   };
 
   return (
-    <div className="bg-background-light dark:bg-background-dark font-sans text-text-light dark:text-text-dark antialiased transition-colors duration-200 min-h-screen">
+    <div className="bg-cream dark:bg-[#1A1918] font-sans text-charcoal dark:text-cream antialiased transition-colors duration-200 min-h-screen">
       <div className="max-w-md mx-auto min-h-screen relative flex flex-col px-6 py-8">
         <header className="flex items-center justify-between mb-8">
           <button 
-            className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-text-light dark:text-text-dark transition-colors" 
+            className="w-10 h-10 -ml-2 rounded-full flex items-center justify-center hover:bg-gold-light/20 transition-colors" 
             type="button"
             onClick={() => navigate(-1)}
           >
-            <span className="material-icons-round text-2xl">arrow_back</span>
+            <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream">arrow_back</span>
           </button>
           <div className="flex space-x-2">
-            <div className="w-2 h-2 rounded-full bg-primary"></div>
-            <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600"></div>
+            <div className="w-2.5 h-2.5 rounded-full bg-gold"></div>
+            <div className="w-2.5 h-2.5 rounded-full bg-gold-light/40"></div>
           </div>
-          <div className="w-8"></div> 
+          <div className="w-10"></div> 
         </header>
 
         <main className="flex-grow flex flex-col space-y-8">
           <div>
-            <h1 className="text-2xl font-bold mb-2">기본 정보를 입력해주세요</h1>
-            <p className="text-text-muted-light dark:text-text-muted-dark text-sm">더 정확한 스타일 추천을 위해 필요해요.</p>
+            <h1 className="text-2xl font-bold mb-2 text-charcoal dark:text-cream">기본 정보를 입력해주세요</h1>
+            <p className="text-charcoal-light dark:text-cream-dark text-sm">더 정확한 스타일 추천을 위해 필요해요.</p>
           </div>
 
           <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
             <div className="space-y-2 group">
               <label 
-                className="block text-sm font-medium text-text-light dark:text-text-dark group-focus-within:text-primary transition-colors" 
+                className="block text-sm font-semibold text-charcoal dark:text-cream group-focus-within:text-gold transition-colors" 
                 htmlFor="name"
               >
                 이름을 알려주세요!
               </label>
               <div className="relative">
                 <input 
-                  className="block w-full px-4 py-3 rounded-xl border-gray-200 dark:border-gray-700 bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary focus:border-transparent transition shadow-sm outline-none border" 
+                  className="block w-full px-4 py-3.5 rounded-xl border border-gold-light/30 bg-warm-white dark:bg-charcoal/50 text-charcoal dark:text-cream placeholder-charcoal-light/50 dark:placeholder-cream-dark/50 focus:ring-2 focus:ring-gold focus:border-transparent transition shadow-sm outline-none" 
                   id="name" 
                   name="name" 
                   placeholder="닉네임을 입력해주세요" 
@@ -181,12 +173,12 @@ const UserProfileSetup1 = () => {
                   value={formData.name}
                   onChange={handleChange}
                 />
-                <span className="absolute right-3 top-3 text-gray-400 dark:text-gray-500 material-icons-round">edit</span>
+                <span className="absolute right-3 top-3.5 text-gold material-symbols-rounded">edit</span>
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-text-light dark:text-text-dark">
+              <label className="block text-sm font-semibold text-charcoal dark:text-cream">
                 성별을 알려주세요
               </label>
               <div className="grid grid-cols-2 gap-4">
@@ -199,7 +191,7 @@ const UserProfileSetup1 = () => {
                     checked={formData.gender === 'female'}
                     onChange={handleChange}
                   />
-                  <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-surface-light dark:bg-surface-dark text-center hover:bg-gray-50 dark:hover:bg-gray-800 peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all duration-200">
+                  <div className="p-3.5 rounded-xl border border-gold-light/30 bg-warm-white dark:bg-charcoal/50 text-center hover:bg-gold-light/10 peer-checked:border-gold peer-checked:bg-gold/10 peer-checked:text-gold transition-all duration-200">
                     <span className="block text-sm font-medium">여성</span>
                   </div>
                 </label>
@@ -212,7 +204,7 @@ const UserProfileSetup1 = () => {
                     checked={formData.gender === 'male'}
                     onChange={handleChange}
                   />
-                  <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-surface-light dark:bg-surface-dark text-center hover:bg-gray-50 dark:hover:bg-gray-800 peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all duration-200">
+                  <div className="p-3.5 rounded-xl border border-gold-light/30 bg-warm-white dark:bg-charcoal/50 text-center hover:bg-gold-light/10 peer-checked:border-gold peer-checked:bg-gold/10 peer-checked:text-gold transition-all duration-200">
                     <span className="block text-sm font-medium">남성</span>
                   </div>
                 </label>
@@ -221,33 +213,33 @@ const UserProfileSetup1 = () => {
 
             <div className="space-y-2 group">
               <label 
-                className="block text-sm font-medium text-text-light dark:text-text-dark group-focus-within:text-primary transition-colors" 
+                className="block text-sm font-semibold text-charcoal dark:text-cream group-focus-within:text-gold transition-colors" 
               >
                 생일을 알려주세요
               </label>
               <div 
-                className="block w-full px-4 py-3 rounded-xl border-gray-200 dark:border-gray-700 bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark transition shadow-sm outline-none border cursor-pointer hover:border-primary"
+                className="block w-full px-4 py-3.5 rounded-xl border border-gold-light/30 bg-warm-white dark:bg-charcoal/50 text-charcoal dark:text-cream transition shadow-sm outline-none cursor-pointer hover:border-gold"
                 onClick={() => setShowDatePicker(true)}
               >
                 {formData.birthday 
                   ? formatBirthday(formData.birthday)
-                  : <span className="text-gray-400 dark:text-gray-500">생년월일 선택</span>
+                  : <span className="text-charcoal-light/50 dark:text-cream-dark/50">생년월일 선택</span>
                 }
               </div>
-              <p className="text-xs text-gray-400 dark:text-gray-500">
+              <p className="text-xs text-charcoal-light/60 dark:text-cream-dark/60">
                 입력하신 생년월일은 다른 사용자에게 공개되지 않아요
               </p>
             </div>
 
-            <div className="space-y-2 group">
-              <label className="block text-sm font-medium text-text-light dark:text-text-dark group-focus-within:text-primary transition-colors">
+            <div className="space-y-3 group">
+              <label className="block text-sm font-semibold text-charcoal dark:text-cream group-focus-within:text-gold transition-colors">
                 어디에 살고 있나요?
               </label>
               
               {/* 도/광역시 선택 */}
               <div className="relative">
                 <select
-                  className="block w-full px-4 py-3 rounded-xl border-gray-200 dark:border-gray-700 bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark focus:ring-2 focus:ring-primary focus:border-transparent transition shadow-sm outline-none border appearance-none cursor-pointer"
+                  className="block w-full px-4 py-3.5 rounded-xl border border-gold-light/30 bg-warm-white dark:bg-charcoal/50 text-charcoal dark:text-cream focus:ring-2 focus:ring-gold focus:border-transparent transition shadow-sm outline-none appearance-none cursor-pointer"
                   name="province"
                   value={formData.province}
                   onChange={handleChange}
@@ -257,13 +249,13 @@ const UserProfileSetup1 = () => {
                     <option key={province} value={province}>{province}</option>
                   ))}
                 </select>
-                <span className="absolute right-3 top-3 text-gray-400 dark:text-gray-500 material-icons-round pointer-events-none">expand_more</span>
+                <span className="absolute right-3 top-3.5 text-gold material-symbols-rounded pointer-events-none">expand_more</span>
               </div>
 
               {/* 시/군/구 선택 */}
               <div className="relative">
                 <select
-                  className="block w-full px-4 py-3 rounded-xl border-gray-200 dark:border-gray-700 bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark focus:ring-2 focus:ring-primary focus:border-transparent transition shadow-sm outline-none border appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="block w-full px-4 py-3.5 rounded-xl border border-gold-light/30 bg-warm-white dark:bg-charcoal/50 text-charcoal dark:text-cream focus:ring-2 focus:ring-gold focus:border-transparent transition shadow-sm outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   name="city"
                   value={formData.city}
                   onChange={handleChange}
@@ -274,7 +266,7 @@ const UserProfileSetup1 = () => {
                     <option key={city} value={city}>{city}</option>
                   ))}
                 </select>
-                <span className="absolute right-3 top-3 text-gray-400 dark:text-gray-500 material-icons-round pointer-events-none">expand_more</span>
+                <span className="absolute right-3 top-3.5 text-gold material-symbols-rounded pointer-events-none">expand_more</span>
               </div>
             </div>
           </form>
@@ -284,13 +276,13 @@ const UserProfileSetup1 = () => {
           <button 
             className={`w-full font-bold py-4 px-6 rounded-2xl shadow-lg flex items-center justify-center space-x-2 transition-all duration-200
               ${isValid 
-                ? 'bg-primary hover:bg-green-600 text-white hover:shadow-xl transform active:scale-[0.98]' 
-                : 'bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed'}`}
+                ? 'btn-premium hover:shadow-xl transform active:scale-[0.98]' 
+                : 'bg-charcoal-light/30 dark:bg-charcoal-light/20 text-charcoal-light/50 cursor-not-allowed'}`}
             disabled={!isValid}
             onClick={handleNext}
           >
             <span>다음</span>
-            <span className="material-icons-round">arrow_forward</span>
+            <span className="material-symbols-rounded">arrow_forward</span>
           </button>
         </footer>
       </div>
