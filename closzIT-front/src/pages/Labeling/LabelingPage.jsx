@@ -697,7 +697,7 @@ const LabelingPage = () => {
             <div className="flex flex-col items-center">
               <div className="relative w-48 h-48 bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden flex items-center justify-center">
                 {currentImageUrl ? (
-                  <img src={currentImageUrl} alt="선택된 의상" className="w-full h-full object-cover" />
+                  <img src={currentImageUrl} alt="선택된 의상" className="w-full h-full object-contain" />
                 ) : (
                   <span className="material-symbols-rounded text-6xl text-gray-300">checkroom</span>
                 )}
