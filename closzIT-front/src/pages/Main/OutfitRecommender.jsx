@@ -5,6 +5,7 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
   const navigate = useNavigate();
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(true);
+  const [selectedEventTitle, setSelectedEventTitle] = useState(null);
 
   // TPO 목록
   const tpoList = [
@@ -47,6 +48,14 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
     fetchCalendarEvents();
   }, []);
 
+  const handleEventClick = (title) => {
+    if (selectedEventTitle === title) {
+      setSelectedEventTitle(null);
+    } else {
+      setSelectedEventTitle(title);
+    }
+  };
+
   const handleKeywordClick = (keyword) => {
     if (selectedKeywords.includes(keyword)) {
       onKeywordsChange(selectedKeywords.filter(k => k !== keyword));
@@ -56,8 +65,13 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
   };
 
   const handleGenerate = () => {
-    navigate('/fitting', { state: { selectedKeywords } });
+    const allKeywords = selectedEventTitle 
+      ? [selectedEventTitle, ...selectedKeywords]
+      : selectedKeywords;
+    navigate('/fitting', { state: { selectedKeywords: allKeywords } });
   };
+
+  const hasSelection = selectedEventTitle || selectedKeywords.length > 0;
 
   return (
     <div className="animate-slideDown">
@@ -80,9 +94,9 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
             {calendarEvents.map((event, idx) => (
               <div 
                 key={idx}
-                onClick={() => handleKeywordClick(event.title)}
+                onClick={() => handleEventClick(event.title)}
                 className={`flex items-center gap-3 p-3 rounded-xl border transition-colors cursor-pointer ${
-                  selectedKeywords.includes(event.title)
+                  selectedEventTitle === event.title
                     ? 'bg-gold/10 border-gold'
                     : 'bg-warm-white dark:bg-charcoal border-gold-light/30 dark:border-charcoal-light/30 hover:border-gold'
                 }`}
@@ -93,11 +107,11 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-charcoal dark:text-cream">{event.title}</p>
-                  {/* {event.isToday && (
+                  {event.isToday && (
                     <span className="text-[10px] text-gold font-medium">오늘</span>
-                  )} */}
+                  )}
                 </div>
-                {selectedKeywords.includes(event.title) ? (
+                {selectedEventTitle === event.title ? (
                   <span className="material-symbols-rounded text-lg text-gold">check_circle</span>
                 ) : (
                   <span className="material-symbols-rounded text-lg text-gold-light dark:text-charcoal-light">chevron_right</span>
@@ -149,7 +163,7 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
       </div>
 
       {/* Generate Button */}
-      {selectedKeywords.length > 0 && (
+      {hasSelection && (
         <div className="mb-4 animate-fadeIn">
           <button
             onClick={handleGenerate}
