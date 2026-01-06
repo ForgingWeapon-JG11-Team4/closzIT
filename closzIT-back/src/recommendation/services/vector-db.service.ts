@@ -105,7 +105,7 @@ export class VectorDBService implements OnModuleInit {
     return (results as any[]).map((row) => ({
       id: row.id,
       score: parseFloat(row.score),
-      //   image_url: row.image_url,
+      image_url: row.image_url,
       category: row.category,
       sub_category: row.sub_category,
       colors: row.colors,
