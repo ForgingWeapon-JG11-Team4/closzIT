@@ -423,59 +423,73 @@ const MainPage = () => {
               >
                 <div className="flex-shrink-0" style={{ width: 'calc(50vw - 64px)' }}></div>
 
-                {allClothes.map((cloth, idx) => (
-                  <div
-                    key={`${cloth.id}-${idx === currentClothIndex ? 'active' : 'inactive'}`}
-                    data-cloth-index={idx}
-                    onClick={() => handleSelectCloth(cloth)}
-                    className={`flex-shrink-0 cursor-pointer transition-all duration-300 ${idx === currentClothIndex ? 'scale-105 animate-swing' : 'scale-95 opacity-60 hover:opacity-90'
-                      }`}
-                    style={{ scrollSnapAlign: 'center', transformOrigin: 'top center' }}
-                  >
-                    {/* ========== Hook - Modern Minimal Style ========== */}
-                    <div className="flex justify-center relative z-30">
-                      <div className="relative w-16 h-10 -mb-2">
-                        {/* Simple Hook Circle */}
-                        <div 
-                          className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full"
-                          style={{
-                            background: 'linear-gradient(135deg, #D4AF37 0%, #C9A962 100%)',
-                            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.15)',
-                          }}
-                        />
-                        {/* Simple Vertical Line */}
-                        <div 
-                          className="absolute top-3.5 left-1/2 -translate-x-1/2 w-[2px] h-6"
-                          style={{
-                            background: 'linear-gradient(180deg, #D4AF37 0%, #C9A962 100%)',
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Clothes Card - Smaller size with hover overlay */}
-                    <div className={`w-28 h-36 bg-warm-white dark:bg-charcoal rounded-xl overflow-hidden border-2 transition-all duration-300 relative z-40 group/card ${idx === currentClothIndex
-                        ? 'border-gold shadow-lifted ring-2 ring-gold/20'
-                        : 'border-gold-light/30 dark:border-charcoal-light/30 shadow-soft'
-                      }`}>
-                      <img
-                        alt={cloth.name}
-                        className="w-full h-full object-cover"
-                        src={cloth.image}
-                      />
-                      {/* Hover Overlay with Detail Icon Button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedClothDetail(cloth);
-                        }}
-                        className="absolute bottom-1.5 right-1.5 w-7 h-7 bg-white/90 dark:bg-charcoal/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover/card:opacity-100 transition-all duration-200 hover:scale-110 hover:bg-white dark:hover:bg-charcoal"
+                {allClothes.map((cloth, idx) => {
+                  // 이전 아이템과 카테고리가 다르면 구분선 추가
+                  const prevCloth = idx > 0 ? allClothes[idx - 1] : null;
+                  const showCategorySpacer = prevCloth && prevCloth.category !== cloth.category;
+                  
+                  return (
+                    <React.Fragment key={`${cloth.id}-${idx}`}>
+                      {/* 카테고리 구분 Spacer */}
+                      {showCategorySpacer && (
+                        <div className="flex-shrink-0 w-6 flex items-center justify-center">
+                          <div className="w-[2px] h-20 bg-gradient-to-b from-transparent via-gold-light/40 to-transparent rounded-full"></div>
+                        </div>
+                      )}
+                      
+                      <div
+                        data-cloth-index={idx}
+                        onClick={() => handleSelectCloth(cloth)}
+                        className={`flex-shrink-0 cursor-pointer transition-all duration-300 ${idx === currentClothIndex ? 'scale-105 animate-swing' : 'scale-95 opacity-60 hover:opacity-90'
+                          }`}
+                        style={{ scrollSnapAlign: 'center', transformOrigin: 'top center' }}
                       >
-                        <span className="material-symbols-rounded text-gold text-base">info</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                        {/* ========== Hook - Modern Minimal Style ========== */}
+                        <div className="flex justify-center relative z-30">
+                          <div className="relative w-16 h-10 -mb-2">
+                            {/* Simple Hook Circle */}
+                            <div 
+                              className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full"
+                              style={{
+                                background: 'linear-gradient(135deg, #D4AF37 0%, #C9A962 100%)',
+                                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.15)',
+                              }}
+                            />
+                            {/* Simple Vertical Line */}
+                            <div 
+                              className="absolute top-3.5 left-1/2 -translate-x-1/2 w-[2px] h-6"
+                              style={{
+                                background: 'linear-gradient(180deg, #D4AF37 0%, #C9A962 100%)',
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Clothes Card - Smaller size with hover overlay */}
+                        <div className={`w-28 h-36 bg-warm-white dark:bg-charcoal rounded-xl overflow-hidden border-2 transition-all duration-300 relative z-40 group/card ${idx === currentClothIndex
+                            ? 'border-gold shadow-lifted ring-2 ring-gold/20'
+                            : 'border-gold-light/30 dark:border-charcoal-light/30 shadow-soft'
+                          }`}>
+                          <img
+                            alt={cloth.name}
+                            className="w-full h-full object-cover"
+                            src={cloth.image}
+                          />
+                          {/* Hover Overlay with Detail Icon Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedClothDetail(cloth);
+                            }}
+                            className="absolute bottom-1.5 right-1.5 w-7 h-7 bg-white/90 dark:bg-charcoal/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover/card:opacity-100 transition-all duration-200 hover:scale-110 hover:bg-white dark:hover:bg-charcoal"
+                          >
+                            <span className="material-symbols-rounded text-gold text-base">info</span>
+                          </button>
+                        </div>
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
 
                 <div className="flex-shrink-0" style={{ width: 'calc(50vw - 64px)' }}></div>
 
