@@ -1,4 +1,4 @@
-// src/calendar/services/calendar.service.ts
+// src/calendar/calendar.service.ts
 
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -15,6 +15,13 @@ export interface CalendarEvent {
   description?: string;
   start: string;
   end: string;
+}
+
+export interface UpcomingEvent {
+  date: string;
+  time: string;
+  title: string;
+  isToday: boolean;
 }
 
 interface GoogleCalendarEvent {
@@ -109,9 +116,68 @@ export class CalendarService {
     }
   }
 
-  /**
-   * 구글 토큰을 갱신하고 DB를 업데이트하는 헬퍼 메서드
-   */
+  async getUpcomingEvents(userId: string): Promise<UpcomingEvent[]> {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const [todayEvents, tomorrowEvents] = await Promise.all([
+      this.getEvents(userId, today),
+      this.getEvents(userId, tomorrow),
+    ]);
+
+    const formattedTodayEvents = todayEvents.map(event => ({
+      ...this.formatEventForFrontend(event, true),
+      _isAllDay: !event.start.includes('T'),
+      _startTime: event.start,
+    }));
+
+    const formattedTomorrowEvents = tomorrowEvents.map(event => ({
+      ...this.formatEventForFrontend(event, false),
+      _isAllDay: !event.start.includes('T'),
+      _startTime: event.start,
+    }));
+
+    const sortByTime = (a: any, b: any) => {
+      if (a._isAllDay && !b._isAllDay) return -1;
+      if (!a._isAllDay && b._isAllDay) return 1;
+      return new Date(a._startTime).getTime() - new Date(b._startTime).getTime();
+    };
+
+    formattedTodayEvents.sort(sortByTime);
+    formattedTomorrowEvents.sort(sortByTime);
+
+    const combined = [...formattedTodayEvents, ...formattedTomorrowEvents]
+      .slice(0, 5)
+      .map(({ _isAllDay, _startTime, ...event }) => event);
+
+    return combined;
+  }
+
+  private formatEventForFrontend(event: CalendarEvent, isToday: boolean): UpcomingEvent {
+    const startDate = new Date(event.start);
+    
+    const month = startDate.getMonth() + 1;
+    const day = startDate.getDate();
+    const date = `${month}/${day}`;
+
+    let time: string;
+    if (event.start.includes('T')) {
+      const hours = startDate.getHours().toString().padStart(2, '0');
+      const minutes = startDate.getMinutes().toString().padStart(2, '0');
+      time = `${hours}:${minutes}`;
+    } else {
+      time = '';
+    }
+
+    return {
+      date,
+      time,
+      title: event.summary,
+      isToday,
+    };
+  }
+
   private async refreshGoogleToken(userId: string, refreshToken: string): Promise<string | null> {
     try {
       const response = await firstValueFrom(
@@ -125,7 +191,6 @@ export class CalendarService {
 
       const newAccessToken = response.data.access_token;
 
-      // DB 업데이트
       await this.prisma.user.update({
         where: { id: userId },
         data: { googleAccessToken: newAccessToken },
@@ -138,9 +203,6 @@ export class CalendarService {
     }
   }
 
-  /**
-   * 구글 응답 데이터를 내부 인터페이스로 매핑하는 헬퍼 메서드
-   */
   private mapGoogleEventsToCalendarEvents(items: GoogleCalendarEvent[]): CalendarEvent[] {
     const events = items || [];
     return events.map((event) => ({
@@ -160,7 +222,6 @@ export class CalendarService {
   async getEventsWithWeather(userId: string, targetDate: Date) {
     const events = await this.getEvents(userId, targetDate);
     
-    // 사용자 기본 위치 조회
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { province: true, city: true },
@@ -174,7 +235,6 @@ export class CalendarService {
       events.map(async (event) => {
         let weather: any = null;
         
-        // 장소에서 주소 부분만 추출
         const location = this.extractAddress(event.location) || defaultLocation;
         const eventTime = event.start.includes('T') 
           ? new Date(event.start)
@@ -204,7 +264,7 @@ export class CalendarService {
     // 시/도 + 시/군/구 패턴 추출
     const match = location.match(/([가-힣]+(?:시|도))\s*([가-힣]+(?:시|군|구))/);
     if (match) {
-      return `${match[1]} ${match[2]}`;  // "경기도 광주시"
+      return `${match[1]} ${match[2]}`;
     }
     
     return null;

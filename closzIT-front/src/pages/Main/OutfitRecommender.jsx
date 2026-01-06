@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
   const navigate = useNavigate();
+  const [calendarEvents, setCalendarEvents] = useState([]);
+  const [isLoadingCalendar, setIsLoadingCalendar] = useState(true);
 
   // TPO 목록
   const tpoList = [
@@ -13,6 +15,37 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
 
   // 스타일 목록
   const styleList = ['캐주얼', '힙', '모던', '스트릿', '빈티지', '미니멀', '클래식', '스포티'];
+
+  // 캘린더 일정 가져오기
+  useEffect(() => {
+    const fetchCalendarEvents = async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+          setIsLoadingCalendar(false);
+          return;
+        }
+
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+        const response = await fetch(`${backendUrl}/calendar/upcoming`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setCalendarEvents(data.events || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch calendar events:', error);
+      } finally {
+        setIsLoadingCalendar(false);
+      }
+    };
+
+    fetchCalendarEvents();
+  }, []);
 
   const handleKeywordClick = (keyword) => {
     if (selectedKeywords.includes(keyword)) {
@@ -26,44 +59,53 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
     navigate('/fitting', { state: { selectedKeywords } });
   };
 
-  // 더미 캘린더 일정 데이터
-  const calendarEvents = [
-    { date: '1/7', time: '16:00', title: '데이트', isToday: false },
-    { date: '1/8', time: '12:00', title: '부모님과 점심식사', isToday: false },
-  ];
-
   return (
     <div className="animate-slideDown">
 
       {/* Calendar Section */}
       <div className="mb-6 mt-4">
         <h2 className="text-lg font-bold text-charcoal dark:text-cream mb-3 px-1">다가오는 일정</h2>
-        <div className="space-y-2">
-          {calendarEvents.map((event, idx) => (
-            <div 
-              key={idx}
-              onClick={() => handleKeywordClick(event.title)}
-              className={`flex items-center gap-3 p-3 rounded-xl border transition-colors cursor-pointer ${
-                selectedKeywords.includes(event.title)
-                  ? 'bg-gold/10 border-gold'
-                  : 'bg-warm-white dark:bg-charcoal border-gold-light/30 dark:border-charcoal-light/30 hover:border-gold'
-              }`}
-            >
-              <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gold/10 flex flex-col items-center justify-center">
-                <span className="text-xs font-bold text-gold">{event.date}</span>
-                <span className="text-[10px] text-charcoal-light dark:text-cream-dark">{event.time}</span>
+        
+        {isLoadingCalendar ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-6 w-6 border-2 border-gold border-t-transparent"></div>
+          </div>
+        ) : calendarEvents.length === 0 ? (
+          <div className="text-center py-6 text-charcoal-light dark:text-cream-dark text-sm">
+            <span className="material-symbols-rounded text-3xl text-gold-light mb-2 block">event_busy</span>
+            등록된 일정이 없습니다
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {calendarEvents.map((event, idx) => (
+              <div 
+                key={idx}
+                onClick={() => handleKeywordClick(event.title)}
+                className={`flex items-center gap-3 p-3 rounded-xl border transition-colors cursor-pointer ${
+                  selectedKeywords.includes(event.title)
+                    ? 'bg-gold/10 border-gold'
+                    : 'bg-warm-white dark:bg-charcoal border-gold-light/30 dark:border-charcoal-light/30 hover:border-gold'
+                }`}
+              >
+                <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gold/10 flex flex-col items-center justify-center">
+                  <span className="text-xs font-bold text-gold">{event.date}</span>
+                  <span className="text-[10px] text-charcoal-light dark:text-cream-dark">{event.time}</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-charcoal dark:text-cream">{event.title}</p>
+                  {/* {event.isToday && (
+                    <span className="text-[10px] text-gold font-medium">오늘</span>
+                  )} */}
+                </div>
+                {selectedKeywords.includes(event.title) ? (
+                  <span className="material-symbols-rounded text-lg text-gold">check_circle</span>
+                ) : (
+                  <span className="material-symbols-rounded text-lg text-gold-light dark:text-charcoal-light">chevron_right</span>
+                )}
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-charcoal dark:text-cream">{event.title}</p>
-              </div>
-              {selectedKeywords.includes(event.title) ? (
-                <span className="material-symbols-rounded text-lg text-gold">check_circle</span>
-              ) : (
-                <span className="material-symbols-rounded text-lg text-gold-light dark:text-charcoal-light">chevron_right</span>
-              )}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* TPO Selection - Simple Pill Style */}
