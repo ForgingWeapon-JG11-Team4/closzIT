@@ -26,6 +26,7 @@ const MainPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showGreeting, setShowGreeting] = useState(true);
   const [selectedClothDetail, setSelectedClothDetail] = useState(null); // 상세정보 모달용
+  const [selectedKeywords, setSelectedKeywords] = useState([]); // 키워드 검색용
 
   const [selectedOutfit, setSelectedOutfit] = useState({
     outerwear: null,
@@ -270,47 +271,62 @@ const MainPage = () => {
         )}
 
         <div 
-          onClick={() => setIsSearchExpanded(true)}
-          className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer transition-all duration-300 ${
+          onClick={() => !isSearchExpanded && setIsSearchExpanded(true)}
+          className={`flex-1 flex items-center gap-2 px-4 py-2 rounded-2xl cursor-pointer transition-all duration-300 min-h-[44px] ${
             isSearchExpanded 
               ? 'bg-gold/10 border-2 border-gold shadow-glow-gold' 
               : 'bg-cream-dark dark:bg-charcoal/50 hover:bg-gold-light/30 border border-gold-light/30'
           }`}
         >
-          <span className="material-symbols-rounded text-xl text-gold">auto_awesome</span>
-          <div className="relative flex-1 h-5 overflow-hidden">
-            <span 
-              className={`absolute inset-0 text-sm text-charcoal-light dark:text-cream-dark transition-all duration-500 ease-in-out ${
-                showGreeting && userName 
-                  ? 'translate-y-0 opacity-100' 
-                  : '-translate-y-full opacity-0'
-              }`}
-            >
-              반가워요, <span className="text-gold font-semibold">{userName}</span>님!
-            </span>
-            <span 
-              className={`absolute inset-0 text-sm transition-all duration-500 ease-in-out ${
-                showGreeting && userName
-                  ? 'translate-y-full opacity-0' 
-                  : 'translate-y-0 opacity-100'
-              } ${isSearchExpanded ? 'text-gold font-semibold' : 'text-charcoal-light dark:text-cream-dark'}`}
-            >
-              {isSearchExpanded 
-                ? 'AI 스타일리스트에게 물어보세요' 
-                : <>오늘 뭐 입지? <span className="text-gold font-semibold">AI에게 추천받기</span></>
-              }
-            </span>
-          </div>
+          {/* 선택된 키워드 칩 */}
+          {isSearchExpanded && selectedKeywords.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5 flex-1">
+              {selectedKeywords.map((keyword) => (
+                <span 
+                  key={keyword}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-gold/20 text-gold text-xs font-semibold rounded-full border border-gold/30"
+                >
+                  {keyword}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedKeywords(selectedKeywords.filter(k => k !== keyword));
+                    }}
+                    className="w-3.5 h-3.5 flex items-center justify-center hover:bg-white/20 rounded-full"
+                  >
+                    <span className="material-symbols-rounded text-xs">close</span>
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="relative flex-1 h-5 overflow-hidden">
+              <span 
+                className={`absolute inset-0 text-sm text-charcoal-light dark:text-cream-dark transition-all duration-500 ease-in-out ${
+                  showGreeting && userName 
+                    ? 'translate-y-0 opacity-100' 
+                    : '-translate-y-full opacity-0'
+                }`}
+              >
+                반가워요, <span className="text-gold font-semibold">{userName}</span>님!
+              </span>
+              <span 
+                className={`absolute inset-0 text-sm transition-all duration-500 ease-in-out ${
+                  showGreeting && userName
+                    ? 'translate-y-full opacity-0' 
+                    : 'translate-y-0 opacity-100'
+                } ${isSearchExpanded ? 'text-gold font-semibold' : 'text-charcoal-light dark:text-cream-dark'}`}
+              >
+                {isSearchExpanded 
+                  ? '오늘 어떤 스타일을 추천해드릴까요?' 
+                  : <>오늘 뭐 입지? <span className="text-gold font-semibold">AI에게 추천받기</span></>
+                }
+              </span>
+            </div>
+          )}
         </div>
 
-        {isSearchExpanded ? (
-          <button
-            onClick={() => setIsSearchExpanded(false)}
-            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gold-light/20 transition-colors flex-shrink-0"
-          >
-            <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream">close</span>
-          </button>
-        ) : (
+        {!isSearchExpanded && (
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* 프로필 버튼 */}
             <button
@@ -333,7 +349,10 @@ const MainPage = () => {
 
         {isSearchExpanded ? (
           <div className="animate-slideDown">
-            <OutfitRecommender />
+            <OutfitRecommender 
+              selectedKeywords={selectedKeywords}
+              onKeywordsChange={setSelectedKeywords}
+            />
           </div>
         ) : (
           <div className="animate-fadeIn">
