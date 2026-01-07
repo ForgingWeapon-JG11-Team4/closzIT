@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import OutfitRecommender from './OutfitRecommender';
+import SharedHeader from '../../components/SharedHeader';
+import { useVto } from '../../context/VtoContext';
 
 // 카테고리 데이터
 const categories = [
@@ -12,11 +14,14 @@ const categories = [
 
 const MainPage = () => {
   const navigate = useNavigate();
+  const { requestPartialVto, isPartialVtoLoading } = useVto();
+
   const [activeCategory, setActiveCategory] = useState('outerwear');
   const [currentClothIndex, setCurrentClothIndex] = useState(0);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [userName, setUserName] = useState('');
   const [userCredit, setUserCredit] = useState(0);
+  const [userFullBodyImage, setUserFullBodyImage] = useState(null);
   const [userClothes, setUserClothes] = useState({
     outerwear: [],
     tops: [],
@@ -56,6 +61,7 @@ const MainPage = () => {
           const userData = await userResponse.json();
           setUserName(userData.name || '');
           setUserCredit(userData.credit || 0);
+          setUserFullBodyImage(userData.fullBodyImage || null);
         } else if (userResponse.status === 401) {
           localStorage.removeItem('accessToken');
           navigate('/login');
@@ -92,8 +98,81 @@ const MainPage = () => {
     }
   }, [userName, showGreeting]);
 
+  // 메인페이지에서 직접 피팅 요청 (페이지 이동 없이)
+  const handleDirectFitting = async (event) => {
+    // 버튼 위치 저장 (플라이 애니메이션용)
+    let buttonPosition = null;
+    if (event?.currentTarget) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      buttonPosition = {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2
+      };
+    }
+
+    if (!userFullBodyImage) {
+      const confirm = window.confirm(
+        '피팅 모델 이미지가 없어서 착장서비스 이용이 불가합니다. 등록하시겠습니까?'
+      );
+      if (confirm) {
+        navigate('/setup3?edit=true');
+      }
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+
+      // base64를 Blob으로 변환
+      const base64ToBlob = (base64, mimeType = 'image/jpeg') => {
+        const byteString = atob(base64.split(',')[1]);
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
+        }
+        return new Blob([ab], { type: mimeType });
+      };
+
+      // URL에서 이미지를 Blob으로 가져오기
+      const urlToBlob = async (url) => {
+        const response = await fetch(url);
+        return await response.blob();
+      };
+
+      // 사용자 전신 사진 추가
+      const personBlob = base64ToBlob(userFullBodyImage);
+      formData.append('person', personBlob, 'person.jpg');
+
+      // 선택된 의류 이미지들 추가
+      const processImage = async (item, key) => {
+        if (!item) return;
+        const imageUrl = item.image || item.imageUrl || item.image_url;
+        if (imageUrl.startsWith('data:')) {
+          formData.append(key, base64ToBlob(imageUrl), `${key}.jpg`);
+        } else {
+          const blob = await urlToBlob(imageUrl);
+          formData.append(key, blob, `${key}.jpg`);
+        }
+      };
+
+      await processImage(selectedOutfit.outerwear, 'outer');
+      await processImage(selectedOutfit.tops, 'top');
+      await processImage(selectedOutfit.bottoms, 'bottom');
+      await processImage(selectedOutfit.shoes, 'shoes');
+
+      // VtoContext의 requestPartialVto 호출 (크레딧 모달 + 애니메이션)
+      requestPartialVto(formData, buttonPosition);
+
+    } catch (err) {
+      console.error('Fitting setup error:', err);
+      alert('피팅 요청 준비 중 오류가 발생했습니다: ' + err.message);
+    }
+  };
+
+
   const currentCategoryData = categories.find(c => c.id === activeCategory);
-  
+
   const allClothes = [
     ...(userClothes.outerwear || []).map(c => ({ ...c, category: 'outerwear' })),
     ...(userClothes.tops || []).map(c => ({ ...c, category: 'tops' })),
@@ -113,17 +192,17 @@ const MainPage = () => {
     setActiveCategory(categoryId);
     const startIndex = getCategoryStartIndex(categoryId);
     setCurrentClothIndex(startIndex);
-    
+
     if (scrollContainerRef.current) {
       // 실제 해당 인덱스의 DOM 요소를 찾아서 스크롤
       const container = scrollContainerRef.current;
       const targetCard = container.querySelector(`[data-cloth-index="${startIndex}"]`);
-      
+
       if (targetCard) {
         const containerCenter = container.offsetWidth / 2;
         const targetCenter = targetCard.offsetLeft + (targetCard.offsetWidth / 2);
         const scrollPosition = targetCenter - containerCenter;
-        
+
         container.scrollTo({
           left: Math.max(0, scrollPosition),
           behavior: 'smooth'
@@ -229,7 +308,7 @@ const MainPage = () => {
 
     if (closestIndex !== currentClothIndex) {
       setCurrentClothIndex(closestIndex);
-      
+
       const cloth = allClothes[closestIndex];
       if (cloth && cloth.category !== activeCategory) {
         setActiveCategory(cloth.category);
@@ -260,30 +339,32 @@ const MainPage = () => {
       {/* Inject keyframes */}
       <style>{wobbleKeyframes}</style>
 
-      {/* Header - Luxury glass effect */}
-      <div className="px-4 py-3 flex items-center gap-3 glass-warm sticky top-0 z-40 border-b border-gold-light/20">
+      {/* Shared Header */}
+      <SharedHeader />
+
+      {/* Search Block - Below Header */}
+      <div className="px-4 py-3 bg-cream dark:bg-[#1A1918]">
         {isSearchExpanded && (
           <button
             onClick={() => setIsSearchExpanded(false)}
-            className="w-10 h-10 -ml-2 rounded-full flex items-center justify-center hover:bg-gold-light/20 transition-colors flex-shrink-0"
+            className="w-10 h-10 mb-2 -ml-2 rounded-full flex items-center justify-center hover:bg-gold-light/20 transition-colors"
           >
             <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream">arrow_back</span>
           </button>
         )}
 
-        <div 
+        <div
           onClick={() => !isSearchExpanded && setIsSearchExpanded(true)}
-          className={`flex-1 flex items-center gap-2 px-4 py-2 rounded-2xl cursor-pointer transition-all duration-300 min-h-[44px] ${
-            isSearchExpanded 
-              ? 'bg-gold/10 border-2 border-gold shadow-glow-gold' 
-              : 'bg-cream-dark dark:bg-charcoal/50 hover:bg-gold-light/30 border border-gold-light/30'
-          }`}
+          className={`flex items-center gap-2 px-4 py-2 rounded-2xl cursor-pointer transition-all duration-300 min-h-[44px] ${isSearchExpanded
+            ? 'bg-gold/10 border-2 border-gold shadow-glow-gold'
+            : 'bg-cream-dark dark:bg-charcoal/50 hover:bg-gold-light/30 border border-gold-light/30'
+            }`}
         >
           {/* 선택된 키워드 칩 */}
           {isSearchExpanded && selectedKeywords.length > 0 ? (
             <div className="flex flex-wrap gap-1.5 flex-1">
               {selectedKeywords.map((keyword) => (
-                <span 
+                <span
                   key={keyword}
                   className="inline-flex items-center gap-1 px-2.5 py-1 bg-gold/20 text-gold text-xs font-semibold rounded-full border border-gold/30"
                 >
@@ -302,47 +383,28 @@ const MainPage = () => {
             </div>
           ) : (
             <div className="relative flex-1 h-5 overflow-hidden">
-              <span 
-                className={`absolute inset-0 text-sm text-charcoal-light dark:text-cream-dark transition-all duration-500 ease-in-out ${
-                  showGreeting && userName 
-                    ? 'translate-y-0 opacity-100' 
-                    : '-translate-y-full opacity-0'
-                }`}
+              <span
+                className={`absolute inset-0 text-sm text-charcoal-light dark:text-cream-dark transition-all duration-500 ease-in-out ${showGreeting && userName
+                  ? 'translate-y-0 opacity-100'
+                  : '-translate-y-full opacity-0'
+                  }`}
               >
                 반가워요, <span className="text-gold font-semibold">{userName}</span>님!
               </span>
-              <span 
-                className={`absolute inset-0 text-sm transition-all duration-500 ease-in-out ${
-                  showGreeting && userName
-                    ? 'translate-y-full opacity-0' 
-                    : 'translate-y-0 opacity-100'
-                } ${isSearchExpanded ? 'text-gold font-semibold' : 'text-charcoal-light dark:text-cream-dark'}`}
+              <span
+                className={`absolute inset-0 text-sm transition-all duration-500 ease-in-out ${showGreeting && userName
+                  ? 'translate-y-full opacity-0'
+                  : 'translate-y-0 opacity-100'
+                  } ${isSearchExpanded ? 'text-gold font-semibold' : 'text-charcoal-light dark:text-cream-dark'}`}
               >
-                {isSearchExpanded 
-                  ? '오늘 어떤 스타일을 추천해드릴까요?' 
+                {isSearchExpanded
+                  ? '오늘 어떤 스타일을 추천해드릴까요?'
                   : <>오늘 뭐 입지? <span className="text-gold font-semibold">AI에게 추천받기</span></>
                 }
               </span>
             </div>
           )}
         </div>
-
-        {!isSearchExpanded && (
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {/* 프로필 버튼 */}
-            <button
-              onClick={() => navigate('/mypage')}
-              className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-gold to-gold-dark text-warm-white shadow-lg hover:shadow-xl hover:scale-105 transition-all"
-            >
-              <span className="material-symbols-rounded text-xl">person</span>
-            </button>
-            {/* 크레딧 표시 */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-gold/20 to-gold-light/20 border border-gold/30">
-              <span className="material-symbols-rounded text-base text-gold">monetization_on</span>
-              <span className="text-sm font-semibold text-gold">{userCredit}</span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Main Content */}
@@ -350,7 +412,7 @@ const MainPage = () => {
 
         {isSearchExpanded ? (
           <div className="animate-slideDown">
-            <OutfitRecommender 
+            <OutfitRecommender
               selectedKeywords={selectedKeywords}
               onKeywordsChange={setSelectedKeywords}
             />
@@ -364,11 +426,10 @@ const MainPage = () => {
                 <button
                   key={category.id}
                   onClick={() => handleCategoryClick(category.id)}
-                  className={`flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 animate-reveal animate-reveal-${index + 1} ${
-                    activeCategory === category.id
-                      ? 'bg-charcoal dark:bg-cream text-cream dark:text-charcoal shadow-soft'
-                      : 'bg-cream-dark dark:bg-charcoal/50 text-charcoal-light dark:text-cream-dark hover:bg-gold-light/30 border border-transparent hover:border-gold-light/50'
-                  }`}
+                  className={`flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 animate-reveal animate-reveal-${index + 1} ${activeCategory === category.id
+                    ? 'bg-charcoal dark:bg-cream text-cream dark:text-charcoal shadow-soft'
+                    : 'bg-cream-dark dark:bg-charcoal/50 text-charcoal-light dark:text-cream-dark hover:bg-gold-light/30 border border-transparent hover:border-gold-light/50'
+                    }`}
                   style={{ animationDelay: `${index * 0.05}s` }}
                 >
                   {category.name}
@@ -378,21 +439,21 @@ const MainPage = () => {
 
             {/* ========== Closet Rail with Wardrobe Background ========== */}
             <div className="relative mb-6 animate-reveal animate-reveal-2">
-              
+
               {/* Wardrobe Background Container */}
-              <div 
+              <div
                 className="absolute inset-0 -top-2 -bottom-4 -left-4 -right-4 rounded-3xl overflow-hidden z-0"
                 style={{
                   background: 'linear-gradient(180deg, rgba(250, 248, 245, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%)',
                 }}
               >
-              <img 
-                  src="/assets/wardrobe-background.png" 
+                <img
+                  src="/assets/wardrobe-background.png"
                   alt="wardrobe background"
                   className="max-w-[300px] max-h-[200px] object-contain opacity-40 mx-auto mt-4"
                   style={{ mixBlendMode: 'multiply' }}
                 />
-                <div 
+                <div
                   className="absolute inset-0"
                   style={{
                     background: 'linear-gradient(180deg, transparent 0%, rgba(250, 248, 245, 0.3) 50%, rgba(250, 248, 245, 0.6) 100%)',
@@ -403,7 +464,7 @@ const MainPage = () => {
               {/* ========== The Rail - Modern & Minimal Gold ========== */}
               <div className="absolute top-4 left-0 right-0 z-10">
                 {/* Simple Clean Rail */}
-                <div 
+                <div
                   className="h-[6px] rounded-full"
                   style={{
                     background: 'linear-gradient(90deg, #C9A962 0%, #D4AF37 50%, #C9A962 100%)',
@@ -428,7 +489,7 @@ const MainPage = () => {
                   // 이전 아이템과 카테고리가 다르면 구분선 추가
                   const prevCloth = idx > 0 ? allClothes[idx - 1] : null;
                   const showCategorySpacer = prevCloth && prevCloth.category !== cloth.category;
-                  
+
                   return (
                     <React.Fragment key={`${cloth.id}-${idx}`}>
                       {/* 카테고리 구분 Spacer */}
@@ -437,7 +498,7 @@ const MainPage = () => {
                           <div className="w-[2px] h-20 bg-gradient-to-b from-transparent via-gold-light/40 to-transparent rounded-full"></div>
                         </div>
                       )}
-                      
+
                       <div
                         data-cloth-index={idx}
                         onClick={() => handleSelectCloth(cloth)}
@@ -449,7 +510,7 @@ const MainPage = () => {
                         <div className="flex justify-center relative z-30">
                           <div className="relative w-16 h-10 -mb-2">
                             {/* Simple Hook Circle */}
-                            <div 
+                            <div
                               className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full"
                               style={{
                                 background: 'linear-gradient(135deg, #D4AF37 0%, #C9A962 100%)',
@@ -457,7 +518,7 @@ const MainPage = () => {
                               }}
                             />
                             {/* Simple Vertical Line */}
-                            <div 
+                            <div
                               className="absolute top-3.5 left-1/2 -translate-x-1/2 w-[2px] h-6"
                               style={{
                                 background: 'linear-gradient(180deg, #D4AF37 0%, #C9A962 100%)',
@@ -468,8 +529,8 @@ const MainPage = () => {
 
                         {/* Clothes Card - Smaller size with hover overlay */}
                         <div className={`w-28 h-36 bg-warm-white dark:bg-charcoal rounded-xl overflow-hidden border-2 transition-all duration-300 relative z-40 group/card ${idx === currentClothIndex
-                            ? 'border-gold shadow-lifted ring-2 ring-gold/20'
-                            : 'border-gold-light/30 dark:border-charcoal-light/30 shadow-soft'
+                          ? 'border-gold shadow-lifted ring-2 ring-gold/20'
+                          : 'border-gold-light/30 dark:border-charcoal-light/30 shadow-soft'
                           }`}>
                           <img
                             alt={cloth.name}
@@ -497,19 +558,19 @@ const MainPage = () => {
                 {/* Empty State */}
                 {allClothes.length === 0 && (
                   <div className="flex-shrink-0 w-full flex justify-center">
-                    <div 
+                    <div
                       onClick={() => navigate('/register')}
                       className="w-44 cursor-pointer group"
                     >
                       <div className="flex justify-center">
                         <div className="relative w-6 h-8">
-                          <div 
+                          <div
                             className="absolute top-0 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full"
                             style={{
                               background: 'linear-gradient(135deg, #D4AF37 0%, #C9A962 100%)',
                             }}
                           />
-                          <div 
+                          <div
                             className="absolute top-2.5 left-1/2 -translate-x-1/2 w-[2px] h-5"
                             style={{
                               background: 'linear-gradient(180deg, #D4AF37 0%, #C9A962 100%)',
@@ -530,7 +591,7 @@ const MainPage = () => {
 
             {/* ========== Selected Outfit Area ========== */}
             <div className="relative mt-4 mb-6 animate-reveal animate-reveal-3">
-              <div 
+              <div
                 className="rounded-2xl p-3 flex flex-col"
                 style={{
                   background: 'linear-gradient(180deg, rgba(250, 248, 245, 0.8) 0%, rgba(255, 255, 255, 0.95) 100%)',
@@ -545,13 +606,13 @@ const MainPage = () => {
                     <div className="flex justify-center items-end flex-1 py-4 -space-x-4">
                       {/* 외투 */}
                       {selectedOutfit.outerwear && (
-                        <div 
+                        <div
                           className="w-20 cursor-pointer group z-10"
                           onClick={() => handleDeselectCloth('outerwear')}
                           style={{ transform: 'rotate(-6deg) translateY(-8px)' }}
                         >
                           <div className="relative bg-warm-white dark:bg-charcoal/50 rounded-xl shadow-lifted overflow-hidden border-2 border-gold/30 transition-all group-hover:scale-110 group-hover:shadow-xl group-hover:z-50">
-                            <img 
+                            <img
                               src={selectedOutfit.outerwear.image || selectedOutfit.outerwear.imageUrl}
                               alt=""
                               className="w-full aspect-square object-cover"
@@ -562,16 +623,16 @@ const MainPage = () => {
                           </div>
                         </div>
                       )}
-                      
+
                       {/* 상의 */}
                       {selectedOutfit.tops && (
-                        <div 
+                        <div
                           className="w-20 cursor-pointer group z-20"
                           onClick={() => handleDeselectCloth('tops')}
                           style={{ transform: 'rotate(-2deg) translateY(-4px)' }}
                         >
                           <div className="relative bg-warm-white dark:bg-charcoal/50 rounded-xl shadow-lifted overflow-hidden border-2 border-gold/30 transition-all group-hover:scale-110 group-hover:shadow-xl group-hover:z-50">
-                            <img 
+                            <img
                               src={selectedOutfit.tops.image || selectedOutfit.tops.imageUrl}
                               alt=""
                               className="w-full aspect-square object-cover"
@@ -582,16 +643,16 @@ const MainPage = () => {
                           </div>
                         </div>
                       )}
-                      
+
                       {/* 하의 */}
                       {selectedOutfit.bottoms && (
-                        <div 
+                        <div
                           className="w-20 cursor-pointer group z-30"
                           onClick={() => handleDeselectCloth('bottoms')}
                           style={{ transform: 'rotate(3deg) translateY(-6px)' }}
                         >
                           <div className="relative bg-warm-white dark:bg-charcoal/50 rounded-xl shadow-lifted overflow-hidden border-2 border-gold/30 transition-all group-hover:scale-110 group-hover:shadow-xl group-hover:z-50">
-                            <img 
+                            <img
                               src={selectedOutfit.bottoms.image || selectedOutfit.bottoms.imageUrl}
                               alt=""
                               className="w-full aspect-square object-cover"
@@ -602,16 +663,16 @@ const MainPage = () => {
                           </div>
                         </div>
                       )}
-                      
+
                       {/* 신발 */}
                       {selectedOutfit.shoes && (
-                        <div 
+                        <div
                           className="w-20 cursor-pointer group z-40"
                           onClick={() => handleDeselectCloth('shoes')}
                           style={{ transform: 'rotate(7deg) translateY(-10px)' }}
                         >
                           <div className="relative bg-warm-white dark:bg-charcoal/50 rounded-xl shadow-lifted overflow-hidden border-2 border-gold/30 transition-all group-hover:scale-110 group-hover:shadow-xl group-hover:z-50">
-                            <img 
+                            <img
                               src={selectedOutfit.shoes.image || selectedOutfit.shoes.imageUrl}
                               alt=""
                               className="w-full aspect-square object-cover"
@@ -623,22 +684,32 @@ const MainPage = () => {
                         </div>
                       )}
                     </div>
-                    
+
                     {/* 피팅하기 버튼 - 모두 선택했을 때만 표시 */}
                     {hasAnySelected && (
                       <button
-                        onClick={() => {
-                          navigate('/fitting/direct', { 
-                            state: { 
-                              outfit: selectedOutfit,
-                              fromMain: true 
-                            } 
-                          });
+                        onClick={(e) => {
+                          if (!isPartialVtoLoading) {
+                            handleDirectFitting(e);
+                          }
                         }}
-                        className="mt-3 w-full py-3.5 rounded-xl btn-premium font-bold text-sm flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all animate-fadeIn"
+                        disabled={isPartialVtoLoading}
+                        className={`mt-3 w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all animate-fadeIn ${isPartialVtoLoading
+                            ? 'bg-gold-light/50 text-charcoal cursor-wait'
+                            : 'btn-premium hover:shadow-xl'
+                          }`}
                       >
-                        <span className="material-symbols-rounded text-lg">checkroom</span>
-                        피팅해보기
+                        {isPartialVtoLoading ? (
+                          <>
+                            <span className="material-symbols-rounded text-lg animate-spin">progress_activity</span>
+                            생성 중...
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-rounded text-lg">checkroom</span>
+                            입어보기
+                          </>
+                        )}
                       </button>
                     )}
                   </>
@@ -646,15 +717,15 @@ const MainPage = () => {
                   <>
                     {/* 캐릭터 이미지 - 아무것도 선택 안했을 때 */}
                     <div className="flex-1 flex flex-col items-center justify-center">
-                      <div 
+                      <div
                         className="w-28 h-28 mb-3 flex items-center justify-center"
                         style={{
                           animation: 'float 3s ease-in-out infinite',
                           transformOrigin: 'center bottom',
                         }}
                       >
-                        <img 
-                          src="/assets/stylist-character.png" 
+                        <img
+                          src="/assets/stylist-character.png"
                           alt="AI Stylist Character"
                           className="w-full h-full object-contain drop-shadow-lg"
                           style={{
@@ -666,7 +737,7 @@ const MainPage = () => {
                           }}
                         />
                         {/* Fallback Character */}
-                        <div 
+                        <div
                           className="hidden w-24 h-24 rounded-full items-center justify-center"
                           style={{
                             background: 'linear-gradient(135deg, #FFE4B5 0%, #DEB887 100%)',
@@ -692,7 +763,7 @@ const MainPage = () => {
 
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 h-16 glass-warm border-t border-gold-light/20 flex items-center justify-around px-4 z-50 safe-area-pb">
-        
+
         <button className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] text-gold">
           <span className="material-symbols-rounded text-[22px]">checkroom</span>
           <span className="text-[10px] font-semibold">내 옷장</span>
@@ -718,18 +789,18 @@ const MainPage = () => {
 
       {/* ========== Cloth Detail Modal ========== */}
       {selectedClothDetail && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fadeIn"
           onClick={() => setSelectedClothDetail(null)}
         >
-          <div 
+          <div
             className="bg-warm-white dark:bg-charcoal rounded-3xl shadow-2xl max-w-sm w-full max-h-[80vh] overflow-hidden animate-slideDown"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
             <div className="relative">
-              <img 
-                src={selectedClothDetail.image} 
+              <img
+                src={selectedClothDetail.image}
                 alt={selectedClothDetail.name}
                 className="w-full h-48 object-cover"
               />
@@ -861,7 +932,7 @@ const MainPage = () => {
                             'Authorization': `Bearer ${token}`
                           }
                         });
-                        
+
                         if (response.ok) {
                           alert('옷이 삭제되었습니다.');
                           setSelectedClothDetail(null);

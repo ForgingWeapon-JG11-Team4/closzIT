@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import SharedHeader from '../../components/SharedHeader';
 
 // 카테고리 옵션 (한글 매핑)
 const categoryLabels = {
@@ -659,33 +660,8 @@ const LabelingPage = () => {
         </div>
       )}
 
-      {/* Header - Glass Morphism with Gold accent */}
-      <header
-        className="flex items-center px-4 py-3 sticky top-0 z-40"
-        style={{
-          background: 'rgba(250, 248, 245, 0.85)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          borderBottom: '1px solid rgba(212, 175, 55, 0.15)'
-        }}
-      >
-        <button
-          onClick={() => navigate('/register')}
-          className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-105"
-          style={{
-            background: 'linear-gradient(135deg, #F5F0E8 0%, #FAF8F5 100%)',
-            border: '1px solid rgba(212, 175, 55, 0.2)'
-          }}
-        >
-          <span className="material-symbols-rounded text-2xl" style={{ color: '#6B6B6B' }}>arrow_back</span>
-        </button>
-        <h1
-          className="flex-1 text-center text-lg font-bold pr-10"
-          style={{ color: '#2C2C2C' }}
-        >
-          옷 정보 입력
-        </h1>
-      </header>
+      {/* Shared Header - VTO 결과 모달 포함 */}
+      <SharedHeader title="옷 정보 입력" showBackButton onBackClick={() => navigate('/register')} />
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto px-6 pb-28">
