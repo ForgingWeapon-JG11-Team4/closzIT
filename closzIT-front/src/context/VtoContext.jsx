@@ -194,7 +194,6 @@ export const VtoProvider = ({ children }) => {
     };
 
     // 실제 Partial VTO 요청 실행
-    // 실제 Partial VTO 요청 실행
     const executePartialVtoRequest = async (formData, source = 'default') => {
         const jobId = 'direct-fitting-' + Date.now();
         setVtoLoadingPosts(prev => new Set([...prev, jobId]));

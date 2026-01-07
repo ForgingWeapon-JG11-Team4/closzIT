@@ -11,7 +11,7 @@ import RegisterPage from './pages/Register/RegisterPage';
 import LabelingPage from './pages/Labeling/LabelingPage';
 import FittingPage from './pages/Fitting/FittingPage';
 import DirectFittingPage from './pages/Fitting/DirectFittingPage';
-import VirtualFittingTest from './pages/Fitting/VirtualFittingTest';
+
 import FeedPage from './pages/FeedPage';
 import CreatePostPage from './pages/CreatePostPage';
 import PostDetailPage from './pages/PostDetailPage';
@@ -37,7 +37,7 @@ function App() {
           <Route path="/labeling" element={<LabelingPage />} />
           <Route path="/fitting" element={<FittingPage />} />
           <Route path="/fitting/direct" element={<DirectFittingPage />} />
-          <Route path="/virtual-fitting-test" element={<VirtualFittingTest />} />
+
           <Route path="/feed" element={<FeedPage />} />
           <Route path="/create-post" element={<CreatePostPage />} />
           <Route path="/post/:postId" element={<PostDetailPage />} />
