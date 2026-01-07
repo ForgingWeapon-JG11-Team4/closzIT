@@ -1,0 +1,317 @@
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import {
+    getVtoResults,
+    addVtoResult,
+    getUnseenVtoCount,
+    markAllVtoAsSeen,
+    removeVtoResult,
+    getPendingJobs,
+    addPendingJob,
+    removePendingJob,
+    hasPendingJobs
+} from '../utils/vtoStorage';
+import CreditConfirmModal from '../components/CreditConfirmModal';
+
+const VtoContext = createContext();
+
+export const useVto = () => {
+    const context = useContext(VtoContext);
+    if (!context) {
+        throw new Error('useVto must be used within a VtoProvider');
+    }
+    return context;
+};
+
+export const VtoProvider = ({ children }) => {
+    const [vtoLoadingPosts, setVtoLoadingPosts] = useState(new Set());
+    const [vtoCompletedPosts, setVtoCompletedPosts] = useState(new Set());
+    const [vtoResults, setVtoResults] = useState([]);
+    const [unseenCount, setUnseenCount] = useState(0);
+    const [toastMessage, setToastMessage] = useState('');
+    const [isVtoModalOpen, setIsVtoModalOpen] = useState(false);
+
+    // 크레딧 모달 상태
+    const [showCreditModal, setShowCreditModal] = useState(false);
+    const [pendingVtoRequest, setPendingVtoRequest] = useState(null);
+    const [userCredit, setUserCredit] = useState(0);
+    const [isCreditLoading, setIsCreditLoading] = useState(false);
+
+    // 부분 VTO 로딩 상태 (메인/추천 페이지용)
+    const [isPartialVtoLoading, setIsPartialVtoLoading] = useState(false);
+
+    // 플라이 애니메이션 상태
+    const [flyAnimation, setFlyAnimation] = useState(null);
+
+    // 초기 데이터 로드
+    useEffect(() => {
+        refreshVtoData();
+        fetchUserCredit();
+    }, []);
+
+    const fetchUserCredit = async () => {
+        try {
+            const token = localStorage.getItem('accessToken');
+            if (!token) return;
+            const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+            const response = await fetch(`${backendUrl}/user/me`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setUserCredit(data.credit || 0);
+            }
+        } catch (error) {
+            console.error('Failed to fetch credit:', error);
+        }
+    };
+
+    const refreshVtoData = () => {
+        setVtoResults(getVtoResults());
+        setUnseenCount(getUnseenVtoCount());
+    };
+
+    const openVtoModal = () => {
+        markAllVtoAsSeen();
+        setUnseenCount(0);
+        setIsVtoModalOpen(true);
+    };
+
+    const closeVtoModal = () => {
+        setIsVtoModalOpen(false);
+        refreshVtoData();
+    };
+
+    // 크레딧 확인 후 VTO 요청 (모든 VTO 요청에서 사용) - 버튼 위치도 함께 저장
+    const requestVtoWithCreditCheck = useCallback((requestType, requestData, buttonPosition = null) => {
+        fetchUserCredit(); // 최신 크레딧 조회
+        setPendingVtoRequest({ type: requestType, data: requestData, buttonPosition });
+        setShowCreditModal(true);
+    }, []);
+
+    // 크레딧 모달에서 확인 클릭 시 - 모달 닫고 딜레이 후 플라이 애니메이션 + 백그라운드 실행
+    const handleCreditConfirm = async () => {
+        if (!pendingVtoRequest) return;
+
+        // 모달 즉시 닫기
+        setShowCreditModal(false);
+        const request = pendingVtoRequest;
+        setPendingVtoRequest(null);
+
+        // 모달이 완전히 닫힌 후 애니메이션 시작 (300ms 딜레이)
+        setTimeout(() => {
+            // 플라이 애니메이션 트리거
+            if (request.buttonPosition) {
+                const headerButton = document.getElementById('vto-header-button');
+                if (headerButton) {
+                    const headerRect = headerButton.getBoundingClientRect();
+                    setFlyAnimation({
+                        startX: request.buttonPosition.x,
+                        startY: request.buttonPosition.y,
+                        endX: headerRect.left + headerRect.width / 2,
+                        endY: headerRect.top + headerRect.height / 2,
+                    });
+                    setTimeout(() => setFlyAnimation(null), 600);
+                }
+            }
+
+            // VTO 요청 실행
+            if (request.type === 'sns') {
+                executeVtoRequest(request.data.postId);
+            } else if (request.type === 'partial') {
+                executePartialVtoRequest(request.data.formData);
+            }
+        }, 300);
+    };
+
+    // 크레딧 모달 닫기
+    const handleCreditCancel = () => {
+        setShowCreditModal(false);
+        setPendingVtoRequest(null);
+    };
+
+    // 실제 SNS VTO 요청 실행
+    const executeVtoRequest = async (postId) => {
+        if (vtoLoadingPosts.has(postId) || vtoCompletedPosts.has(postId)) return;
+
+        setVtoLoadingPosts(prev => new Set([...prev, postId]));
+
+        try {
+            const token = localStorage.getItem('accessToken');
+            const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+
+            const response = await fetch(`${backendUrl}/api/fitting/sns-virtual-try-on`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ postId }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                if (data.code === 'NO_FULL_BODY_IMAGE') {
+                    const confirm = window.confirm(
+                        '피팅 모델 이미지가 없어서 착장서비스 이용이 불가합니다. 등록하시겠습니까?'
+                    );
+                    if (confirm) {
+                        alert('피팅 모델 이미지 등록 기능은 준비 중입니다.');
+                    }
+                    return;
+                }
+                throw new Error(data.message || '가상 착장에 실패했습니다.');
+            }
+
+            if (data.success) {
+                addVtoResult({
+                    imageUrl: data.imageUrl,
+                    postId: postId,  // 함수 파라미터 사용 (completedPosts와 일치)
+                    appliedClothing: data.appliedClothing,
+                });
+                setVtoCompletedPosts(prev => new Set([...prev, postId]));
+                refreshVtoData();
+
+                setToastMessage('착장 완료!');
+                setTimeout(() => setToastMessage(''), 3000);
+            }
+        } catch (error) {
+            console.error('VTO Error:', error);
+            setToastMessage(`오류: ${error.message}`);
+            setTimeout(() => setToastMessage(''), 3000);
+        } finally {
+            setVtoLoadingPosts(prev => {
+                const next = new Set(prev);
+                next.delete(postId);
+                return next;
+            });
+        }
+    };
+
+    // 기존 requestVto - 크레딧 확인 포함 버전으로 변경 (버튼 위치 포함)
+    const requestVto = (postId, buttonPosition = null) => {
+        requestVtoWithCreditCheck('sns', { postId }, buttonPosition);
+    };
+
+    // 실제 Partial VTO 요청 실행
+    const executePartialVtoRequest = async (formData) => {
+        const jobId = 'direct-fitting-' + Date.now();
+        setVtoLoadingPosts(prev => new Set([...prev, jobId]));
+        setIsPartialVtoLoading(true);
+
+        try {
+            const token = localStorage.getItem('accessToken');
+            const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+
+            const response = await fetch(`${backendUrl}/api/fitting/partial-try-on`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || '가상 피팅에 실패했습니다.');
+            }
+
+            if (data.success) {
+                addVtoResult({
+                    imageUrl: data.imageUrl,
+                    postId: 'direct-fitting',
+                    appliedClothing: data.itemsProcessed,
+                    isDirect: true
+                });
+                refreshVtoData();
+
+                setToastMessage('가상 피팅 완료!');
+                setTimeout(() => setToastMessage(''), 3000);
+                return data;
+            }
+        } catch (error) {
+            console.error('Partial VTO Error:', error);
+            setToastMessage(`오류: ${error.message}`);
+            setTimeout(() => setToastMessage(''), 3000);
+            throw error;
+        } finally {
+            setVtoLoadingPosts(prev => {
+                const next = new Set(prev);
+                next.delete(jobId);
+                return next;
+            });
+            setIsPartialVtoLoading(false);
+        }
+    };
+
+    // 기존 requestPartialVto - 크레딧 확인 포함 버전으로 변경
+    const requestPartialVto = (formData, buttonPosition = null) => {
+        return new Promise((resolve, reject) => {
+            fetchUserCredit();
+            setPendingVtoRequest({
+                type: 'partial',
+                data: { formData },
+                buttonPosition,
+                resolve,
+                reject
+            });
+            setShowCreditModal(true);
+        });
+    };
+
+    const deleteVtoResult = (id) => {
+        // 삭제할 결과에서 postId 찾기
+        const resultToDelete = vtoResults.find(r => r.id === id);
+        const postIdToRemove = resultToDelete?.postId;
+
+        // localStorage에서 삭제
+        removeVtoResult(id);
+        refreshVtoData();
+
+        // completedPosts에서도 해당 postId 제거 (버튼 상태 초기화)
+        if (postIdToRemove && postIdToRemove !== 'direct-fitting') {
+            setVtoCompletedPosts(prev => {
+                const next = new Set(prev);
+                next.delete(postIdToRemove);
+                return next;
+            });
+        }
+    };
+
+    const value = {
+        vtoLoadingPosts,
+        vtoCompletedPosts,
+        isAnyVtoLoading: vtoLoadingPosts.size > 0,
+        isPartialVtoLoading,
+        vtoResults,
+        unseenCount,
+        toastMessage,
+        isVtoModalOpen,
+        userCredit,
+        flyAnimation,
+        openVtoModal,
+        closeVtoModal,
+        requestVto,
+        requestPartialVto,
+        deleteVtoResult,
+        refreshVtoData,
+        fetchUserCredit
+    };
+
+    return (
+        <VtoContext.Provider value={value}>
+            {children}
+
+            {/* 크레딧 확인 모달 */}
+            <CreditConfirmModal
+                isOpen={showCreditModal}
+                onClose={handleCreditCancel}
+                onConfirm={handleCreditConfirm}
+                currentCredit={userCredit}
+                requiredCredit={3}
+                isLoading={isCreditLoading}
+            />
+        </VtoContext.Provider>
+    );
+};

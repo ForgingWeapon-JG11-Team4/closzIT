@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import SharedHeader from '../components/SharedHeader';
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
@@ -238,16 +239,11 @@ const CreatePostPage = () => {
 
   return (
     <div className="min-h-screen bg-cream dark:bg-[#1A1918]">
-      {/* Header */}
-      <div className="sticky top-0 z-50 glass-warm border-b border-gold-light/20 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => navigate(-1)}
-            className="w-10 h-10 rounded-full hover:bg-gold-light/20 flex items-center justify-center transition-colors"
-          >
-            <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream">arrow_back</span>
-          </button>
-          <h1 className="text-xl font-bold text-charcoal dark:text-cream">새 게시물</h1>
+      {/* Shared Header with Submit Button */}
+      <SharedHeader
+        title="새 게시물"
+        showBackButton
+        rightContent={
           <button
             onClick={handleSubmit}
             disabled={!imagePreview || uploading}
@@ -255,8 +251,8 @@ const CreatePostPage = () => {
           >
             {uploading ? '게시 중...' : '공유'}
           </button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="max-w-2xl mx-auto px-4 py-6">
         {/* Image Upload */}

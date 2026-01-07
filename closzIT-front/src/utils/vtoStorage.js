@@ -56,3 +56,42 @@ export const markAllVtoAsSeen = () => {
     localStorage.setItem(VTO_STORAGE_KEY, JSON.stringify(updated));
     return updated;
 };
+
+// ========== Pending Jobs 관리 ==========
+const PENDING_JOBS_KEY = 'vto_pending_jobs';
+
+export const getPendingJobs = () => {
+    try {
+        const stored = localStorage.getItem(PENDING_JOBS_KEY);
+        return stored ? JSON.parse(stored) : [];
+    } catch {
+        return [];
+    }
+};
+
+export const addPendingJob = (jobId, source = 'unknown') => {
+    const jobs = getPendingJobs();
+    const newJob = {
+        jobId,
+        source,
+        requestedAt: Date.now(),
+    };
+    jobs.push(newJob);
+    localStorage.setItem(PENDING_JOBS_KEY, JSON.stringify(jobs));
+    return newJob;
+};
+
+export const removePendingJob = (jobId) => {
+    const jobs = getPendingJobs();
+    const filtered = jobs.filter(j => j.jobId !== jobId);
+    localStorage.setItem(PENDING_JOBS_KEY, JSON.stringify(filtered));
+    return filtered;
+};
+
+export const hasPendingJobs = () => {
+    return getPendingJobs().length > 0;
+};
+
+export const clearPendingJobs = () => {
+    localStorage.removeItem(PENDING_JOBS_KEY);
+};

@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import SharedHeader from '../../components/SharedHeader';
 
 // 등록 옵션 - 화이트 & 골드 테마로 변경
 const registerOptions = [
@@ -64,7 +65,7 @@ const RegisterPage = () => {
   };
 
   return (
-    <div 
+    <div
       className="min-h-screen font-sans flex flex-col"
       style={{ backgroundColor: '#FAF8F5' }}
     >
@@ -77,48 +78,15 @@ const RegisterPage = () => {
         className="hidden"
       />
 
-      {/* Header - Glass Morphism with Gold accent */}
-      <div 
-        className="px-4 py-4 flex items-center justify-between sticky top-0 z-40"
-        style={{
-          background: 'rgba(250, 248, 245, 0.85)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          borderBottom: '1px solid rgba(212, 175, 55, 0.15)'
-        }}
-      >
-        <button
-          onClick={() => navigate('/main')}
-          className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-105"
-          style={{
-            background: 'linear-gradient(135deg, #F5F0E8 0%, #FAF8F5 100%)',
-            border: '1px solid rgba(212, 175, 55, 0.2)'
-          }}
-        >
-          <span 
-            className="material-symbols-rounded text-2xl"
-            style={{ color: '#6B6B6B' }}
-          >
-            arrow_back
-          </span>
-        </button>
-        
-        <h1 
-          className="text-xl font-bold"
-          style={{ color: '#2C2C2C' }}
-        >
-          등록하기
-        </h1>
-        
-        <div className="w-10 h-10"></div>
-      </div>
+      {/* Shared Header */}
+      <SharedHeader title="등록하기" showBackButton onBackClick={() => navigate('/main')} />
 
       {/* Main Content */}
       <main className="flex-1 px-6 py-8 flex flex-col items-center justify-center pb-28">
-        
+
         {/* Title Section */}
         <div className="text-center mb-8">
-          <p 
+          <p
             className="text-sm leading-relaxed"
             style={{ color: '#6B6B6B' }}
           >
@@ -142,7 +110,7 @@ const RegisterPage = () => {
               }}
             >
               {/* Icon Container */}
-              <div 
+              <div
                 className={`w-16 h-16 mb-4 flex items-center justify-center rounded-2xl ${option.bgColor} transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg`}
                 style={{
                   border: `1px solid ${option.borderColor.replace('border-', '').replace('[', '').replace(']', '')}`,
@@ -153,17 +121,17 @@ const RegisterPage = () => {
                   {option.icon}
                 </span>
               </div>
-              
+
               {/* Label */}
-              <span 
+              <span
                 className="text-base font-semibold transition-colors duration-300"
                 style={{ color: '#2C2C2C' }}
               >
                 {option.name}
               </span>
-              
+
               {/* Hover indicator */}
-              <div 
+              <div
                 className="mt-2 w-8 h-1 rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 group-hover:w-12"
                 style={{
                   background: 'linear-gradient(90deg, #D4AF37 0%, #E8D5A3 100%)'
@@ -174,14 +142,14 @@ const RegisterPage = () => {
         </div>
 
         {/* Bottom Text */}
-        <div 
+        <div
           className="mt-10 text-center px-6 py-4 rounded-2xl"
           style={{
             background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.05) 0%, rgba(250, 248, 245, 0.8) 100%)',
             border: '1px solid rgba(212, 175, 55, 0.1)'
           }}
         >
-          <p 
+          <p
             className="text-sm leading-relaxed"
             style={{ color: '#6B6B6B' }}
           >
@@ -192,7 +160,7 @@ const RegisterPage = () => {
       </main>
 
       {/* Bottom Navigation - Matching MainPage style */}
-      <div 
+      <div
         className="fixed bottom-0 left-0 right-0 h-16 flex items-center justify-around px-4 z-50"
         style={{
           background: 'rgba(250, 248, 245, 0.85)',
@@ -211,7 +179,7 @@ const RegisterPage = () => {
           <span className="text-[10px] font-semibold">내 옷장</span>
         </button>
 
-        <button 
+        <button
           className="flex items-center gap-2 px-5 py-2.5 rounded-full transition-all duration-300 hover:scale-105 active:scale-95"
           style={{
             background: 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)',
@@ -223,7 +191,7 @@ const RegisterPage = () => {
           <span className="text-sm font-semibold">의류 등록</span>
         </button>
 
-        <button 
+        <button
           className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] transition-colors duration-300 hover:text-[#D4AF37]"
           style={{ color: '#6B6B6B' }}
         >

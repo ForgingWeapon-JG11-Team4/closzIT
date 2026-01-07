@@ -4,7 +4,7 @@ import { CreditTransactionType } from '@prisma/client';
 
 @Injectable()
 export class CreditService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * 크레딧 추가 (회원가입, 옷 등록 등)
@@ -46,6 +46,9 @@ export class CreditService {
       });
 
       return { newBalance, history };
+    }, {
+      maxWait: 10000,
+      timeout: 30000,
     });
   }
 
@@ -93,6 +96,9 @@ export class CreditService {
       });
 
       return { newBalance, history };
+    }, {
+      maxWait: 10000, // 트랜잭션 시작 대기 최대 10초
+      timeout: 30000, // 트랜잭션 실행 최대 30초
     });
   }
 

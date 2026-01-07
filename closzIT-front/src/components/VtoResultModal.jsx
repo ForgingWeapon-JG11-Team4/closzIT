@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { removeVtoResult } from '../utils/vtoStorage';
 
-const VtoResultModal = ({ isOpen, onClose, results, onRefresh }) => {
+const VtoResultModal = ({ isOpen, onClose, results, onRefresh, onDelete }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [dragOffset, setDragOffset] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
@@ -16,8 +15,8 @@ const VtoResultModal = ({ isOpen, onClose, results, onRefresh }) => {
     const sortedResults = [...results].reverse();
 
     const handleRemove = (id) => {
-        removeVtoResult(id);
-        onRefresh?.();
+        // VtoContext의 deleteVtoResult 호출 (버튼 상태 연동됨)
+        onDelete?.(id);
         if (currentIndex >= sortedResults.length - 1 && currentIndex > 0) {
             setCurrentIndex(currentIndex - 1);
         }

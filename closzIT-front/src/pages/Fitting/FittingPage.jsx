@@ -1,20 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import SharedHeader from '../../components/SharedHeader';
+import { useVto } from '../../context/VtoContext';
 
 const FittingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { requestPartialVto, isPartialVtoLoading } = useVto();
   const { calendarEvent, isToday } = location.state || {};
 
   const [outfit, setOutfit] = useState(null);
   const [context, setContext] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // 피팅 관련 상태
-  const [showCreditModal, setShowCreditModal] = useState(false);
-  const [isFitting, setIsFitting] = useState(false);
-  const [fittingResult, setFittingResult] = useState(null);
   const [fittingError, setFittingError] = useState(null);
   const [userFullBodyImage, setUserFullBodyImage] = useState(null);
 
@@ -34,12 +32,12 @@ const FittingPage = () => {
         }
 
         const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-        
+
         // 사용자 정보 가져오기 (전신 사진 포함)
         const userResponse = await fetch(`${backendUrl}/user/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
         if (userResponse.ok) {
           const userData = await userResponse.json();
           setUserFullBodyImage(userData.fullBodyImage);
@@ -67,7 +65,7 @@ const FittingPage = () => {
               bottom: data.results.bottom?.[0] || null,
               shoes: data.results.shoes?.[0] || null,
             };
-            
+
             const hasAnyItem = outfitSet.outer || outfitSet.top || outfitSet.bottom || outfitSet.shoes;
             if (hasAnyItem) {
               setOutfit(outfitSet);
@@ -88,15 +86,6 @@ const FittingPage = () => {
     fetchData();
   }, [calendarEvent, isToday, navigate]);
 
-  // 피팅하기 버튼 클릭 핸들러
-  const handleFittingClick = () => {
-    if (!userFullBodyImage) {
-      setFittingError('전신 사진이 등록되지 않았습니다. 마이페이지에서 전신 사진을 먼저 등록해주세요.');
-      return;
-    }
-    setShowCreditModal(true);
-  };
-
   // base64를 Blob으로 변환
   const base64ToBlob = (base64, mimeType = 'image/jpeg') => {
     const byteString = atob(base64.split(',')[1]);
@@ -114,83 +103,58 @@ const FittingPage = () => {
     return await response.blob();
   };
 
-  // 피팅 API 호출
-  const handleConfirmFitting = async () => {
-    setShowCreditModal(false);
-    setIsFitting(true);
-    setFittingError(null);
+  // 피팅하기 버튼 클릭 - VtoContext 사용 (크레딧 모달 + 백그라운드 실행)
+  const handleFittingClick = async (event) => {
+    // 버튼 위치 저장 (플라이 애니메이션용)
+    let buttonPosition = null;
+    if (event?.currentTarget) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      buttonPosition = {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2
+      };
+    }
+
+    if (!userFullBodyImage) {
+      const confirm = window.confirm(
+        '피팅 모델 이미지가 없어서 착장서비스 이용이 불가합니다. 등록하시겠습니까?'
+      );
+      if (confirm) {
+        navigate('/setup3?edit=true');
+      }
+      return;
+    }
 
     try {
-      const token = localStorage.getItem('accessToken');
-      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-      
       const formData = new FormData();
-      
+
       // 사용자 전신 사진 추가
       const personBlob = base64ToBlob(userFullBodyImage);
       formData.append('person', personBlob, 'person.jpg');
-      
+
       // 추천된 의류 이미지들 추가
-      if (outfit.outer) {
-        const outerUrl = outfit.outer.image || outfit.outer.imageUrl || outfit.outer.image_url;
-        if (outerUrl.startsWith('data:')) {
-          formData.append('outer', base64ToBlob(outerUrl), 'outer.jpg');
+      const processImage = async (item, key) => {
+        if (!item) return;
+        const imageUrl = item.image || item.imageUrl || item.image_url;
+        if (imageUrl.startsWith('data:')) {
+          formData.append(key, base64ToBlob(imageUrl), `${key}.jpg`);
         } else {
-          const outerBlob = await urlToBlob(outerUrl);
-          formData.append('outer', outerBlob, 'outer.jpg');
+          const blob = await urlToBlob(imageUrl);
+          formData.append(key, blob, `${key}.jpg`);
         }
-      }
-      
-      if (outfit.top) {
-        const topUrl = outfit.top.image || outfit.top.imageUrl || outfit.top.image_url;
-        if (topUrl.startsWith('data:')) {
-          formData.append('top', base64ToBlob(topUrl), 'top.jpg');
-        } else {
-          const topBlob = await urlToBlob(topUrl);
-          formData.append('top', topBlob, 'top.jpg');
-        }
-      }
-      
-      if (outfit.bottom) {
-        const bottomUrl = outfit.bottom.image || outfit.bottom.imageUrl || outfit.bottom.image_url;
-        if (bottomUrl.startsWith('data:')) {
-          formData.append('bottom', base64ToBlob(bottomUrl), 'bottom.jpg');
-        } else {
-          const bottomBlob = await urlToBlob(bottomUrl);
-          formData.append('bottom', bottomBlob, 'bottom.jpg');
-        }
-      }
-      
-      if (outfit.shoes) {
-        const shoesUrl = outfit.shoes.image || outfit.shoes.imageUrl || outfit.shoes.image_url;
-        if (shoesUrl.startsWith('data:')) {
-          formData.append('shoes', base64ToBlob(shoesUrl), 'shoes.jpg');
-        } else {
-          const shoesBlob = await urlToBlob(shoesUrl);
-          formData.append('shoes', shoesBlob, 'shoes.jpg');
-        }
-      }
+      };
 
-      const response = await fetch(`${backendUrl}/api/fitting/virtual-try-on`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData,
-      });
+      await processImage(outfit.outer, 'outer');
+      await processImage(outfit.top, 'top');
+      await processImage(outfit.bottom, 'bottom');
+      await processImage(outfit.shoes, 'shoes');
 
-      const data = await response.json();
+      // VtoContext의 requestPartialVto 호출 (크레딧 모달 표시 → 확인 시 백그라운드 실행)
+      requestPartialVto(formData, buttonPosition);
 
-      if (data.success) {
-        setFittingResult(data);
-      } else {
-        setFittingError(data.message || '가상 피팅에 실패했습니다.');
-      }
     } catch (err) {
-      console.error('Fitting error:', err);
-      setFittingError('피팅 처리 중 오류가 발생했습니다: ' + err.message);
-    } finally {
-      setIsFitting(false);
+      console.error('Fitting setup error:', err);
+      setFittingError('피팅 요청 준비 중 오류가 발생했습니다: ' + err.message);
     }
   };
 
@@ -249,61 +213,51 @@ const FittingPage = () => {
 
   // 추천된 아이템들을 표시용 배열로 변환
   const outfitItems = [
-    outfit.outer && { 
-      name: '외투', 
+    outfit.outer && {
+      name: '외투',
       image: outfit.outer.image || outfit.outer.imageUrl || outfit.outer.image_url,
-      position: 'top-[10%] left-[5%]', 
-      size: 'w-[45%] h-[35%]', 
-      rotate: '-rotate-3', 
-      zIndex: 'z-20' 
+      position: 'top-[10%] left-[5%]',
+      size: 'w-[45%] h-[35%]',
+      rotate: '-rotate-3',
+      zIndex: 'z-20'
     },
-    outfit.top && { 
-      name: '상의', 
+    outfit.top && {
+      name: '상의',
       image: outfit.top.image || outfit.top.imageUrl || outfit.top.image_url,
-      position: 'top-[15%] right-[8%]', 
-      size: 'w-[40%] h-[30%]', 
-      rotate: 'rotate-2', 
-      zIndex: 'z-10' 
+      position: 'top-[15%] right-[8%]',
+      size: 'w-[40%] h-[30%]',
+      rotate: 'rotate-2',
+      zIndex: 'z-10'
     },
-    outfit.bottom && { 
-      name: '하의', 
+    outfit.bottom && {
+      name: '하의',
       image: outfit.bottom.image || outfit.bottom.imageUrl || outfit.bottom.image_url,
-      position: 'bottom-[15%] left-[10%]', 
-      size: 'w-[35%] h-[40%]', 
-      rotate: 'rotate-1', 
-      zIndex: 'z-15' 
+      position: 'bottom-[15%] left-[10%]',
+      size: 'w-[35%] h-[40%]',
+      rotate: 'rotate-1',
+      zIndex: 'z-15'
     },
-    outfit.shoes && { 
-      name: '신발', 
+    outfit.shoes && {
+      name: '신발',
       image: outfit.shoes.image || outfit.shoes.imageUrl || outfit.shoes.image_url,
-      position: 'bottom-[5%] right-[15%]', 
-      size: 'w-[30%] h-[25%]', 
-      rotate: 'rotate-6', 
-      zIndex: 'z-25' 
+      position: 'bottom-[5%] right-[15%]',
+      size: 'w-[30%] h-[25%]',
+      rotate: 'rotate-6',
+      zIndex: 'z-25'
     },
   ].filter(item => item && item.image);
 
   return (
     <div className="bg-cream dark:bg-[#1A1918] min-h-screen font-sans flex flex-col">
-      {/* Header */}
-      <div className="px-4 py-3 flex items-center justify-between gap-3 glass-warm border-b border-gold-light/20 sticky top-0 z-40">
-        <button 
-          onClick={() => fittingResult ? setFittingResult(null) : navigate(-1)}
-          className="w-10 h-10 -ml-2 rounded-full flex items-center justify-center hover:bg-gold-light/20 transition-colors"
-        >
-          <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream">arrow_back</span>
-        </button>
-        <div className="text-center">
-          <h1 className="text-lg font-bold text-charcoal dark:text-cream">
-            {fittingResult ? '피팅 결과' : '코디 추천'}
-          </h1>
-          <p className="text-xs text-charcoal-light dark:text-cream-dark">"{calendarEvent}"</p>
-        </div>
-        <div className="w-10"></div>
-      </div>
+      {/* Shared Header */}
+      <SharedHeader
+        title="코디 추천"
+        showBackButton
+        onBackClick={() => navigate(-1)}
+      />
 
       {/* Context Info */}
-      {context && !fittingResult && (
+      {context && (
         <div className="px-4 py-3 bg-gradient-to-r from-gold/10 to-gold-light/5 border-b border-gold/20">
           <div className="flex items-center justify-center gap-4 text-sm">
             {context.tpo && (
@@ -325,125 +279,83 @@ const FittingPage = () => {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-between py-6 px-4">
-        {/* 피팅 진행 중 */}
-        {isFitting && (
-          <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-gold border-t-transparent mb-6"></div>
-            <p className="text-charcoal dark:text-cream font-medium text-lg">가상 피팅 중...</p>
-            <p className="text-sm text-charcoal-light dark:text-cream-dark mt-2">AI가 옷을 입혀보고 있어요</p>
-          </div>
-        )}
-
-        {/* 피팅 결과 */}
-        {fittingResult && !isFitting && (
-          <div className="flex-1 w-full">
-            <div className="bg-warm-white dark:bg-charcoal rounded-2xl p-4 shadow-lifted border border-gold-light/20">
-              {fittingResult.imageUrl ? (
-                <>
-                  <img
-                    src={fittingResult.imageUrl}
-                    alt="Fitting Result"
-                    className="w-full rounded-xl mb-4"
-                  />
-                  <p className="text-sm text-charcoal-light dark:text-cream-dark text-center">
-                    처리 시간: {fittingResult.processingTime?.total?.toFixed(2) || '-'}초
-                  </p>
-                </>
-              ) : (
-                <>
-                  {fittingResult.note && (
-                    <div className="bg-gold/10 border-l-4 border-gold p-3 rounded-lg mb-4">
-                      <p className="text-sm text-charcoal dark:text-cream">{fittingResult.note}</p>
-                    </div>
-                  )}
-                  <div className="prose dark:prose-invert">
-                    <h3 className="text-lg font-semibold text-charcoal dark:text-cream mb-2">AI 분석 결과</h3>
-                    <p className="text-charcoal-light dark:text-cream-dark whitespace-pre-wrap">
-                      {fittingResult.description}
-                    </p>
-                  </div>
-                  <p className="mt-4 text-sm text-charcoal-light dark:text-cream-dark text-center border-t border-gold-light/20 pt-4">
-                    처리 시간: {fittingResult.processingTime?.total?.toFixed(2) || '-'}초
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* 코디 추천 화면 */}
-        {!isFitting && !fittingResult && (
-          <>
-            {/* Outfit Display */}
-            <div className="flex-1 w-full flex items-center justify-center">
-              <div className="w-full h-[420px] relative mx-2 bg-warm-white/50 dark:bg-charcoal/30 rounded-3xl border border-gold-light/20 shadow-soft">
-                {outfitItems.map((item, index) => (
-                  <div 
-                    key={index}
-                    className={`absolute ${item.position} ${item.size} bg-warm-white dark:bg-charcoal rounded-2xl border-2 border-gold-light/30 dark:border-charcoal-light/30 shadow-lifted flex items-center justify-center p-3 transform ${item.rotate} transition-all duration-300 hover:scale-105 hover:border-gold hover:shadow-xl ${item.zIndex}`}
-                  >
-                    <img 
-                      alt={item.name} 
-                      className="w-full h-full object-contain rounded-xl" 
-                      src={item.image}
-                    />
-                    <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[10px] bg-charcoal/70 dark:bg-charcoal text-cream px-2 py-0.5 rounded-full font-medium">
-                      {item.name}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Error Message */}
-            {fittingError && (
-              <div className="w-full mb-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
-                <p className="text-sm text-red-600 dark:text-red-400 text-center">{fittingError}</p>
-                {!userFullBodyImage && (
-                  <button
-                    onClick={() => navigate('/setup3?edit=true')}
-                    className="mt-2 w-full text-sm text-gold font-medium hover:underline"
-                  >
-                    전신 사진 등록하러 가기 →
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Fitting Button */}
-            <div className="w-full px-4 mt-6 mb-4">
-              <button 
-                onClick={handleFittingClick}
-                className="w-full h-14 rounded-2xl btn-premium text-warm-white font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2"
+        {/* Outfit Display */}
+        <div className="flex-1 w-full flex items-center justify-center">
+          <div className="w-full h-[420px] relative mx-2 bg-warm-white/50 dark:bg-charcoal/30 rounded-3xl border border-gold-light/20 shadow-soft">
+            {outfitItems.map((item, index) => (
+              <div
+                key={index}
+                className={`absolute ${item.position} ${item.size} bg-warm-white dark:bg-charcoal rounded-2xl border-2 border-gold-light/30 dark:border-charcoal-light/30 shadow-lifted flex items-center justify-center p-3 transform ${item.rotate} transition-all duration-300 hover:scale-105 hover:border-gold hover:shadow-xl ${item.zIndex}`}
               >
-                <span className="material-symbols-rounded">checkroom</span>
-                피팅하기
-              </button>
-            </div>
-          </>
+                <img
+                  alt={item.name}
+                  className="w-full h-full object-contain rounded-xl"
+                  src={item.image}
+                />
+                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[10px] bg-charcoal/70 dark:bg-charcoal text-cream px-2 py-0.5 rounded-full font-medium">
+                  {item.name}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Error Message */}
+        {fittingError && (
+          <div className="w-full mb-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
+            <p className="text-sm text-red-600 dark:text-red-400 text-center">{fittingError}</p>
+          </div>
         )}
+
+        {/* Fitting Button */}
+        <div className="w-full px-4 mt-6 mb-4">
+          <button
+            onClick={(e) => {
+              if (!isPartialVtoLoading) {
+                handleFittingClick(e);
+              }
+            }}
+            disabled={isPartialVtoLoading}
+            className={`w-full h-14 rounded-2xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${isPartialVtoLoading
+                ? 'bg-gold-light/50 text-charcoal cursor-wait'
+                : 'btn-premium text-warm-white hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0'
+              }`}
+          >
+            {isPartialVtoLoading ? (
+              <>
+                <span className="material-symbols-rounded animate-spin">progress_activity</span>
+                생성 중...
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-rounded">checkroom</span>
+                입어보기
+              </>
+            )}
+          </button>
+        </div>
       </main>
 
       {/* Bottom Navigation */}
       <div className="h-20 glass-warm border-t border-gold-light/20 flex items-center justify-around pb-2 z-50 safe-area-pb">
-        <button 
+        <button
           onClick={() => navigate('/main')}
           className="flex flex-col items-center justify-center w-16 h-full text-charcoal-light dark:text-cream-dark hover:text-gold transition-colors gap-1"
         >
           <span className="material-symbols-rounded text-2xl">home</span>
           <span className="text-[10px] font-medium">홈</span>
         </button>
-        
+
         <div className="relative -top-5">
-          <button 
+          <button
             onClick={() => navigate('/register')}
             className="w-16 h-16 bg-gradient-to-br from-gold to-gold-dark text-warm-white rounded-full flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform border-4 border-cream dark:border-[#1A1918]"
           >
             <span className="material-symbols-rounded text-4xl">add</span>
           </button>
         </div>
-        
-        <button 
+
+        <button
           onClick={() => navigate('/feed')}
           className="flex flex-col items-center justify-center w-16 h-full text-charcoal-light dark:text-cream-dark hover:text-gold transition-colors gap-1"
         >
@@ -451,40 +363,6 @@ const FittingPage = () => {
           <span className="text-[10px] font-medium">SNS</span>
         </button>
       </div>
-
-      {/* 크레딧 확인 모달 */}
-      {showCreditModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-warm-white dark:bg-charcoal rounded-2xl p-6 max-w-sm w-full shadow-xl">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-gold/10 flex items-center justify-center mx-auto mb-4">
-                <span className="material-symbols-rounded text-3xl text-gold">monetization_on</span>
-              </div>
-              <h3 className="text-xl font-bold text-charcoal dark:text-cream mb-2">피팅 크레딧 사용</h3>
-              <p className="text-charcoal-light dark:text-cream-dark">
-                가상 피팅에 <span className="text-gold font-bold">2 크레딧</span>이 사용됩니다.
-              </p>
-              <p className="text-sm text-charcoal-light/70 dark:text-cream-dark/70 mt-2">
-                진행하시겠습니까?
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowCreditModal(false)}
-                className="flex-1 py-3 rounded-xl border border-gold-light/30 text-charcoal dark:text-cream font-medium hover:bg-gold-light/10 transition-colors"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleConfirmFitting}
-                className="flex-1 py-3 rounded-xl btn-premium font-bold"
-              >
-                확인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
