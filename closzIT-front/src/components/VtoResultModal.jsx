@@ -1,7 +1,18 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 const VtoResultModal = ({ isOpen, onClose, results, onRefresh, onDelete }) => {
-    const [currentIndex, setCurrentIndex] = useState(0);
+    // 최신순이 오른쪽에 오도록 역순 정렬 -> 최신 이미지가 마지막 인덱스
+    const sortedResults = [...results].reverse();
+
+    // 모달이 열릴 때 가장 최신 이미지(마지막 인덱스)가 보이도록 초기화
+    const [currentIndex, setCurrentIndex] = useState(sortedResults.length > 0 ? sortedResults.length - 1 : 0);
+
+    // results가 변경되면(새 이미지 추가 시) 최신 이미지로 이동
+    useEffect(() => {
+        if (isOpen && sortedResults.length > 0) {
+            setCurrentIndex(sortedResults.length - 1);
+        }
+    }, [results.length, isOpen]);
     const [dragOffset, setDragOffset] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
     const touchStartX = useRef(0);
@@ -9,10 +20,9 @@ const VtoResultModal = ({ isOpen, onClose, results, onRefresh, onDelete }) => {
     const imageWidth = 280;
     const gap = 16;
 
+
     if (!isOpen) return null;
 
-    // 최신순이 오른쪽에 오도록 역순 정렬
-    const sortedResults = [...results].reverse();
 
     const handleRemove = (id) => {
         // VtoContext의 deleteVtoResult 호출 (버튼 상태 연동됨)

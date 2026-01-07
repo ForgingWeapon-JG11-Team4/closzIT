@@ -18,7 +18,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @Controller('posts')
 @UseGuards(JwtAuthGuard)
 export class PostsController {
-  constructor(private readonly postsService: PostsService) {}
+  constructor(private readonly postsService: PostsService) { }
 
   @Get('feed')
   async getFeed(
@@ -73,10 +73,10 @@ export class PostsController {
   async updatePost(
     @Request() req,
     @Param('id') postId: string,
-    @Body() body: { caption: string },
+    @Body() body: { caption: string; clothingIds?: string[] },
   ) {
     const userId = req.user.id;
-    const post = await this.postsService.updatePost(postId, userId, body.caption);
+    const post = await this.postsService.updatePost(postId, userId, body.caption, body.clothingIds);
 
     if (!post) {
       throw new HttpException(

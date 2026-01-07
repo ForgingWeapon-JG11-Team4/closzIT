@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SharedHeader from '../components/SharedHeader';
+import CommentBottomSheet from '../components/CommentBottomSheet';
 import { useVto } from '../context/VtoContext';
 
 const FeedPage = () => {
@@ -15,9 +16,64 @@ const FeedPage = () => {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
 
+  // 현재 로그인한 사용자 정보
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // 댓글 바텀시트 상태
+  const [commentPostId, setCommentPostId] = useState(null);
+  const [isCommentSheetOpen, setIsCommentSheetOpen] = useState(false);
+
+  // 드롭다운 메뉴 상태
+  const [openMenuPostId, setOpenMenuPostId] = useState(null);
+  const menuRef = useRef(null);
+
+  const handleOpenComments = (postId) => {
+    setCommentPostId(postId);
+    setIsCommentSheetOpen(true);
+  };
+
+  const handleCloseComments = () => {
+    setIsCommentSheetOpen(false);
+    setCommentPostId(null);
+  };
+
+  useEffect(() => {
+    fetchCurrentUser();
+  }, []);
+
   useEffect(() => {
     fetchFeed();
   }, [page]);
+
+  // 드롭다운 외부 클릭 감지
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpenMenuPostId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+      const response = await fetch(`${backendUrl}/user/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentUser(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch current user:', error);
+    }
+  };
 
   const handleTryOn = (postId, event) => {
     if (vtoLoadingPosts.has(postId) || vtoCompletedPosts.has(postId)) return;
@@ -94,6 +150,48 @@ const FeedPage = () => {
     }
   };
 
+  // 게시글 삭제
+  const handleDeletePost = async (postId) => {
+    if (!window.confirm('정말 이 게시글을 삭제하시겠습니까?')) {
+      setOpenMenuPostId(null);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+
+      const response = await fetch(`${backendUrl}/posts/${postId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        // UI에서 게시글 제거
+        setPosts(posts.filter(post => post.id !== postId));
+        setOpenMenuPostId(null);
+      } else {
+        alert('게시글 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to delete post:', error);
+      alert('게시글 삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 게시글 수정 페이지로 이동
+  const handleEditPost = (postId) => {
+    setOpenMenuPostId(null);
+    navigate(`/edit-post/${postId}`);
+  };
+
+  // 메뉴 토글
+  const toggleMenu = (postId) => {
+    setOpenMenuPostId(openMenuPostId === postId ? null : postId);
+  };
+
   if (loading && page === 1) {
     return (
       <div className="min-h-screen bg-cream dark:bg-[#1A1918] flex items-center justify-center">
@@ -137,9 +235,34 @@ const FeedPage = () => {
                       </p>
                     </div>
                   </div>
-                  <button className="w-8 h-8 rounded-full hover:bg-gold-light/20 flex items-center justify-center transition-colors">
-                    <span className="material-symbols-rounded text-charcoal-light dark:text-cream-dark">more_vert</span>
-                  </button>
+                  <div className="relative" ref={openMenuPostId === post.id ? menuRef : null}>
+                    <button
+                      onClick={() => toggleMenu(post.id)}
+                      className="w-8 h-8 rounded-full hover:bg-gold-light/20 flex items-center justify-center transition-colors"
+                    >
+                      <span className="material-symbols-rounded text-charcoal-light dark:text-cream-dark">more_vert</span>
+                    </button>
+
+                    {/* 드롭다운 메뉴 - 본인 글일 경우만 */}
+                    {openMenuPostId === post.id && currentUser && post.user.id === currentUser.id && (
+                      <div className="absolute right-0 top-10 w-32 bg-warm-white dark:bg-charcoal rounded-xl shadow-lg border border-gold-light/20 overflow-hidden z-20">
+                        <button
+                          onClick={() => handleEditPost(post.id)}
+                          className="w-full px-4 py-3 text-left text-sm text-charcoal dark:text-cream hover:bg-gold-light/10 flex items-center gap-2 transition-colors"
+                        >
+                          <span className="material-symbols-rounded text-lg">edit</span>
+                          수정
+                        </button>
+                        <button
+                          onClick={() => handleDeletePost(post.id)}
+                          className="w-full px-4 py-3 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors"
+                        >
+                          <span className="material-symbols-rounded text-lg">delete</span>
+                          삭제
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Post Image */}
@@ -162,14 +285,16 @@ const FeedPage = () => {
                       className="flex items-center gap-1 group"
                     >
                       <span className={`material-symbols-rounded text-2xl transition-all ${post.isLiked
-                        ? 'text-red-500 fill-1'
+                        ? 'text-red-500'
                         : 'text-charcoal dark:text-cream group-hover:text-red-500'
-                        }`}>
-                        {post.isLiked ? 'favorite' : 'favorite_border'}
+                        }`}
+                        style={{ fontVariationSettings: post.isLiked ? "'FILL' 1" : "'FILL' 0" }}
+                      >
+                        favorite
                       </span>
                     </button>
                     <button
-                      onClick={() => navigate(`/post/${post.id}`)}
+                      onClick={() => handleOpenComments(post.id)}
                       className="flex items-center gap-1 group"
                     >
                       <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream group-hover:text-gold">
@@ -249,7 +374,7 @@ const FeedPage = () => {
                   {/* View Comments */}
                   {post.commentsCount > 0 && (
                     <button
-                      onClick={() => navigate(`/post/${post.id}`)}
+                      onClick={() => handleOpenComments(post.id)}
                       className="text-sm text-charcoal-light dark:text-cream-dark hover:text-gold mt-2"
                     >
                       댓글 {post.commentsCount}개 모두 보기
@@ -298,6 +423,13 @@ const FeedPage = () => {
           <span className="text-[10px] font-semibold">SNS</span>
         </button>
       </div>
+
+      {/* 댓글 바텀시트 */}
+      <CommentBottomSheet
+        isOpen={isCommentSheetOpen}
+        onClose={handleCloseComments}
+        postId={commentPostId}
+      />
     </div>
   );
 };
