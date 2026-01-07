@@ -14,7 +14,8 @@ const categories = [
 
 const MainPage = () => {
   const navigate = useNavigate();
-  const { requestPartialVto, isPartialVtoLoading } = useVto();
+  const { requestPartialVto, checkPartialVtoLoading } = useVto();
+  const isPartialVtoLoading = checkPartialVtoLoading('main');
 
   const [activeCategory, setActiveCategory] = useState('outerwear');
   const [currentClothIndex, setCurrentClothIndex] = useState(0);
@@ -162,7 +163,7 @@ const MainPage = () => {
       await processImage(selectedOutfit.shoes, 'shoes');
 
       // VtoContext의 requestPartialVto 호출 (크레딧 모달 + 애니메이션)
-      requestPartialVto(formData, buttonPosition);
+      requestPartialVto(formData, buttonPosition, 'main');
 
     } catch (err) {
       console.error('Fitting setup error:', err);
@@ -695,8 +696,8 @@ const MainPage = () => {
                         }}
                         disabled={isPartialVtoLoading}
                         className={`mt-3 w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all animate-fadeIn ${isPartialVtoLoading
-                            ? 'bg-gold-light/50 text-charcoal cursor-wait'
-                            : 'btn-premium hover:shadow-xl'
+                          ? 'bg-gold-light/50 text-charcoal cursor-wait'
+                          : 'btn-premium hover:shadow-xl'
                           }`}
                       >
                         {isPartialVtoLoading ? (

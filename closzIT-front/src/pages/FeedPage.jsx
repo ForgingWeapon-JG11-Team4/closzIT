@@ -150,7 +150,7 @@ const FeedPage = () => {
                   <img
                     src={post.imageUrl}
                     alt="Post"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 </div>
 

@@ -36,8 +36,8 @@ export const VtoProvider = ({ children }) => {
     const [userCredit, setUserCredit] = useState(0);
     const [isCreditLoading, setIsCreditLoading] = useState(false);
 
-    // 부분 VTO 로딩 상태 (메인/추천 페이지용)
-    const [isPartialVtoLoading, setIsPartialVtoLoading] = useState(false);
+    // 부분 VTO 로딩 상태 (메인/추천 페이지용) - 소스별로 분리
+    const [partialVtoLoadingSources, setPartialVtoLoadingSources] = useState(new Set());
 
     // 플라이 애니메이션 상태
     const [flyAnimation, setFlyAnimation] = useState(null);
@@ -118,7 +118,7 @@ export const VtoProvider = ({ children }) => {
             if (request.type === 'sns') {
                 executeVtoRequest(request.data.postId);
             } else if (request.type === 'partial') {
-                executePartialVtoRequest(request.data.formData);
+                executePartialVtoRequest(request.data.formData, request.source);
             }
         }, 300);
     };
@@ -194,10 +194,11 @@ export const VtoProvider = ({ children }) => {
     };
 
     // 실제 Partial VTO 요청 실행
-    const executePartialVtoRequest = async (formData) => {
+    // 실제 Partial VTO 요청 실행
+    const executePartialVtoRequest = async (formData, source = 'default') => {
         const jobId = 'direct-fitting-' + Date.now();
         setVtoLoadingPosts(prev => new Set([...prev, jobId]));
-        setIsPartialVtoLoading(true);
+        setPartialVtoLoadingSources(prev => new Set(prev).add(source));
 
         try {
             const token = localStorage.getItem('accessToken');
@@ -241,18 +242,23 @@ export const VtoProvider = ({ children }) => {
                 next.delete(jobId);
                 return next;
             });
-            setIsPartialVtoLoading(false);
+            setPartialVtoLoadingSources(prev => {
+                const next = new Set(prev);
+                next.delete(source);
+                return next;
+            });
         }
     };
 
     // 기존 requestPartialVto - 크레딧 확인 포함 버전으로 변경
-    const requestPartialVto = (formData, buttonPosition = null) => {
+    const requestPartialVto = (formData, buttonPosition = null, source = 'default') => {
         return new Promise((resolve, reject) => {
             fetchUserCredit();
             setPendingVtoRequest({
                 type: 'partial',
                 data: { formData },
                 buttonPosition,
+                source,
                 resolve,
                 reject
             });
@@ -279,11 +285,13 @@ export const VtoProvider = ({ children }) => {
         }
     };
 
+    const checkPartialVtoLoading = (source) => partialVtoLoadingSources.has(source);
+
     const value = {
         vtoLoadingPosts,
         vtoCompletedPosts,
-        isAnyVtoLoading: vtoLoadingPosts.size > 0,
-        isPartialVtoLoading,
+        isAnyVtoLoading: vtoLoadingPosts.size > 0 || partialVtoLoadingSources.size > 0,
+        checkPartialVtoLoading,
         vtoResults,
         unseenCount,
         toastMessage,
