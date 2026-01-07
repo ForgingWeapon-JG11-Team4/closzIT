@@ -214,7 +214,7 @@ const PostDetailPage = () => {
           <img
             src={post.imageUrl}
             alt="Post"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
           />
         </div>
 
@@ -266,10 +266,10 @@ const PostDetailPage = () => {
                 onClick={handleTryOn}
                 disabled={tryOnLoading || tryOnCompleted}
                 className={`mt-4 w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${tryOnCompleted
-                    ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                    : tryOnLoading
-                      ? 'bg-gold-light/50 text-charcoal cursor-wait'
-                      : 'btn-premium hover:scale-[1.02]'
+                  ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                  : tryOnLoading
+                    ? 'bg-gold-light/50 text-charcoal cursor-wait'
+                    : 'btn-premium hover:scale-[1.02]'
                   }`}
               >
                 {tryOnLoading ? (

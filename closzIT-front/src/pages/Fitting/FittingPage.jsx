@@ -6,7 +6,8 @@ import { useVto } from '../../context/VtoContext';
 const FittingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { requestPartialVto, isPartialVtoLoading } = useVto();
+  const { requestPartialVto, checkPartialVtoLoading } = useVto();
+  const isPartialVtoLoading = checkPartialVtoLoading('fitting');
   const { calendarEvent, isToday } = location.state || {};
 
   const [outfit, setOutfit] = useState(null);
@@ -150,7 +151,7 @@ const FittingPage = () => {
       await processImage(outfit.shoes, 'shoes');
 
       // VtoContext의 requestPartialVto 호출 (크레딧 모달 표시 → 확인 시 백그라운드 실행)
-      requestPartialVto(formData, buttonPosition);
+      requestPartialVto(formData, buttonPosition, 'fitting');
 
     } catch (err) {
       console.error('Fitting setup error:', err);
@@ -317,8 +318,8 @@ const FittingPage = () => {
             }}
             disabled={isPartialVtoLoading}
             className={`w-full h-14 rounded-2xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${isPartialVtoLoading
-                ? 'bg-gold-light/50 text-charcoal cursor-wait'
-                : 'btn-premium text-warm-white hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0'
+              ? 'bg-gold-light/50 text-charcoal cursor-wait'
+              : 'btn-premium text-warm-white hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0'
               }`}
           >
             {isPartialVtoLoading ? (
