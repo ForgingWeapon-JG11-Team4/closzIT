@@ -47,7 +47,7 @@ const MainPage2 = () => {
 
   // 날씨 API 상태
   const [weather, setWeather] = useState({ temperature: null, condition: '로딩중...' });
-  const [userLocation, setUserLocation] = useState('서울');
+  const [userLocation, setUserLocation] = useState('로딩중...');
 
   // 날씨 API 호출
   useEffect(() => {
