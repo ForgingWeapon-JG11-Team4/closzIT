@@ -34,7 +34,6 @@ jobs:
         run: |
           echo "🔍 Checking for running deployments..."
           
-          # 수정된 필터 형식 ⭐
           RUNNING=$(aws ssm list-commands \
             --instance-id "i-00f17116a4704e13f" \
             --max-results 5 \
@@ -121,13 +120,13 @@ jobs:
               "echo \"✅ Dependencies installed\"",
               "echo \"\"",
               "",
-              "echo \"📌 Step 7: Restart AI server with PM2\"",
+              "echo \"📌 Step 7: Restart AI server with PM2 (uvicorn)\"",
               "echo \"Stopping existing process...\"",
               "pm2 stop ai-fastapi 2>/dev/null || echo \"No process to stop\"",
               "pm2 delete ai-fastapi 2>/dev/null || echo \"No process to delete\"",
               "",
-              "echo \"Starting new process...\"",
-              "pm2 start main.py --name ai-fastapi --interpreter python3 || { echo \"❌ PM2 start failed\"; exit 1; }",
+              "echo \"Starting new process with uvicorn...\"",
+              "pm2 start uvicorn --name ai-fastapi --interpreter python3 -- main:app --host 0.0.0.0 --port 8000 || { echo \"❌ PM2 start failed\"; exit 1; }",
               "",
               "echo \"Saving PM2 configuration...\"",
               "pm2 save",
@@ -142,8 +141,8 @@ jobs:
               "",
               "echo \"\"",
               "echo \"📌 Step 8: Health check\"",
-              "echo \"Waiting 5 seconds for server to start...\"",
-              "sleep 5",
+              "echo \"Waiting 10 seconds for server to start...\"",
+              "sleep 10",
               "",
               "echo \"Testing health endpoint...\"",
               "HEALTH_RESPONSE=$(curl -s http://localhost:8000/health || echo \"failed\")",
@@ -176,7 +175,6 @@ jobs:
           echo "⏳ Waiting for deployment to complete..."
           echo ""
           
-          # 수동 대기 루프
           MAX_ATTEMPTS=90
           DELAY=10
           ATTEMPT=0
@@ -192,13 +190,11 @@ jobs:
               --query 'Status' \
               --output text 2>/dev/null || echo "Pending")
             
-            # 매 1분마다 진행 상황 출력
             if [ $((ATTEMPT % 6)) -eq 0 ]; then
               ELAPSED=$((ATTEMPT * DELAY))
               echo "[$ELAPSED seconds] Status: $STATUS"
             fi
             
-            # 완료 상태 체크
             if [ "$STATUS" = "Success" ] || \
                [ "$STATUS" = "Failed" ] || \
                [ "$STATUS" = "Cancelled" ] || \
@@ -254,4 +250,3 @@ jobs:
           echo ""
           echo "🎯 AI Server: http://10.1.157.47:8000"
           echo ""
-# test again
