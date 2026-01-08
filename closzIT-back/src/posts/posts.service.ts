@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class PostsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   // 피드 조회 (팔로잉한 사람들 + 본인 게시물)
   async getFeed(userId: string, page: number = 1, limit: number = 10) {
@@ -239,7 +239,7 @@ export class PostsService {
   }
 
   // 게시물 수정
-  async updatePost(postId: string, userId: string, caption: string) {
+  async updatePost(postId: string, userId: string, caption: string, clothingIds?: string[]) {
     // Check ownership
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
@@ -249,9 +249,34 @@ export class PostsService {
       return null;
     }
 
+    // clothingIds가 제공된 경우 postClothes 관계도 업데이트
+    if (clothingIds !== undefined) {
+      // 기존 postClothes 삭제
+      await this.prisma.postClothing.deleteMany({
+        where: { postId },
+      });
+
+      // 새로운 postClothes 생성
+      if (clothingIds.length > 0) {
+        await this.prisma.postClothing.createMany({
+          data: clothingIds.map((clothingId) => ({
+            postId,
+            clothingId,
+          })),
+        });
+      }
+    }
+
     return this.prisma.post.update({
       where: { id: postId },
       data: { caption },
+      include: {
+        postClothes: {
+          include: {
+            clothing: true,
+          },
+        },
+      },
     });
   }
 

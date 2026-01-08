@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import SharedHeader from '../components/SharedHeader';
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
 const CreatePostPage = () => {
   const navigate = useNavigate();
+  const { postId } = useParams(); // 수정 모드일 경우 postId가 존재
+  const isEditMode = !!postId;
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [caption, setCaption] = useState('');
@@ -42,7 +44,46 @@ const CreatePostPage = () => {
 
   useEffect(() => {
     fetchUserClothes();
-  }, []);
+    if (isEditMode) {
+      fetchPostData();
+    }
+  }, [postId]);
+
+  // 수정 모드: 기존 게시글 데이터 불러오기
+  const fetchPostData = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_BASE_URL}/posts/${postId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const post = await response.json();
+        setCaption(post.caption || '');
+        setImagePreview(post.imageUrl);
+
+        // 태그된 의상들 선택 상태로 설정
+        if (post.postClothes && post.postClothes.length > 0) {
+          const taggedClothes = post.postClothes.map(pc => ({
+            id: pc.clothing.id,
+            category: pc.clothing.category,
+            subCategory: pc.clothing.subCategory,
+            image: pc.clothing.imageUrl,
+          }));
+          setSelectedClothes(taggedClothes);
+        }
+      } else {
+        alert('게시글을 불러오는데 실패했습니다.');
+        navigate('/feed');
+      }
+    } catch (error) {
+      console.error('Failed to fetch post:', error);
+      alert('게시글을 불러오는데 실패했습니다.');
+      navigate('/feed');
+    }
+  };
 
   const fetchUserClothes = async () => {
     try {
@@ -72,8 +113,10 @@ const CreatePostPage = () => {
       };
       reader.readAsDataURL(file);
 
-      // 이미지 선택 시 자동 분석 시작
-      analyzeImage(file);
+      // 수정 모드에서는 의상 분석 스킵
+      if (!isEditMode) {
+        analyzeImage(file);
+      }
     }
   };
 
@@ -208,28 +251,49 @@ const CreatePostPage = () => {
     try {
       const token = localStorage.getItem('accessToken');
 
-      // Create post
-      const response = await fetch(`${API_BASE_URL}/posts`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          imageUrl: imagePreview, // In real app, upload to S3 first
-          caption,
-          clothingIds: selectedClothes.map(c => c.id),
-        }),
-      });
+      if (isEditMode) {
+        // 수정 모드: PUT 요청
+        const response = await fetch(`${API_BASE_URL}/posts/${postId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            caption,
+            clothingIds: selectedClothes.map(c => c.id),
+          }),
+        });
 
-      if (response.ok) {
-        navigate('/feed');
+        if (response.ok) {
+          navigate('/feed');
+        } else {
+          alert('게시물 수정에 실패했습니다');
+        }
       } else {
-        alert('게시물 작성에 실패했습니다');
+        // 생성 모드: POST 요청
+        const response = await fetch(`${API_BASE_URL}/posts`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            imageUrl: imagePreview,
+            caption,
+            clothingIds: selectedClothes.map(c => c.id),
+          }),
+        });
+
+        if (response.ok) {
+          navigate('/feed');
+        } else {
+          alert('게시물 작성에 실패했습니다');
+        }
       }
     } catch (error) {
-      console.error('Failed to create post:', error);
-      alert('게시물 작성에 실패했습니다');
+      console.error('Failed to save post:', error);
+      alert(isEditMode ? '게시물 수정에 실패했습니다' : '게시물 작성에 실패했습니다');
     } finally {
       setUploading(false);
     }
@@ -241,7 +305,7 @@ const CreatePostPage = () => {
     <div className="min-h-screen bg-cream dark:bg-[#1A1918]">
       {/* Shared Header with Submit Button */}
       <SharedHeader
-        title="새 게시물"
+        title={isEditMode ? '게시글 수정' : '새 게시물'}
         showBackButton
         rightContent={
           <button
@@ -249,7 +313,7 @@ const CreatePostPage = () => {
             disabled={!imagePreview || uploading}
             className="px-6 py-2 btn-premium rounded-full font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {uploading ? '게시 중...' : '공유'}
+            {uploading ? (isEditMode ? '수정 중...' : '게시 중...') : (isEditMode ? '수정' : '공유')}
           </button>
         }
       />

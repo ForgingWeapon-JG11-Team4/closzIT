@@ -40,6 +40,7 @@ function App() {
 
           <Route path="/feed" element={<FeedPage />} />
           <Route path="/create-post" element={<CreatePostPage />} />
+          <Route path="/edit-post/:postId" element={<CreatePostPage />} />
           <Route path="/post/:postId" element={<PostDetailPage />} />
           <Route path="/profile/:userId" element={<ProfilePage />} />
           <Route path="/profile" element={<ProfilePage />} />
