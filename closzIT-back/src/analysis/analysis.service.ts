@@ -254,8 +254,12 @@ export class AnalysisService {
             throw new Error('Gemini AI is not initialized. Check GOOGLE_API_KEY.');
         }
 
+        // 병렬 처리 확인용 고유 요청 ID 및 타이밍
+        const requestId = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const requestStartTime = new Date();
         const startTime = Date.now();
-        this.logger.log(`[flattenClothing] Starting flattening for category: ${category}/${subCategory}, userId: ${userId}`);
+
+        this.logger.log(`[flattenClothing] Request started for userId: ${userId}, requestId: ${requestId}`);
 
         try {
             // 상세 라벨링 정보 구성
@@ -341,8 +345,9 @@ ${categorySpecificInstructions}
 OUTPUT: Generate ONLY the transformed flat-lay image. No text, no explanation.
 `;
 
-            // 디버깅: 이미지 크기 로깅
-            this.logger.log(`[flattenClothing] Image base64 length: ${imageBase64.length} chars`);
+
+
+            const apiCallStartTime = Date.now();
 
             const response = await this.ai.models.generateContent({
                 model: 'gemini-3-pro-image-preview',
@@ -360,8 +365,10 @@ OUTPUT: Generate ONLY the transformed flat-lay image. No text, no explanation.
                 },
             });
 
-            const processingTime = (Date.now() - startTime) / 1000;
-            this.logger.log(`[flattenClothing] Gemini API took ${processingTime.toFixed(2)}s`);
+            const apiCallEndTime = Date.now();
+            const apiDuration = (apiCallEndTime - apiCallStartTime) / 1000;
+            const totalDuration = (apiCallEndTime - startTime) / 1000;
+            this.logger.log(`[flattenClothing] Gemini API completed. Duration: ${totalDuration.toFixed(2)}s (requestId: ${requestId})`);
 
             // 응답에서 이미지 추출
             if (!response.candidates || response.candidates.length === 0) {
@@ -376,7 +383,7 @@ OUTPUT: Generate ONLY the transformed flat-lay image. No text, no explanation.
             for (const part of candidate.content.parts) {
                 if (part.inlineData) {
                     const flattenedImageBase64 = part.inlineData.data;
-                    this.logger.log('[flattenClothing] Image flattening successful');
+
 
                     // 성공 시 1 크레딧 차감
                     try {
@@ -390,7 +397,7 @@ OUTPUT: Generate ONLY the transformed flat-lay image. No text, no explanation.
                     return {
                         success: true,
                         flattened_image_base64: flattenedImageBase64,
-                        processingTime,
+                        processingTime: totalDuration,
                     };
                 }
             }
@@ -398,7 +405,8 @@ OUTPUT: Generate ONLY the transformed flat-lay image. No text, no explanation.
             throw new Error('No image data in Gemini response');
 
         } catch (error) {
-            this.logger.error('[flattenClothing] Error:', error.message);
+            const errorTime = (Date.now() - startTime) / 1000;
+            this.logger.error(`[flattenClothing] Error (requestId: ${requestId}): ${error.message}`);
             throw error;
         }
     }
