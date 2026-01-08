@@ -17,6 +17,7 @@ import { FollowModule } from './follow/follow.module';
 import { RecommendationModule } from './recommendation/recommendation.module';
 import { CreditModule } from './credit/credit.module';
 import { WeatherModule } from './weather/weather.module';
+import { S3Module } from './s3/s3.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { WeatherModule } from './weather/weather.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    S3Module,
     PrismaModule,
     BedrockModule,
     AnalysisModule,

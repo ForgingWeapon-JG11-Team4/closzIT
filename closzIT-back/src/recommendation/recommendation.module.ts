@@ -13,6 +13,7 @@ import { FeedbackService } from './services/feedback.service';
 import { UserModule } from '../user/user.module';
 import { CalendarModule } from '../calendar/calendar.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { S3Module } from '../s3/s3.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     UserModule,
     CalendarModule,
     PrismaModule,
+    S3Module,
   ],
   controllers: [RecommendationController],
   providers: [
@@ -31,4 +33,4 @@ import { PrismaModule } from '../prisma/prisma.module';
   ],
   exports: [VectorDBService, FeedbackService],
 })
-export class RecommendationModule {}
+export class RecommendationModule { }

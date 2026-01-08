@@ -4,10 +4,14 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ScoredClothing } from '../types/clothing.types';
 import { Clothing } from '@prisma/client';
+import { S3Service } from '../../s3/s3.service';
 
 @Injectable()
 export class VectorDBService implements OnModuleInit {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly s3Service: S3Service,
+  ) { }
 
   async onModuleInit() {
     try {
@@ -81,21 +85,21 @@ export class VectorDBService implements OnModuleInit {
     let paramIndex = 3;
 
     if (category) {
-    query += ` AND category = $${paramIndex}::"Category"`; 
-    params.push(category);
-    paramIndex++;
+      query += ` AND category = $${paramIndex}::"Category"`;
+      params.push(category);
+      paramIndex++;
     }
 
     if (tpo) {
-    query += ` AND $${paramIndex}::"TPO" = ANY(tpos)`;
-    params.push(tpo);
-    paramIndex++;
+      query += ` AND $${paramIndex}::"TPO" = ANY(tpos)`;
+      params.push(tpo);
+      paramIndex++;
     }
 
     if (season) {
-    query += ` AND $${paramIndex}::"Season" = ANY(seasons)`;
-    params.push(season);
-    paramIndex++;
+      query += ` AND $${paramIndex}::"Season" = ANY(seasons)`;
+      params.push(season);
+      paramIndex++;
     }
 
     query += ` ORDER BY text_embedding <=> $1::vector LIMIT $${paramIndex}`;
@@ -103,20 +107,23 @@ export class VectorDBService implements OnModuleInit {
 
     const results = await this.prisma.$queryRawUnsafe(query, ...params);
 
-    return (results as any[]).map((row) => ({
-      id: row.id,
-      score: parseFloat(row.score),
-      image_url: row.image_url,
-      flatten_image_url: row.flatten_image_url,
-      category: row.category,
-      sub_category: row.sub_category,
-      colors: row.colors,
-      style_mood: row.style_mood,
-      wear_count: row.wear_count,
-      last_worn: row.last_worn,
-      accept_count: row.accept_count,
-      reject_count: row.reject_count,
-    }));
+    // 이미지 URL을 Pre-signed URL로 변환
+    return Promise.all(
+      (results as any[]).map(async (row) => ({
+        id: row.id,
+        score: parseFloat(row.score),
+        image_url: (await this.s3Service.convertToPresignedUrl(row.image_url)) || '',
+        flatten_image_url: (await this.s3Service.convertToPresignedUrl(row.flatten_image_url)) || null,
+        category: row.category,
+        sub_category: row.sub_category,
+        colors: row.colors,
+        style_mood: row.style_mood,
+        wear_count: row.wear_count,
+        last_worn: row.last_worn,
+        accept_count: row.accept_count,
+        reject_count: row.reject_count,
+      }))
+    );
   }
 
   async getClothingByUser(userId: string): Promise<Clothing[]> {

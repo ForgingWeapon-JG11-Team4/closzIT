@@ -2,6 +2,7 @@ import { Injectable, HttpException, HttpStatus, Inject, forwardRef } from '@nest
 import { GoogleGenAI } from '@google/genai';
 import { CreditTransactionType } from '@prisma/client';
 import { CreditService } from '../credit/credit.service';
+import { S3Service } from '../s3/s3.service';
 
 @Injectable()
 export class FittingService {
@@ -10,6 +11,7 @@ export class FittingService {
   constructor(
     @Inject(forwardRef(() => CreditService))
     private readonly creditService: CreditService,
+    private readonly s3Service: S3Service,
   ) {
     const apiKey = process.env.GOOGLE_API_KEY;
     if (!apiKey) {
@@ -210,11 +212,11 @@ Output ONLY the final image. No text or explanations.
 
       // 전신 사진 base64 변환
       const personBase64 = images.person.buffer.toString('base64');
-      
+
       // 선택된 의류만 처리
       const clothingParts: any[] = [];
       const clothingDescriptions: string[] = [];
-      
+
       if (images.outer) {
         clothingParts.push({
           inlineData: {
@@ -224,7 +226,7 @@ Output ONLY the final image. No text or explanations.
         });
         clothingDescriptions.push('outerwear (Image ' + (clothingParts.length + 1) + ')');
       }
-      
+
       if (images.top) {
         clothingParts.push({
           inlineData: {
@@ -234,7 +236,7 @@ Output ONLY the final image. No text or explanations.
         });
         clothingDescriptions.push('top (Image ' + (clothingParts.length + 1) + ')');
       }
-      
+
       if (images.bottom) {
         clothingParts.push({
           inlineData: {
@@ -244,7 +246,7 @@ Output ONLY the final image. No text or explanations.
         });
         clothingDescriptions.push('bottom (Image ' + (clothingParts.length + 1) + ')');
       }
-      
+
       if (images.shoes) {
         clothingParts.push({
           inlineData: {
@@ -361,10 +363,29 @@ Output ONLY the final image. No text or explanations.
 
   /**
    * URL에서 이미지를 Buffer로 가져오기
+   * - Base64 Data URL: 직접 Buffer로 변환
+   * - S3 URL: Pre-signed URL로 변환 후 fetch
+   * - 기타 HTTPS URL: 직접 fetch
    */
   private async fetchImageAsBuffer(url: string): Promise<Buffer> {
     try {
-      const response = await fetch(url);
+      // Base64 Data URL인 경우 직접 변환
+      if (url.startsWith('data:image/')) {
+        const base64Data = url.split(',')[1];
+        return Buffer.from(base64Data, 'base64');
+      }
+
+      // S3 URL인 경우 Pre-signed URL로 변환
+      let fetchUrl = url;
+      if (this.s3Service.isS3Url(url)) {
+        const presignedUrl = await this.s3Service.convertToPresignedUrl(url);
+        if (presignedUrl) {
+          fetchUrl = presignedUrl;
+        }
+      }
+
+      // HTTPS URL fetch
+      const response = await fetch(fetchUrl);
       if (!response.ok) {
         throw new Error(`Failed to fetch image: ${response.status}`);
       }
