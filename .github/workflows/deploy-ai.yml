@@ -33,12 +33,14 @@ jobs:
       - name: Cancel Previous Deployments
         run: |
           echo "🔍 Checking for running deployments..."
+          
+          # 수정된 필터 형식 ⭐
           RUNNING=$(aws ssm list-commands \
             --instance-id "i-00f17116a4704e13f" \
-            --max-items 5 \
-            --filters "Key=Status,Values=InProgress" \
+            --max-results 5 \
+            --filters "key=Status,value=InProgress" \
             --query 'Commands[].CommandId' \
-            --output text)
+            --output text 2>/dev/null || echo "")
           
           if [ ! -z "$RUNNING" ]; then
             echo "⚠️  Found running deployment(s), cancelling..."
@@ -110,8 +112,6 @@ jobs:
               "echo \"📌 Step 5: Navigate to ai-fastapi\"",
               "cd ai-fastapi || { echo \"❌ ai-fastapi directory not found\"; exit 1; }",
               "echo \"Current directory: $(pwd)\"",
-              "echo \"Files:\"",
-              "ls -lah",
               "echo \"✅ In ai-fastapi directory\"",
               "echo \"\"",
               "",
@@ -137,8 +137,8 @@ jobs:
               "pm2 list",
               "",
               "echo \"\"",
-              "echo \"📋 Recent logs (last 15 lines):\"",
-              "pm2 logs ai-fastapi --lines 15 --nostream || true",
+              "echo \"📋 Recent logs (last 10 lines):\"",
+              "pm2 logs ai-fastapi --lines 10 --nostream || true",
               "",
               "echo \"\"",
               "echo \"📌 Step 8: Health check\"",
@@ -174,7 +174,6 @@ jobs:
           echo "📝 Command ID: $COMMAND_ID"
           echo ""
           echo "⏳ Waiting for deployment to complete..."
-          echo "This may take up to 15 minutes (includes pip install)"
           echo ""
           
           # 수동 대기 루프
@@ -247,26 +246,11 @@ jobs:
             echo ""
             echo "❌ Deployment Failed!"
             echo ""
-            echo "Troubleshooting:"
-            echo "1. Check the error output above"
-            echo "2. Verify EC2 instance is running"
-            echo "3. Check SSM Agent status"
-            echo "4. Review PM2 logs: pm2 logs ai-fastapi"
-            echo ""
             exit 1
           fi
           
           echo ""
           echo "✅ Deployment Successful!"
           echo ""
-          echo "🎯 AI Server Information:"
-          echo "  - Internal URL: http://10.1.157.47:8000"
-          echo "  - Health Check: http://10.1.157.47:8000/health"
-          echo "  - Region: Tokyo (ap-northeast-1)"
-          echo "  - GPU: NVIDIA A10G (23GB)"
-          echo ""
-          echo "📝 Next Steps:"
-          echo "  - Test from Seoul backend: curl http://10.1.157.47:8000/health"
-          echo "  - Check PM2 status: pm2 list"
-          echo "  - View logs: pm2 logs ai-fastapi"
+          echo "🎯 AI Server: http://10.1.157.47:8000"
           echo ""
