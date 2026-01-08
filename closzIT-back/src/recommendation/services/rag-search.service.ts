@@ -11,7 +11,13 @@ import {
   CategorySearchResults,
   Season,
   Category,
+  ScoredOutfit,
 } from '../types/clothing.types';
+
+export interface OutfitSearchResults {
+  candidates: CategorySearchResults;
+  outfits: ScoredOutfit[];
+}
 
 @Injectable()
 export class RagSearchService {
@@ -25,7 +31,7 @@ export class RagSearchService {
   async search(
     userId: string,
     context: SearchContext,
-  ): Promise<CategorySearchResults> {
+  ): Promise<OutfitSearchResults> {
     const preference = await this.userService.getPreference(userId);
 
     const queryText = this.buildQueryText(context, preference);
@@ -36,7 +42,7 @@ export class RagSearchService {
     const season = this.getSeasonFromTemp(context.weather?.temp ?? null);
 
     const categories: Category[] = ['Outer', 'Top', 'Bottom', 'Shoes'];
-    const results: CategorySearchResults = {
+    const candidates: CategorySearchResults = {
       outer: [],
       top: [],
       bottom: [],
@@ -58,10 +64,23 @@ export class RagSearchService {
       const personalizedResults = this.scoringService.applyPersonalization(searchResults);
 
       const key = category.toLowerCase() as keyof CategorySearchResults;
-      results[key] = personalizedResults.slice(0, 10);
+      candidates[key] = personalizedResults.slice(0, 10);
     }
 
-    return results;
+    const outfits = this.scoringService.scoreOutfitCombinations(
+      candidates.outer,
+      candidates.top,
+      candidates.bottom,
+      candidates.shoes,
+      5,
+    );
+
+    console.log('[RAG] Generated outfits:', outfits.length);
+
+    return {
+      candidates,
+      outfits,
+    };
   }
 
   private buildQueryText(
@@ -75,7 +94,6 @@ export class RagSearchService {
     const season = this.getSeasonFromTemp(context.weather?.temp ?? null);
     parts.push(season);
 
-    // weather가 있을 때만 강수확률 체크
     if (context.weather && context.weather.rain_probability > 50) {
       parts.push('비');
     }

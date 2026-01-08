@@ -70,3 +70,22 @@ export interface CategorySearchResults {
   bottom: ScoredClothing[];
   shoes: ScoredClothing[];
 }
+
+// ===== 조합 스코어링 타입 =====
+
+export interface OutfitScores {
+  itemScore: number;        // 개별 아이템 점수 합 (정규화)
+  rankScore: number;        // 순위 기반 점수
+  colorHarmony: number;     // 색상 조화 점수
+  styleConsistency: number; // 스타일 일관성 점수
+}
+
+export interface ScoredOutfit {
+  outer: ScoredClothing | null;
+  top: ScoredClothing;
+  bottom: ScoredClothing;
+  shoes: ScoredClothing;
+  scores: OutfitScores;
+  finalScore: number;       // 다양성 페널티 적용된 점수 (정렬용)
+  displayScore: number;     // 다양성 페널티 미적용 점수 (프론트 표시용)
+}
