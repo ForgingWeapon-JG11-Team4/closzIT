@@ -10,12 +10,18 @@ const FittingPage = () => {
   const isPartialVtoLoading = checkPartialVtoLoading('fitting');
   const { calendarEvent, isToday } = location.state || {};
 
-  const [outfit, setOutfit] = useState(null);
+  const [outfits, setOutfits] = useState([]);         // 상위 5개 조합
+  const [candidates, setCandidates] = useState(null); // 카테고리별 후보
+  const [meta, setMeta] = useState(null);             // 검색 메타 정보
+  const [currentOutfitIndex, setCurrentOutfitIndex] = useState(0); // 현재 선택된 조합
   const [context, setContext] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [fittingError, setFittingError] = useState(null);
   const [userFullBodyImage, setUserFullBodyImage] = useState(null);
+
+  // 현재 선택된 outfit
+  const currentOutfit = outfits[currentOutfitIndex] || null;
 
   // API에서 추천 받아오기 + 사용자 전신 사진 가져오기
   useEffect(() => {
@@ -59,19 +65,20 @@ const FittingPage = () => {
 
         if (response.ok) {
           const data = await response.json();
-          if (data.results) {
-            const outfitSet = {
-              outer: data.results.outer?.[0] || null,
-              top: data.results.top?.[0] || null,
-              bottom: data.results.bottom?.[0] || null,
-              shoes: data.results.shoes?.[0] || null,
-            };
-
-            const hasAnyItem = outfitSet.outer || outfitSet.top || outfitSet.bottom || outfitSet.shoes;
-            if (hasAnyItem) {
-              setOutfit(outfitSet);
-            }
+          
+          // 새로운 응답 구조: outfits (조합 배열) + candidates (카테고리별 후보) + meta
+          if (data.outfits && data.outfits.length > 0) {
+            setOutfits(data.outfits);
           }
+          
+          if (data.candidates) {
+            setCandidates(data.candidates);
+          }
+
+          if (data.meta) {
+            setMeta(data.meta);
+          }
+          
           setContext(data.context);
         } else {
           throw new Error('추천 요청 실패');
@@ -104,9 +111,30 @@ const FittingPage = () => {
     return await response.blob();
   };
 
-  // 피팅하기 버튼 클릭 - VtoContext 사용 (크레딧 모달 + 백그라운드 실행)
+  // 이미지 URL 가져오기 헬퍼 (flatten_image_url 우선)
+  const getImageUrl = (item) => {
+    if (!item) return null;
+    // flatten_image_url이 있으면 우선 사용
+    return item.flatten_image_url || item.flattenImageUrl 
+      || item.image_url || item.imageUrl || item.image;
+  };
+
+  // 이전 조합으로 이동
+  const handlePrevOutfit = () => {
+    setCurrentOutfitIndex((prev) => 
+      prev === 0 ? outfits.length - 1 : prev - 1
+    );
+  };
+
+  // 다음 조합으로 이동
+  const handleNextOutfit = () => {
+    setCurrentOutfitIndex((prev) => 
+      prev === outfits.length - 1 ? 0 : prev + 1
+    );
+  };
+
+  // 피팅하기 버튼 클릭
   const handleFittingClick = async (event) => {
-    // 버튼 위치 저장 (플라이 애니메이션용)
     let buttonPosition = null;
     if (event?.currentTarget) {
       const rect = event.currentTarget.getBoundingClientRect();
@@ -126,6 +154,11 @@ const FittingPage = () => {
       return;
     }
 
+    if (!currentOutfit) {
+      setFittingError('선택된 코디가 없습니다.');
+      return;
+    }
+
     try {
       const formData = new FormData();
 
@@ -136,7 +169,9 @@ const FittingPage = () => {
       // 추천된 의류 이미지들 추가
       const processImage = async (item, key) => {
         if (!item) return;
-        const imageUrl = item.image || item.imageUrl || item.image_url;
+        const imageUrl = getImageUrl(item);
+        if (!imageUrl) return;
+        
         if (imageUrl.startsWith('data:')) {
           formData.append(key, base64ToBlob(imageUrl), `${key}.jpg`);
         } else {
@@ -145,17 +180,48 @@ const FittingPage = () => {
         }
       };
 
-      await processImage(outfit.outer, 'outer');
-      await processImage(outfit.top, 'top');
-      await processImage(outfit.bottom, 'bottom');
-      await processImage(outfit.shoes, 'shoes');
+      await processImage(currentOutfit.outer, 'outer');
+      await processImage(currentOutfit.top, 'top');
+      await processImage(currentOutfit.bottom, 'bottom');
+      await processImage(currentOutfit.shoes, 'shoes');
 
-      // VtoContext의 requestPartialVto 호출 (크레딧 모달 표시 → 확인 시 백그라운드 실행)
       requestPartialVto(formData, buttonPosition, 'fitting');
 
     } catch (err) {
       console.error('Fitting setup error:', err);
       setFittingError('피팅 요청 준비 중 오류가 발생했습니다: ' + err.message);
+    }
+  };
+
+  // 피드백 전송
+  const handleFeedback = async (feedbackType) => {
+    if (!currentOutfit) return;
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+
+      await fetch(`${backendUrl}/recommendation/feedback`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          outer_id: currentOutfit.outer?.id,
+          top_id: currentOutfit.top?.id,
+          bottom_id: currentOutfit.bottom?.id,
+          shoes_id: currentOutfit.shoes?.id,
+          feedback_type: feedbackType,
+        }),
+      });
+
+      // 거절 시 다음 조합으로 이동
+      if (feedbackType === 'reject' && outfits.length > 1) {
+        handleNextOutfit();
+      }
+    } catch (err) {
+      console.error('Feedback error:', err);
     }
   };
 
@@ -192,15 +258,58 @@ const FittingPage = () => {
   }
 
   // 추천 결과 없음
-  if (!outfit) {
+  if (outfits.length === 0) {
     return (
       <div className="bg-cream dark:bg-[#1A1918] min-h-screen font-sans flex flex-col items-center justify-center p-4">
-        <div className="text-center">
+        <div className="text-center max-w-sm">
           <div className="w-20 h-20 rounded-full bg-gold/10 flex items-center justify-center mx-auto mb-4">
             <span className="material-symbols-rounded text-4xl text-gold">checkroom</span>
           </div>
           <p className="text-charcoal dark:text-cream font-medium mb-2">추천할 코디가 없어요</p>
-          <p className="text-sm text-charcoal-light dark:text-cream-dark mb-6">옷장에 옷을 더 등록해보세요</p>
+          
+          {/* 적용된 필터 정보 */}
+          {meta?.appliedFilters && (
+            <div className="mb-4 p-3 bg-warm-white dark:bg-charcoal/50 rounded-xl">
+              <p className="text-xs text-charcoal-light dark:text-cream-dark mb-2">적용된 필터</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <span className="px-2 py-1 bg-gold/10 rounded-full text-xs text-charcoal dark:text-cream">
+                  TPO: {meta.appliedFilters.tpo}
+                </span>
+                <span className="px-2 py-1 bg-gold/10 rounded-full text-xs text-charcoal dark:text-cream">
+                  계절: {meta.appliedFilters.season}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* 카테고리별 후보 개수 */}
+          {meta?.totalCandidates && (
+            <div className="mb-4 p-3 bg-warm-white dark:bg-charcoal/50 rounded-xl">
+              <p className="text-xs text-charcoal-light dark:text-cream-dark mb-2">카테고리별 후보</p>
+              <div className="grid grid-cols-4 gap-2 text-center">
+                <div>
+                  <p className="text-lg font-bold text-charcoal dark:text-cream">{meta.totalCandidates.outer}</p>
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark">아우터</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-charcoal dark:text-cream">{meta.totalCandidates.top}</p>
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark">상의</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-charcoal dark:text-cream">{meta.totalCandidates.bottom}</p>
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark">하의</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-charcoal dark:text-cream">{meta.totalCandidates.shoes}</p>
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark">신발</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <p className="text-sm text-charcoal-light dark:text-cream-dark mb-6">
+            조건에 맞는 옷을 더 등록해보세요
+          </p>
           <button
             onClick={() => navigate('/register')}
             className="px-6 py-3 btn-premium rounded-xl font-semibold"
@@ -214,33 +323,37 @@ const FittingPage = () => {
 
   // 추천된 아이템들을 표시용 배열로 변환
   const outfitItems = [
-    outfit.outer && {
+    currentOutfit?.outer && {
       name: '외투',
-      image: outfit.outer.image || outfit.outer.imageUrl || outfit.outer.image_url,
+      image: getImageUrl(currentOutfit.outer),
+      subCategory: currentOutfit.outer.sub_category,
       position: 'top-[10%] left-[5%]',
       size: 'w-[45%] h-[35%]',
       rotate: '-rotate-3',
       zIndex: 'z-20'
     },
-    outfit.top && {
+    currentOutfit?.top && {
       name: '상의',
-      image: outfit.top.image || outfit.top.imageUrl || outfit.top.image_url,
+      image: getImageUrl(currentOutfit.top),
+      subCategory: currentOutfit.top.sub_category,
       position: 'top-[15%] right-[8%]',
       size: 'w-[40%] h-[30%]',
       rotate: 'rotate-2',
       zIndex: 'z-10'
     },
-    outfit.bottom && {
+    currentOutfit?.bottom && {
       name: '하의',
-      image: outfit.bottom.image || outfit.bottom.imageUrl || outfit.bottom.image_url,
+      image: getImageUrl(currentOutfit.bottom),
+      subCategory: currentOutfit.bottom.sub_category,
       position: 'bottom-[15%] left-[10%]',
       size: 'w-[35%] h-[40%]',
       rotate: 'rotate-1',
       zIndex: 'z-15'
     },
-    outfit.shoes && {
+    currentOutfit?.shoes && {
       name: '신발',
-      image: outfit.shoes.image || outfit.shoes.imageUrl || outfit.shoes.image_url,
+      image: getImageUrl(currentOutfit.shoes),
+      subCategory: currentOutfit.shoes.sub_category,
       position: 'bottom-[5%] right-[15%]',
       size: 'w-[30%] h-[25%]',
       rotate: 'rotate-6',
@@ -279,10 +392,52 @@ const FittingPage = () => {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-between py-6 px-4">
+      <main className="flex-1 flex flex-col items-center justify-between py-4 px-4">
+        {/* 조합 선택 인디케이터 */}
+        {outfits.length > 1 && (
+          <div className="w-full flex items-center justify-between mb-3">
+            <button
+              onClick={handlePrevOutfit}
+              className="w-10 h-10 rounded-full bg-warm-white dark:bg-charcoal border border-gold-light/30 flex items-center justify-center hover:bg-gold/10 transition-colors"
+            >
+              <span className="material-symbols-rounded text-charcoal dark:text-cream">chevron_left</span>
+            </button>
+            
+            <div className="flex items-center gap-2">
+              {outfits.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentOutfitIndex(index)}
+                  className={`w-2.5 h-2.5 rounded-full transition-all ${
+                    index === currentOutfitIndex 
+                      ? 'bg-gold w-6' 
+                      : 'bg-gold/30 hover:bg-gold/50'
+                  }`}
+                />
+              ))}
+            </div>
+            
+            <button
+              onClick={handleNextOutfit}
+              className="w-10 h-10 rounded-full bg-warm-white dark:bg-charcoal border border-gold-light/30 flex items-center justify-center hover:bg-gold/10 transition-colors"
+            >
+              <span className="material-symbols-rounded text-charcoal dark:text-cream">chevron_right</span>
+            </button>
+          </div>
+        )}
+
+        {/* 조합 점수 표시 */}
+        {currentOutfit?.displayScore && (
+          <div className="mb-2 px-4 py-1.5 bg-gold/10 rounded-full">
+            <span className="text-xs text-charcoal dark:text-cream">
+              매칭 점수: <span className="font-bold text-gold">{(currentOutfit.displayScore * 100).toFixed(0)}점</span>
+            </span>
+          </div>
+        )}
+
         {/* Outfit Display */}
         <div className="flex-1 w-full flex items-center justify-center">
-          <div className="w-full h-[420px] relative mx-2 bg-warm-white/50 dark:bg-charcoal/30 rounded-3xl border border-gold-light/20 shadow-soft">
+          <div className="w-full h-[380px] relative mx-2 bg-warm-white/50 dark:bg-charcoal/30 rounded-3xl border border-gold-light/20 shadow-soft">
             {outfitItems.map((item, index) => (
               <div
                 key={index}
@@ -294,7 +449,7 @@ const FittingPage = () => {
                   src={item.image}
                 />
                 <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[10px] bg-charcoal/70 dark:bg-charcoal text-cream px-2 py-0.5 rounded-full font-medium">
-                  {item.name}
+                  {item.subCategory || item.name}
                 </span>
               </div>
             ))}
@@ -303,16 +458,36 @@ const FittingPage = () => {
 
         {/* Error Message */}
         {fittingError && (
-          <div className="w-full mb-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
+          <div className="w-full mb-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
             <p className="text-sm text-red-600 dark:text-red-400 text-center">{fittingError}</p>
           </div>
         )}
 
-        {/* Fitting Button */}
-        <div className="w-full px-4 mt-6 mb-4">
+        {/* Action Buttons */}
+        <div className="w-full space-y-3 mt-4 mb-4">
+          {/* 피드백 버튼 */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => handleFeedback('reject')}
+              className="flex-1 h-12 rounded-xl font-medium border-2 border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-rounded text-xl">thumb_down</span>
+              다른 코디
+            </button>
+            <button
+              onClick={() => handleFeedback('accept')}
+              className="flex-1 h-12 rounded-xl font-medium border-2 border-green-300 dark:border-green-700 text-green-500 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-rounded text-xl">thumb_up</span>
+              마음에 들어요
+            </button>
+          </div>
+
+          {/* 피팅 버튼 */}
           <button
             onClick={(e) => {
               if (!isPartialVtoLoading) {
+                handleFeedback('accept'); // 피팅 시 자동으로 accept
                 handleFittingClick(e);
               }
             }}

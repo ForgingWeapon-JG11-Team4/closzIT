@@ -62,6 +62,7 @@ export class VectorDBService implements OnModuleInit {
       SELECT 
         id,
         image_url,
+        flatten_image_url,
         category,
         sub_category,
         colors,
@@ -106,6 +107,7 @@ export class VectorDBService implements OnModuleInit {
       id: row.id,
       score: parseFloat(row.score),
       image_url: row.image_url,
+      flatten_image_url: row.flatten_image_url,
       category: row.category,
       sub_category: row.sub_category,
       colors: row.colors,
