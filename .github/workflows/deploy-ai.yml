@@ -1,0 +1,272 @@
+# .github/workflows/deploy-ai.yml
+
+name: Deploy AI Server to Tokyo GPU EC2
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - 'ai-fastapi/**'
+      - '.github/workflows/deploy-ai.yml'
+
+concurrency:
+  group: deploy-ai-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+      
+      - name: Cancel Previous Deployments
+        run: |
+          echo "🔍 Checking for running deployments..."
+          RUNNING=$(aws ssm list-commands \
+            --instance-id "i-00f17116a4704e13f" \
+            --max-items 5 \
+            --filters "Key=Status,Values=InProgress" \
+            --query 'Commands[].CommandId' \
+            --output text)
+          
+          if [ ! -z "$RUNNING" ]; then
+            echo "⚠️  Found running deployment(s), cancelling..."
+            for CMD_ID in $RUNNING; do
+              aws ssm cancel-command \
+                --command-id "$CMD_ID" \
+                --instance-ids "i-00f17116a4704e13f" || true
+              echo "Cancelled: $CMD_ID"
+            done
+            echo "Waiting 10 seconds for cleanup..."
+            sleep 10
+          else
+            echo "✅ No running deployments found"
+          fi
+      
+      - name: Deploy to Tokyo GPU EC2
+        timeout-minutes: 15
+        run: |
+          echo "🚀 Starting AI server deployment..."
+          echo "Target: Tokyo GPU EC2 (i-00f17116a4704e13f)"
+          echo "Branch: dev"
+          echo ""
+          
+          COMMAND_ID=$(aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --instance-ids "i-00f17116a4704e13f" \
+            --parameters 'commands=[
+              "#!/bin/bash",
+              "set -e",
+              "echo \"============================================\"",
+              "echo \"🚀 AI Server Deployment Started\"",
+              "echo \"============================================\"",
+              "echo \"Timestamp: $(date)\"",
+              "echo \"Instance: $(hostname)\"",
+              "echo \"User: $(whoami)\"",
+              "echo \"\"",
+              "",
+              "echo \"📌 Step 1: Cleanup previous npm processes\"",
+              "sudo pkill -9 npm 2>/dev/null || true",
+              "sleep 2",
+              "echo \"✅ Cleanup complete\"",
+              "echo \"\"",
+              "",
+              "echo \"📌 Step 2: Switch to ubuntu user\"",
+              "sudo su - ubuntu << '\''DEPLOY_SCRIPT'\''",
+              "set -e",
+              "",
+              "echo \"Current user: $(whoami)\"",
+              "echo \"Working directory: $(pwd)\"",
+              "echo \"\"",
+              "",
+              "echo \"📌 Step 3: Navigate to project\"",
+              "cd /home/ubuntu/app || { echo \"❌ Failed to cd to app\"; exit 1; }",
+              "echo \"✅ In app directory\"",
+              "echo \"\"",
+              "",
+              "echo \"📌 Step 4: Git operations\"",
+              "echo \"Fetching from origin...\"",
+              "git fetch origin || { echo \"❌ Git fetch failed\"; exit 1; }",
+              "",
+              "echo \"Current branch: $(git branch --show-current)\"",
+              "echo \"Resetting to origin/dev...\"",
+              "git reset --hard origin/dev || { echo \"❌ Git reset failed\"; exit 1; }",
+              "",
+              "echo \"Latest commit: $(git log -1 --oneline)\"",
+              "echo \"✅ Git operations complete\"",
+              "echo \"\"",
+              "",
+              "echo \"📌 Step 5: Navigate to ai-fastapi\"",
+              "cd ai-fastapi || { echo \"❌ ai-fastapi directory not found\"; exit 1; }",
+              "echo \"Current directory: $(pwd)\"",
+              "echo \"Files:\"",
+              "ls -lah",
+              "echo \"✅ In ai-fastapi directory\"",
+              "echo \"\"",
+              "",
+              "echo \"📌 Step 6: Install Python dependencies\"",
+              "echo \"Installing requirements...\"",
+              "pip3 install -r requirements.txt --break-system-packages || { echo \"❌ pip install failed\"; exit 1; }",
+              "echo \"✅ Dependencies installed\"",
+              "echo \"\"",
+              "",
+              "echo \"📌 Step 7: Restart AI server with PM2\"",
+              "echo \"Stopping existing process...\"",
+              "pm2 stop ai-fastapi 2>/dev/null || echo \"No process to stop\"",
+              "pm2 delete ai-fastapi 2>/dev/null || echo \"No process to delete\"",
+              "",
+              "echo \"Starting new process...\"",
+              "pm2 start main.py --name ai-fastapi --interpreter python3 || { echo \"❌ PM2 start failed\"; exit 1; }",
+              "",
+              "echo \"Saving PM2 configuration...\"",
+              "pm2 save",
+              "",
+              "echo \"\"",
+              "echo \"📊 PM2 Status:\"",
+              "pm2 list",
+              "",
+              "echo \"\"",
+              "echo \"📋 Recent logs (last 15 lines):\"",
+              "pm2 logs ai-fastapi --lines 15 --nostream || true",
+              "",
+              "echo \"\"",
+              "echo \"📌 Step 8: Health check\"",
+              "echo \"Waiting 5 seconds for server to start...\"",
+              "sleep 5",
+              "",
+              "echo \"Testing health endpoint...\"",
+              "HEALTH_RESPONSE=$(curl -s http://localhost:8000/health || echo \"failed\")",
+              "",
+              "if echo \"$HEALTH_RESPONSE\" | grep -q \"ok\"; then",
+              "  echo \"✅ Health check passed\"",
+              "  echo \"Response: $HEALTH_RESPONSE\"",
+              "else",
+              "  echo \"⚠️  Health check failed or server starting\"",
+              "  echo \"Response: $HEALTH_RESPONSE\"",
+              "fi",
+              "",
+              "DEPLOY_SCRIPT",
+              "",
+              "echo \"\"",
+              "echo \"============================================\"",
+              "echo \"✅ AI Server Deployment Complete\"",
+              "echo \"============================================\"",
+              "echo \"Server: http://10.1.157.47:8000\"",
+              "echo \"Health: http://10.1.157.47:8000/health\"",
+              "echo \"============================================\""
+            ]' \
+            --timeout-seconds 900 \
+            --comment "Deploy AI FastAPI from GitHub Actions" \
+            --output text \
+            --query 'Command.CommandId')
+          
+          echo "📝 Command ID: $COMMAND_ID"
+          echo ""
+          echo "⏳ Waiting for deployment to complete..."
+          echo "This may take up to 15 minutes (includes pip install)"
+          echo ""
+          
+          # 수동 대기 루프
+          MAX_ATTEMPTS=90
+          DELAY=10
+          ATTEMPT=0
+          STATUS="Pending"
+          
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            sleep $DELAY
+            ATTEMPT=$((ATTEMPT + 1))
+            
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "i-00f17116a4704e13f" \
+              --query 'Status' \
+              --output text 2>/dev/null || echo "Pending")
+            
+            # 매 1분마다 진행 상황 출력
+            if [ $((ATTEMPT % 6)) -eq 0 ]; then
+              ELAPSED=$((ATTEMPT * DELAY))
+              echo "[$ELAPSED seconds] Status: $STATUS"
+            fi
+            
+            # 완료 상태 체크
+            if [ "$STATUS" = "Success" ] || \
+               [ "$STATUS" = "Failed" ] || \
+               [ "$STATUS" = "Cancelled" ] || \
+               [ "$STATUS" = "TimedOut" ]; then
+              break
+            fi
+          done
+          
+          echo ""
+          echo "================================================"
+          echo "📋 Deployment Output"
+          echo "================================================"
+          
+          OUTPUT=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "i-00f17116a4704e13f" \
+            --query 'StandardOutputContent' \
+            --output text 2>/dev/null || echo "No output available")
+          
+          echo "$OUTPUT"
+          
+          echo ""
+          echo "================================================"
+          echo "❌ Error Output (if any)"
+          echo "================================================"
+          
+          ERROR=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "i-00f17116a4704e13f" \
+            --query 'StandardErrorContent' \
+            --output text 2>/dev/null || echo "No errors")
+          
+          if [ "$ERROR" != "None" ] && [ "$ERROR" != "No errors" ] && [ ! -z "$ERROR" ]; then
+            echo "$ERROR"
+          else
+            echo "No errors detected"
+          fi
+          
+          echo ""
+          echo "================================================"
+          echo "📊 Final Status: $STATUS"
+          echo "================================================"
+          
+          if [ "$STATUS" != "Success" ]; then
+            echo ""
+            echo "❌ Deployment Failed!"
+            echo ""
+            echo "Troubleshooting:"
+            echo "1. Check the error output above"
+            echo "2. Verify EC2 instance is running"
+            echo "3. Check SSM Agent status"
+            echo "4. Review PM2 logs: pm2 logs ai-fastapi"
+            echo ""
+            exit 1
+          fi
+          
+          echo ""
+          echo "✅ Deployment Successful!"
+          echo ""
+          echo "🎯 AI Server Information:"
+          echo "  - Internal URL: http://10.1.157.47:8000"
+          echo "  - Health Check: http://10.1.157.47:8000/health"
+          echo "  - Region: Tokyo (ap-northeast-1)"
+          echo "  - GPU: NVIDIA A10G (23GB)"
+          echo ""
+          echo "📝 Next Steps:"
+          echo "  - Test from Seoul backend: curl http://10.1.157.47:8000/health"
+          echo "  - Check PM2 status: pm2 list"
+          echo "  - View logs: pm2 logs ai-fastapi"
+          echo ""
