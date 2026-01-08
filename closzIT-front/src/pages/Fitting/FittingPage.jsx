@@ -12,6 +12,7 @@ const FittingPage = () => {
 
   const [outfits, setOutfits] = useState([]);         // 상위 5개 조합
   const [candidates, setCandidates] = useState(null); // 카테고리별 후보
+  const [meta, setMeta] = useState(null);             // 검색 메타 정보
   const [currentOutfitIndex, setCurrentOutfitIndex] = useState(0); // 현재 선택된 조합
   const [context, setContext] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -65,13 +66,17 @@ const FittingPage = () => {
         if (response.ok) {
           const data = await response.json();
           
-          // 새로운 응답 구조: outfits (조합 배열) + candidates (카테고리별 후보)
+          // 새로운 응답 구조: outfits (조합 배열) + candidates (카테고리별 후보) + meta
           if (data.outfits && data.outfits.length > 0) {
             setOutfits(data.outfits);
           }
           
           if (data.candidates) {
             setCandidates(data.candidates);
+          }
+
+          if (data.meta) {
+            setMeta(data.meta);
           }
           
           setContext(data.context);
@@ -106,10 +111,12 @@ const FittingPage = () => {
     return await response.blob();
   };
 
-  // 이미지 URL 가져오기 헬퍼
+  // 이미지 URL 가져오기 헬퍼 (flatten_image_url 우선)
   const getImageUrl = (item) => {
     if (!item) return null;
-    return item.image || item.imageUrl || item.image_url;
+    // flatten_image_url이 있으면 우선 사용
+    return item.flatten_image_url || item.flattenImageUrl 
+      || item.image_url || item.imageUrl || item.image;
   };
 
   // 이전 조합으로 이동
@@ -254,12 +261,55 @@ const FittingPage = () => {
   if (outfits.length === 0) {
     return (
       <div className="bg-cream dark:bg-[#1A1918] min-h-screen font-sans flex flex-col items-center justify-center p-4">
-        <div className="text-center">
+        <div className="text-center max-w-sm">
           <div className="w-20 h-20 rounded-full bg-gold/10 flex items-center justify-center mx-auto mb-4">
             <span className="material-symbols-rounded text-4xl text-gold">checkroom</span>
           </div>
           <p className="text-charcoal dark:text-cream font-medium mb-2">추천할 코디가 없어요</p>
-          <p className="text-sm text-charcoal-light dark:text-cream-dark mb-6">옷장에 옷을 더 등록해보세요</p>
+          
+          {/* 적용된 필터 정보 */}
+          {meta?.appliedFilters && (
+            <div className="mb-4 p-3 bg-warm-white dark:bg-charcoal/50 rounded-xl">
+              <p className="text-xs text-charcoal-light dark:text-cream-dark mb-2">적용된 필터</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <span className="px-2 py-1 bg-gold/10 rounded-full text-xs text-charcoal dark:text-cream">
+                  TPO: {meta.appliedFilters.tpo}
+                </span>
+                <span className="px-2 py-1 bg-gold/10 rounded-full text-xs text-charcoal dark:text-cream">
+                  계절: {meta.appliedFilters.season}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* 카테고리별 후보 개수 */}
+          {meta?.totalCandidates && (
+            <div className="mb-4 p-3 bg-warm-white dark:bg-charcoal/50 rounded-xl">
+              <p className="text-xs text-charcoal-light dark:text-cream-dark mb-2">카테고리별 후보</p>
+              <div className="grid grid-cols-4 gap-2 text-center">
+                <div>
+                  <p className="text-lg font-bold text-charcoal dark:text-cream">{meta.totalCandidates.outer}</p>
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark">아우터</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-charcoal dark:text-cream">{meta.totalCandidates.top}</p>
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark">상의</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-charcoal dark:text-cream">{meta.totalCandidates.bottom}</p>
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark">하의</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-charcoal dark:text-cream">{meta.totalCandidates.shoes}</p>
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark">신발</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <p className="text-sm text-charcoal-light dark:text-cream-dark mb-6">
+            조건에 맞는 옷을 더 등록해보세요
+          </p>
           <button
             onClick={() => navigate('/register')}
             className="px-6 py-3 btn-premium rounded-xl font-semibold"

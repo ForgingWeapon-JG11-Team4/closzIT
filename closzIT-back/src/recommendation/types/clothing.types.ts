@@ -53,7 +53,8 @@ export interface UserPreference {
 export interface ScoredClothing {
   id: string;
   score: number;
-  //   image_url: string;
+  image_url: string;
+  flatten_image_url: string | null;
   category: Category;
   sub_category: string;
   colors: Color[];
@@ -88,4 +89,19 @@ export interface ScoredOutfit {
   scores: OutfitScores;
   finalScore: number;       // 다양성 페널티 적용된 점수 (정렬용)
   displayScore: number;     // 다양성 페널티 미적용 점수 (프론트 표시용)
+}
+
+// ===== 검색 메타 정보 =====
+
+export interface SearchMeta {
+  totalCandidates: {
+    outer: number;
+    top: number;
+    bottom: number;
+    shoes: number;
+  };
+  appliedFilters: {
+    tpo: TPO;
+    season: Season;
+  };
 }

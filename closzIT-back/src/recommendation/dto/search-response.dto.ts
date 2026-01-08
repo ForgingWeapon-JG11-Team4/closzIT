@@ -4,6 +4,7 @@ import {
   SearchContext,
   CategorySearchResults,
   ScoredOutfit,
+  SearchMeta,
 } from '../types/clothing.types';
 
 export class SearchResponseDto {
@@ -15,4 +16,7 @@ export class SearchResponseDto {
 
   /** 카테고리별 후보 (사용자 커스텀용) */
   candidates: CategorySearchResults;
+
+  /** 검색 메타 정보 (부족한 카테고리 등) */
+  meta: SearchMeta;
 }

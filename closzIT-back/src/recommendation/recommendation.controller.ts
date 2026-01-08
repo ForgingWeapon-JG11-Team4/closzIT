@@ -105,6 +105,7 @@ export class RecommendationController {
       context,
       outfits: results.outfits,
       candidates: results.candidates,
+      meta: results.meta,
     };
   }
 

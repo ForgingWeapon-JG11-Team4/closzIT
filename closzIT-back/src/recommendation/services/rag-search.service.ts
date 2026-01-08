@@ -12,11 +12,14 @@ import {
   Season,
   Category,
   ScoredOutfit,
+  SearchMeta,
+  TPO,
 } from '../types/clothing.types';
 
 export interface OutfitSearchResults {
   candidates: CategorySearchResults;
   outfits: ScoredOutfit[];
+  meta: SearchMeta;
 }
 
 @Injectable()
@@ -75,11 +78,26 @@ export class RagSearchService {
       5,
     );
 
+    // 메타 정보 구성
+    const meta: SearchMeta = {
+      totalCandidates: {
+        outer: candidates.outer.length,
+        top: candidates.top.length,
+        bottom: candidates.bottom.length,
+        shoes: candidates.shoes.length,
+      },
+      appliedFilters: {
+        tpo: context.tpo,
+        season,
+      },
+    };
+
     console.log('[RAG] Generated outfits:', outfits.length);
 
     return {
       candidates,
       outfits,
+      meta,
     };
   }
 
