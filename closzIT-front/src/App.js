@@ -6,6 +6,7 @@ import UserProfileSetup1 from './pages/UserProfileSetup/UserProfileSetup1';
 import UserProfileSetup2 from './pages/UserProfileSetup/UserProfileSetup2';
 import UserProfileSetup3 from './pages/UserProfileSetup/UserProfileSetup3';
 import MainPage from './pages/Main/MainPage';
+import MainPage2 from './pages/Main/MainPage2';
 import MyPage from './pages/MyPage/MyPage';
 import RegisterPage from './pages/Register/RegisterPage';
 import LabelingPage from './pages/Labeling/LabelingPage';
@@ -32,6 +33,7 @@ function App() {
           <Route path="/setup3" element={<UserProfileSetup3 />} />
           <Route path="/setup/profile3" element={<UserProfileSetup3 />} />
           <Route path="/main" element={<MainPage />} />
+          <Route path="/main2" element={<MainPage2 />} />
           <Route path="/mypage" element={<MyPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/labeling" element={<LabelingPage />} />

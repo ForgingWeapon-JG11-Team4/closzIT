@@ -16,6 +16,7 @@ import { LikesModule } from './likes/likes.module';
 import { FollowModule } from './follow/follow.module';
 import { RecommendationModule } from './recommendation/recommendation.module';
 import { CreditModule } from './credit/credit.module';
+import { WeatherModule } from './weather/weather.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { CreditModule } from './credit/credit.module';
     FollowModule,
     RecommendationModule,
     CreditModule,
+    WeatherModule,
   ],
   controllers: [AppController],
   providers: [AppService],

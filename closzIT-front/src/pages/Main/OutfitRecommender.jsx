@@ -11,7 +11,7 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
   const tpoList = [
     '데일리', '학교', '일', '여행', '파티', '데이트',
     '결혼식', '쇼핑', '산책', '운동', '교회', '모임',
-    '외식', '면접', '콘서트', '장례식'
+    '외식', '면접', '콘서트'
   ];
 
   // 스타일 목록
