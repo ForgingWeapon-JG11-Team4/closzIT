@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SharedHeader from '../../components/SharedHeader';
 
@@ -41,10 +41,52 @@ const registerOptions = [
 const RegisterPage = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+
+  // 카메라 존재 여부 확인 및 카메라 실행
+  const handleCameraClick = useCallback(async () => {
+    try {
+      // 카메라 존재 여부 확인
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const hasCamera = devices.some(device => device.kind === 'videoinput');
+
+      if (!hasCamera) {
+        alert('연동된 카메라가 없습니다');
+        return;
+      }
+
+      // 카메라가 있으면 카메라 input 클릭
+      cameraInputRef.current?.click();
+    } catch (error) {
+      // mediaDevices API를 지원하지 않거나 권한이 없는 경우
+      // 일단 카메라 input을 시도
+      if (navigator.mediaDevices) {
+        try {
+          // 카메라 접근 권한 요청
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          // 권한이 있으면 스트림 종료하고 카메라 input 클릭
+          stream.getTracks().forEach(track => track.stop());
+          cameraInputRef.current?.click();
+        } catch (mediaError) {
+          if (mediaError.name === 'NotFoundError' || mediaError.name === 'DevicesNotFoundError') {
+            alert('연동된 카메라가 없습니다');
+          } else if (mediaError.name === 'NotAllowedError' || mediaError.name === 'PermissionDeniedError') {
+            alert('카메라 접근 권한이 필요합니다');
+          } else {
+            alert('연동된 카메라가 없습니다');
+          }
+        }
+      } else {
+        alert('연동된 카메라가 없습니다');
+      }
+    }
+  }, []);
 
   const handleOptionClick = (optionId) => {
     if (optionId === 'album') {
       fileInputRef.current?.click();
+    } else if (optionId === 'camera') {
+      handleCameraClick();
     } else {
       navigate('/labeling', { state: { source: optionId } });
     }
@@ -62,6 +104,25 @@ const RegisterPage = () => {
         }
       });
     }
+    // input 초기화 (같은 파일 다시 선택 가능하도록)
+    event.target.value = '';
+  };
+
+  // 카메라로 촬영한 이미지 처리
+  const handleCameraCapture = (event) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const imageUrl = URL.createObjectURL(file);
+      navigate('/labeling', {
+        state: {
+          source: 'camera',
+          imageUrl: imageUrl,
+          imageFile: file
+        }
+      });
+    }
+    // input 초기화
+    event.target.value = '';
   };
 
   return (
@@ -69,12 +130,22 @@ const RegisterPage = () => {
       className="min-h-screen font-sans flex flex-col"
       style={{ backgroundColor: '#FAF8F5' }}
     >
-      {/* Hidden file input for album selection */}
+      {/* Hidden file input for album selection (파일/앨범만 선택 - capture 속성 없음) */}
       <input
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
         accept="image/*"
+        className="hidden"
+      />
+
+      {/* Hidden file input for camera capture (직접 카메라 실행) */}
+      <input
+        type="file"
+        ref={cameraInputRef}
+        onChange={handleCameraCapture}
+        accept="image/*"
+        capture="environment"
         className="hidden"
       />
 
