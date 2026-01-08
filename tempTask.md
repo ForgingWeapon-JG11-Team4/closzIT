@@ -1,53 +1,53 @@
-# VTO Feature Enhancement Tasks
+# VTO 기능 개선 작업
 
-## Session: 2026-01-07
+## 세션: 2026-01-07
 
-### 1. VTO Result Modal Image Centering Fix
-- **File**: `closzIT-front/src/components/VtoResultModal.jsx`
-- **Change**: Fixed carousel centering logic using `marginLeft: 50vw` and `translateX` calculation
-- **Result**: VTO images now perfectly center on screen during swipe
-
----
-
-### 2. Backend Partial VTO Endpoint
-- **File**: `closzIT-back/src/fitting/fitting.service.ts`
-  - Added `CreditTransactionType` import
-  - Added `processPartialFitting` method for handling partial VTO (person + selected clothing items)
-- **File**: `closzIT-back/src/fitting/fitting.controller.ts`
-  - Added `@Post('partial-try-on')` endpoint with `FileFieldsInterceptor`
+### 1. VTO 결과 모달 이미지 중앙 정렬 수정
+- **파일**: `closzIT-front/src/components/VtoResultModal.jsx`
+- **변경사항**: `marginLeft: 50vw`와 `translateX` 계산을 사용하여 캐러셀 중앙 정렬 로직 수정
+- **결과**: 스와이프 시 VTO 이미지가 화면 중앙에 완벽하게 정렬됨
 
 ---
 
-### 3. Global VTO State Management
-- **NEW File**: `closzIT-front/src/context/VtoContext.jsx`
-  - State: `vtoLoadingPosts`, `vtoCompletedPosts`, `vtoResults`, `unseenCount`, `toastMessage`, `isVtoModalOpen`
-  - Actions: `requestVto`, `requestPartialVto`, `openVtoModal`, `closeVtoModal`, `deleteVtoResult`, `refreshVtoData`
-- **File**: `closzIT-front/src/App.js`
-  - Wrapped with `<VtoProvider>`
-- **File**: `closzIT-front/src/pages/FeedPage.jsx`
-  - Refactored to use `useVto()` hook
-- **File**: `closzIT-front/src/pages/Fitting/DirectFittingPage.jsx`
-  - Refactored for async VTO (immediate redirect while processing in background)
+### 2. 백엔드 부분 VTO 엔드포인트
+- **파일**: `closzIT-back/src/fitting/fitting.service.ts`
+  - `CreditTransactionType` 임포트 추가
+  - 부분 VTO 처리를 위한 `processPartialFitting` 메서드 추가 (인물 + 선택된 의상 아이템)
+- **파일**: `closzIT-back/src/fitting/fitting.controller.ts`
+  - `FileFieldsInterceptor`와 함께 `@Post('partial-try-on')` 엔드포인트 추가
 
 ---
 
-### 4. Shared Header Component
-- **NEW File**: `closzIT-front/src/components/SharedHeader.jsx`
-  - CloszIT logo, VTO button (spinning border, badge), Profile button, Credit display
-  - VTO toast notification: small green block, white text/border, top-center, auto-dismiss 2s
+### 3. 전역 VTO 상태 관리
+- **신규 파일**: `closzIT-front/src/context/VtoContext.jsx`
+  - 상태: `vtoLoadingPosts`, `vtoCompletedPosts`, `vtoResults`, `unseenCount`, `toastMessage`, `isVtoModalOpen`
+  - 액션: `requestVto`, `requestPartialVto`, `openVtoModal`, `closeVtoModal`, `deleteVtoResult`, `refreshVtoData`
+- **파일**: `closzIT-front/src/App.js`
+  - `<VtoProvider>`로 래핑
+- **파일**: `closzIT-front/src/pages/FeedPage.jsx`
+  - `useVto()` 훅을 사용하도록 리팩토링
+- **파일**: `closzIT-front/src/pages/Fitting/DirectFittingPage.jsx`
+  - 비동기 VTO를 위해 리팩토링 (백그라운드에서 처리하면서 즉시 리다이렉트)
 
-#### Pages Refactored to Use SharedHeader:
-| Page | File |
+---
+
+### 4. 공유 헤더 컴포넌트
+- **신규 파일**: `closzIT-front/src/components/SharedHeader.jsx`
+  - CloszIT 로고, VTO 버튼 (회전 테두리, 배지), 프로필 버튼, 크레딧 표시
+  - VTO 토스트 알림: 작은 녹색 블록, 흰색 텍스트/테두리, 상단 중앙, 2초 후 자동 닫힘
+
+#### SharedHeader를 사용하도록 리팩토링된 페이지:
+| 페이지 | 파일 |
 |------|------|
-| Main | `pages/Main/MainPage.jsx` (search block moved below header) |
-| Feed | `pages/FeedPage.jsx` |
-| Create Post | `pages/CreatePostPage.jsx` |
-| Register | `pages/Register/RegisterPage.jsx` |
-| Fitting | `pages/Fitting/FittingPage.jsx` |
-| Direct Fitting | `pages/Fitting/DirectFittingPage.jsx` |
+| 메인 | `pages/Main/MainPage.jsx` (검색 블록을 헤더 아래로 이동) |
+| 피드 | `pages/FeedPage.jsx` |
+| 게시물 작성 | `pages/CreatePostPage.jsx` |
+| 의상 등록 | `pages/Register/RegisterPage.jsx` |
+| 피팅 | `pages/Fitting/FittingPage.jsx` |
+| 직접 피팅 | `pages/Fitting/DirectFittingPage.jsx` |
 
 ---
 
-### 5. Bug Fixes
-- **File**: `closzIT-front/src/pages/Main/MainPage.jsx`
-  - Removed duplicate `<VtoResultModal />` (now handled by SharedHeader)
+### 5. 버그 수정
+- **파일**: `closzIT-front/src/pages/Main/MainPage.jsx`
+  - 중복된 `<VtoResultModal />` 제거 (이제 SharedHeader에서 처리)
