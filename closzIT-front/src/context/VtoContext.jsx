@@ -119,6 +119,8 @@ export const VtoProvider = ({ children }) => {
                 executeVtoRequest(request.data.postId);
             } else if (request.type === 'partial') {
                 executePartialVtoRequest(request.data.formData, request.source);
+            } else if (request.type === 'partialByIds') {
+                executePartialVtoByIds(request.data.clothingIds, request.source);
             }
         }, 300);
     };
@@ -265,6 +267,88 @@ export const VtoProvider = ({ children }) => {
         });
     };
 
+    // ID 기반 Partial VTO 요청 실행 (CORS 우회용)
+    const executePartialVtoByIds = async (clothingIds, source = 'default') => {
+        const jobId = 'direct-fitting-' + Date.now();
+        setVtoLoadingPosts(prev => new Set([...prev, jobId]));
+        setPartialVtoLoadingSources(prev => new Set(prev).add(source));
+
+        try {
+            const token = localStorage.getItem('accessToken');
+            const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+
+            const response = await fetch(`${backendUrl}/api/fitting/partial-try-on-by-ids`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(clothingIds),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                if (data.code === 'NO_FULL_BODY_IMAGE') {
+                    const confirm = window.confirm(
+                        '피팅 모델 이미지가 없어서 착장서비스 이용이 불가합니다. 등록하시겠습니까?'
+                    );
+                    if (confirm) {
+                        window.location.href = '/setup3?edit=true';
+                    }
+                    return;
+                }
+                throw new Error(data.message || '가상 피팅에 실패했습니다.');
+            }
+
+            if (data.success) {
+                addVtoResult({
+                    imageUrl: data.imageUrl,
+                    postId: 'direct-fitting',
+                    appliedClothing: data.itemsProcessed,
+                    isDirect: true
+                });
+                refreshVtoData();
+
+                setToastMessage('가상 피팅 완료!');
+                setTimeout(() => setToastMessage(''), 3000);
+                return data;
+            }
+        } catch (error) {
+            console.error('Partial VTO by IDs Error:', error);
+            setToastMessage(`오류: ${error.message}`);
+            setTimeout(() => setToastMessage(''), 3000);
+            throw error;
+        } finally {
+            setVtoLoadingPosts(prev => {
+                const next = new Set(prev);
+                next.delete(jobId);
+                return next;
+            });
+            setPartialVtoLoadingSources(prev => {
+                const next = new Set(prev);
+                next.delete(source);
+                return next;
+            });
+        }
+    };
+
+    // ID 기반 Partial VTO 요청 - 크레딧 확인 포함
+    const requestPartialVtoByIds = (clothingIds, buttonPosition = null, source = 'default') => {
+        return new Promise((resolve, reject) => {
+            fetchUserCredit();
+            setPendingVtoRequest({
+                type: 'partialByIds',
+                data: { clothingIds },
+                buttonPosition,
+                source,
+                resolve,
+                reject
+            });
+            setShowCreditModal(true);
+        });
+    };
+
     const deleteVtoResult = (id) => {
         // 삭제할 결과에서 postId 찾기
         const resultToDelete = vtoResults.find(r => r.id === id);
@@ -301,6 +385,7 @@ export const VtoProvider = ({ children }) => {
         closeVtoModal,
         requestVto,
         requestPartialVto,
+        requestPartialVtoByIds,
         deleteVtoResult,
         refreshVtoData,
         fetchUserCredit

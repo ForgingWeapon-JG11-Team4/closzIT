@@ -9,6 +9,7 @@ const UserProfileSetup3 = () => {
 
   // State 관리
   const [fullBodyImage, setFullBodyImage] = useState(null);
+  const [originalFile, setOriginalFile] = useState(null); // 원본 파일 객체
   const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -85,10 +86,11 @@ const UserProfileSetup3 = () => {
     }
 
     try {
-      // 세로 1200px 기준, 품질 80%로 압축
+      // 미리보기용 base64 생성 (압축은 프리뷰용만)
       const compressedImage = await compressImage(file, 1200, 0.8);
       setFullBodyImage(compressedImage);
       setImagePreview(compressedImage);
+      setOriginalFile(file); // 원본 파일 저장
       setError('');
     } catch (err) {
       console.error('Image compression error:', err);
@@ -103,6 +105,7 @@ const UserProfileSetup3 = () => {
   const handleRemoveImage = () => {
     setFullBodyImage(null);
     setImagePreview(null);
+    setOriginalFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -124,20 +127,26 @@ const UserProfileSetup3 = () => {
       const token = localStorage.getItem('accessToken');
       const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
-      // Edit 모드일 때는 전신 사진만 업데이트
+      // Edit 모드일 때는 전신 사진만 업데이트 (FormData 직접 업로드)
       if (isEditMode) {
-        const response = await fetch(`${backendUrl}/user/profile`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ fullBodyImage: imageData })
-        });
+        if (originalFile) {
+          // 새 파일이 있으면 FormData로 직접 업로드
+          const formData = new FormData();
+          formData.append('image', originalFile);
 
-        if (!response.ok) {
-          throw new Error('전신 사진 저장에 실패했습니다');
+          const response = await fetch(`${backendUrl}/user/fullbody-image`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          });
+
+          if (!response.ok) {
+            throw new Error('전신 사진 저장에 실패했습니다');
+          }
         }
+        // 기존 S3 URL이며 변경 없으면 아무 작업 필요 없음
 
         navigate('/mypage');
       } else {
@@ -149,6 +158,24 @@ const UserProfileSetup3 = () => {
         if (setup1Data.birthday) {
           const { year, month, day } = setup1Data.birthday;
           birthday = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        }
+
+        // 전신 사진이 있으면 먼저 S3에 업로드
+        if (originalFile) {
+          const formData = new FormData();
+          formData.append('image', originalFile);
+
+          const uploadResponse = await fetch(`${backendUrl}/user/fullbody-image`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          });
+
+          if (!uploadResponse.ok) {
+            console.warn('전신 사진 업로드 실패, 프로필만 저장합니다.');
+          }
         }
 
         const profileData = {
@@ -163,7 +190,7 @@ const UserProfileSetup3 = () => {
           weight: setup2Data.weight,
           bodyType: setup2Data.bodyType,
           preferredStyles: setup2Data.preferredStyles || [],
-          fullBodyImage: imageData
+          // fullBodyImage는 이미 S3 업로드 시 저장됨
         };
 
         const response = await fetch(`${backendUrl}/user/profile`, {

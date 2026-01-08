@@ -6,7 +6,7 @@ import { useVto } from '../../context/VtoContext';
 const FittingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { requestPartialVto, checkPartialVtoLoading } = useVto();
+  const { requestPartialVtoByIds, checkPartialVtoLoading } = useVto();
   const isPartialVtoLoading = checkPartialVtoLoading('fitting');
   const { calendarEvent, isToday } = location.state || {};
 
@@ -65,12 +65,12 @@ const FittingPage = () => {
 
         if (response.ok) {
           const data = await response.json();
-          
+
           // 새로운 응답 구조: outfits (조합 배열) + candidates (카테고리별 후보) + meta
           if (data.outfits && data.outfits.length > 0) {
             setOutfits(data.outfits);
           }
-          
+
           if (data.candidates) {
             setCandidates(data.candidates);
           }
@@ -78,7 +78,7 @@ const FittingPage = () => {
           if (data.meta) {
             setMeta(data.meta);
           }
-          
+
           setContext(data.context);
         } else {
           throw new Error('추천 요청 실패');
@@ -115,20 +115,20 @@ const FittingPage = () => {
   const getImageUrl = (item) => {
     if (!item) return null;
     // flatten_image_url이 있으면 우선 사용
-    return item.flatten_image_url || item.flattenImageUrl 
+    return item.flatten_image_url || item.flattenImageUrl
       || item.image_url || item.imageUrl || item.image;
   };
 
   // 이전 조합으로 이동
   const handlePrevOutfit = () => {
-    setCurrentOutfitIndex((prev) => 
+    setCurrentOutfitIndex((prev) =>
       prev === 0 ? outfits.length - 1 : prev - 1
     );
   };
 
   // 다음 조합으로 이동
   const handleNextOutfit = () => {
-    setCurrentOutfitIndex((prev) => 
+    setCurrentOutfitIndex((prev) =>
       prev === outfits.length - 1 ? 0 : prev + 1
     );
   };
@@ -160,32 +160,16 @@ const FittingPage = () => {
     }
 
     try {
-      const formData = new FormData();
-
-      // 사용자 전신 사진 추가
-      const personBlob = base64ToBlob(userFullBodyImage);
-      formData.append('person', personBlob, 'person.jpg');
-
-      // 추천된 의류 이미지들 추가
-      const processImage = async (item, key) => {
-        if (!item) return;
-        const imageUrl = getImageUrl(item);
-        if (!imageUrl) return;
-        
-        if (imageUrl.startsWith('data:')) {
-          formData.append(key, base64ToBlob(imageUrl), `${key}.jpg`);
-        } else {
-          const blob = await urlToBlob(imageUrl);
-          formData.append(key, blob, `${key}.jpg`);
-        }
+      // 의류 ID만 추출하여 백엔드에 전송 (CORS 문제 우회)
+      const clothingIds = {
+        outerId: currentOutfit.outer?.id || undefined,
+        topId: currentOutfit.top?.id || undefined,
+        bottomId: currentOutfit.bottom?.id || undefined,
+        shoesId: currentOutfit.shoes?.id || undefined,
       };
 
-      await processImage(currentOutfit.outer, 'outer');
-      await processImage(currentOutfit.top, 'top');
-      await processImage(currentOutfit.bottom, 'bottom');
-      await processImage(currentOutfit.shoes, 'shoes');
-
-      requestPartialVto(formData, buttonPosition, 'fitting');
+      // VtoContext의 requestPartialVtoByIds 호출 (크레딧 모달 + 애니메이션)
+      requestPartialVtoByIds(clothingIds, buttonPosition, 'fitting');
 
     } catch (err) {
       console.error('Fitting setup error:', err);
@@ -266,7 +250,7 @@ const FittingPage = () => {
             <span className="material-symbols-rounded text-4xl text-gold">checkroom</span>
           </div>
           <p className="text-charcoal dark:text-cream font-medium mb-2">추천할 코디가 없어요</p>
-          
+
           {/* 적용된 필터 정보 */}
           {meta?.appliedFilters && (
             <div className="mb-4 p-3 bg-warm-white dark:bg-charcoal/50 rounded-xl">
@@ -402,21 +386,20 @@ const FittingPage = () => {
             >
               <span className="material-symbols-rounded text-charcoal dark:text-cream">chevron_left</span>
             </button>
-            
+
             <div className="flex items-center gap-2">
               {outfits.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => setCurrentOutfitIndex(index)}
-                  className={`w-2.5 h-2.5 rounded-full transition-all ${
-                    index === currentOutfitIndex 
-                      ? 'bg-gold w-6' 
-                      : 'bg-gold/30 hover:bg-gold/50'
-                  }`}
+                  className={`w-2.5 h-2.5 rounded-full transition-all ${index === currentOutfitIndex
+                    ? 'bg-gold w-6'
+                    : 'bg-gold/30 hover:bg-gold/50'
+                    }`}
                 />
               ))}
             </div>
-            
+
             <button
               onClick={handleNextOutfit}
               className="w-10 h-10 rounded-full bg-warm-white dark:bg-charcoal border border-gold-light/30 flex items-center justify-center hover:bg-gold/10 transition-colors"

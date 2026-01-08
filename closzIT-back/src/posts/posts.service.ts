@@ -1,9 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { S3Service } from '../s3/s3.service';
 
 @Injectable()
 export class PostsService {
-  constructor(private prisma: PrismaService) { }
+  private readonly logger = new Logger(PostsService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private s3Service: S3Service,
+  ) { }
 
   // 피드 조회 (팔로잉한 사람들 + 본인 게시물)
   async getFeed(userId: string, page: number = 1, limit: number = 10) {
@@ -43,7 +49,7 @@ export class PostsService {
       },
     });
 
-    // Check if current user liked each post
+    // Check if current user liked each post and convert image URLs to presigned URLs
     const postsWithLikeStatus = await Promise.all(
       posts.map(async (post) => {
         const liked = await this.prisma.like.findUnique({
@@ -55,8 +61,31 @@ export class PostsService {
           },
         });
 
+        // 이미지 URL을 Pre-signed URL로 변환
+        const [postImageUrl, userProfileImage] = await Promise.all([
+          this.s3Service.convertToPresignedUrl(post.imageUrl),
+          this.s3Service.convertToPresignedUrl(post.user.profileImage),
+        ]);
+
+        // 의류 이미지들도 Pre-signed URL로 변환
+        const postClothesWithPresigned = await Promise.all(
+          post.postClothes.map(async (pc) => ({
+            ...pc,
+            clothing: {
+              ...pc.clothing,
+              imageUrl: await this.s3Service.convertToPresignedUrl(pc.clothing.imageUrl),
+            },
+          }))
+        );
+
         return {
           ...post,
+          imageUrl: postImageUrl,
+          user: {
+            ...post.user,
+            profileImage: userProfileImage,
+          },
+          postClothes: postClothesWithPresigned,
           isLiked: !!liked,
           likesCount: post._count.likes,
           commentsCount: post._count.comments,
@@ -117,8 +146,30 @@ export class PostsService {
           },
         });
 
+        // 이미지 URL을 Pre-signed URL로 변환
+        const [postImageUrl, userProfileImage] = await Promise.all([
+          this.s3Service.convertToPresignedUrl(post.imageUrl),
+          this.s3Service.convertToPresignedUrl(post.user.profileImage),
+        ]);
+
+        const postClothesWithPresigned = await Promise.all(
+          post.postClothes.map(async (pc) => ({
+            ...pc,
+            clothing: {
+              ...pc.clothing,
+              imageUrl: await this.s3Service.convertToPresignedUrl(pc.clothing.imageUrl),
+            },
+          }))
+        );
+
         return {
           ...post,
+          imageUrl: postImageUrl,
+          user: {
+            ...post.user,
+            profileImage: userProfileImage,
+          },
+          postClothes: postClothesWithPresigned,
           isLiked: !!liked,
           likesCount: post._count.likes,
           commentsCount: post._count.comments,
@@ -190,8 +241,42 @@ export class PostsService {
       },
     });
 
+    // 이미지 URL을 Pre-signed URL로 변환
+    const [postImageUrl, userProfileImage] = await Promise.all([
+      this.s3Service.convertToPresignedUrl(post.imageUrl),
+      this.s3Service.convertToPresignedUrl(post.user.profileImage),
+    ]);
+
+    const postClothesWithPresigned = await Promise.all(
+      post.postClothes.map(async (pc) => ({
+        ...pc,
+        clothing: {
+          ...pc.clothing,
+          imageUrl: await this.s3Service.convertToPresignedUrl(pc.clothing.imageUrl),
+        },
+      }))
+    );
+
+    // 댓글 작성자 프로필 이미지도 변환
+    const commentsWithPresigned = await Promise.all(
+      post.comments.map(async (comment) => ({
+        ...comment,
+        user: {
+          ...comment.user,
+          profileImage: await this.s3Service.convertToPresignedUrl(comment.user.profileImage),
+        },
+      }))
+    );
+
     return {
       ...post,
+      imageUrl: postImageUrl,
+      user: {
+        ...post.user,
+        profileImage: userProfileImage,
+      },
+      postClothes: postClothesWithPresigned,
+      comments: commentsWithPresigned,
       isLiked: !!liked,
       likesCount: post._count.likes,
       commentsCount: post._count.comments,
@@ -201,12 +286,24 @@ export class PostsService {
   // 게시물 생성
   async createPost(userId: string, imageUrl: string, caption: string, clothingIds: string[]) {
     try {
-      console.log('Creating post with:', { userId, imageUrlLength: imageUrl?.length, caption, clothingIds });
+      this.logger.log(`Creating post for user: ${userId}`);
+
+      // Base64 이미지인 경우 S3에 업로드
+      let finalImageUrl = imageUrl;
+      if (imageUrl && imageUrl.startsWith('data:image/')) {
+        const postId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        finalImageUrl = await this.s3Service.uploadBase64Image(
+          imageUrl,
+          `users/${userId}/posts/${postId}.png`,
+          'image/png'
+        );
+        this.logger.log(`Uploaded post image to S3: ${finalImageUrl}`);
+      }
 
       const post = await this.prisma.post.create({
         data: {
           userId,
-          imageUrl,
+          imageUrl: finalImageUrl,
           caption,
           postClothes: {
             create: clothingIds.map((clothingId) => ({
@@ -230,10 +327,10 @@ export class PostsService {
         },
       });
 
-      console.log('Post created successfully:', post.id);
+      this.logger.log(`Post created successfully: ${post.id}`);
       return post;
     } catch (error) {
-      console.error('Error creating post:', error);
+      this.logger.error('Error creating post:', error);
       throw error;
     }
   }

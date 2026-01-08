@@ -6,7 +6,7 @@ import SharedHeader from '../../components/SharedHeader';
 const DirectFittingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { requestPartialVto } = useVto();
+  const { requestPartialVtoByIds } = useVto();
   const { outfit, fromMain } = location.state || {};
 
   // 피팅 관련 상태
@@ -81,31 +81,16 @@ const DirectFittingPage = () => {
     }
 
     try {
-      const formData = new FormData();
-
-      // 사용자 전신 사진 추가
-      const personBlob = base64ToBlob(userFullBodyImage);
-      formData.append('person', personBlob, 'person.jpg');
-
-      // 선택된 의류 이미지들 추가
-      const processImage = async (item, key) => {
-        if (!item) return;
-        const imageUrl = item.image || item.imageUrl || item.image_url;
-        if (imageUrl.startsWith('data:')) {
-          formData.append(key, base64ToBlob(imageUrl), `${key}.jpg`);
-        } else {
-          const blob = await urlToBlob(imageUrl);
-          formData.append(key, blob, `${key}.jpg`);
-        }
+      // 의류 ID만 추출하여 백엔드에 전송 (CORS 문제 우회)
+      const clothingIds = {
+        outerId: outfit.outerwear?.id || undefined,
+        topId: outfit.tops?.id || undefined,
+        bottomId: outfit.bottoms?.id || undefined,
+        shoesId: outfit.shoes?.id || undefined,
       };
 
-      await processImage(outfit.outerwear, 'outer');
-      await processImage(outfit.tops, 'top');
-      await processImage(outfit.bottoms, 'bottom');
-      await processImage(outfit.shoes, 'shoes');
-
-      // VtoContext의 requestPartialVto 호출 (크레딧 모달 포함)
-      requestPartialVto(formData);
+      // VtoContext의 requestPartialVtoByIds 호출 (크레딧 모달 포함)
+      requestPartialVtoByIds(clothingIds, null, 'direct');
 
       // 즉시 메인 화면으로 이동
       navigate('/main');
