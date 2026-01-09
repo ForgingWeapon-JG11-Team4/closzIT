@@ -1,55 +1,86 @@
 model User {
   /// 고유 ID (자동 생성 UUID)
-  id                 String         @id @default(uuid())
+  id                 String          @id @default(uuid())
+
   /// 이메일 (중복 불가)
-  email              String         @unique
+  email              String          @unique
+
   /// 이름
   name               String?
+
   /// 프로필 이미지 URL
-  profileImage       String?        @map("profile_image")
+  profileImage       String?         @map("profile_image")
+
   /// 전신 사진 URL
-  fullBodyImage      String?        @map("full_body_image")
+  fullBodyImage      String?         @map("full_body_image")
+
   /// Google OAuth ID
-  googleId           String?        @unique @map("google_id")
+  googleId           String?         @unique @map("google_id")
+
   /// Google Access Token
-  googleAccessToken  String?        @map("google_access_token")
+  googleAccessToken  String?         @map("google_access_token")
+
   /// Google Refresh Token
-  googleRefreshToken String?        @map("google_refresh_token")
+  googleRefreshToken String?         @map("google_refresh_token")
+
   /// 성별
   gender             Gender?
+
   /// 생년월일
-  birthday           DateTime?      @db.Date
+  birthday           DateTime?       @db.Date
+
   /// 시/군/구
   city               String?
+
   /// 머리 색상
-  hairColor          HairColor?     @map("hair_color")
+  hairColor          HairColor?      @map("hair_color")
+
   /// 퍼스널 컬러
-  personalColor      PersonalColor? @map("personal_color")
+  personalColor      PersonalColor?  @map("personal_color")
+
   /// 선호 스타일 목록
-  preferredStyles    String[]       @map("preferred_styles")
+  preferredStyles    String[]        @map("preferred_styles")
+
   /// 프로필 완성 여부
-  isProfileComplete  Boolean        @default(false) @map("is_profile_complete")
+  isProfileComplete  Boolean         @default(false) @map("is_profile_complete")
+
   /// 보유 크레딧
-  credit             Int            @default(0)
+  credit             Int             @default(0)
+
   /// 등록일 (자동 생성)
-  createdAt          DateTime       @default(now()) @map("created_at")
+  createdAt          DateTime        @default(now()) @map("created_at")
+
   /// 수정일 (자동 업데이트)
-  updatedAt          DateTime       @updatedAt @map("updated_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+
   /// 시/도 (한글 직접 저장)
   province           String?
-  /// 키 (cm)
-  height             Decimal?       @db.Decimal
-  /// 몸무게 (kg)
-  weight             Decimal?       @db.Decimal
+
   /// 체형
-  bodyType           String?        @map("body_type")
+  bodyType           String?         @map("body_type")
+
+  /// 키 (cm)
+  height             Decimal?        @db.Decimal
+
+  /// 몸무게 (kg)
+  weight             Decimal?        @db.Decimal
+
   clothes            Clothing[]
-  posts              Post[]
   comments           Comment[]
-  likes              Like[]
-  followers          Follow[]   @relation("Following")
-  following          Follow[]   @relation("Follower")
   creditHistory      CreditHistory[]
+  following          Follow[]        @relation("Follower")
+  followers          Follow[]        @relation("Following")
+  likes              Like[]
+
+  /// 착장 기록
+  outfitLogs         OutfitLog[]
+  posts              Post[]
+
+  /// 코디 피드백
+  outfitFeedbacks    OutfitFeedback[]
+
+  /// 관리자 크레딧 조정
+  adminCreditActions CreditHistory[] @relation("AdminCreditActions")
 
   @@map("users")
 }

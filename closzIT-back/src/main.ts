@@ -14,7 +14,7 @@ async function bootstrap() {
   app.enableCors({
     origin: ['https://www.closzit.shop', 'http://localhost:3001'],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
     credentials: true,
   });
 
