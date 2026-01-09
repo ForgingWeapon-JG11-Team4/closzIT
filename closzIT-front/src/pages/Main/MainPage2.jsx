@@ -47,7 +47,7 @@ const MainPage2 = () => {
 
   // 날씨 API 상태
   const [weather, setWeather] = useState({ temperature: null, condition: '로딩중...' });
-  const [userLocation, setUserLocation] = useState('서울');
+  const [userLocation, setUserLocation] = useState('로딩중...');
 
   // 날씨 API 호출
   useEffect(() => {
@@ -102,41 +102,37 @@ const MainPage2 = () => {
 
       <main className="px-4 py-5 space-y-4">
         
-        {/* 1. Streak Card */}
-        <div 
-          className="rounded-3xl p-4 shadow-soft border border-gold-light/20"
-          style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(250,248,245,0.98) 100%)' }}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center">
-                <span className="material-symbols-rounded text-xl text-gold">local_fire_department</span>
-              </div>
-              <div>
-                <p className="text-xs text-charcoal-light dark:text-cream-dark">연속 스타일링</p>
-                <p className="text-lg font-bold text-charcoal dark:text-cream">{dummyData.streakDays}일</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-charcoal-light dark:text-cream-dark">크레딧</p>
-              <p className="text-lg font-bold text-gold">{dummyData.userCredit}</p>
-            </div>
+        {/* 1. Streak Card + 동글 캐릭터 (가로 배치) */}
+        <div className="flex gap-3 items-stretch">
+          {/* 연속 스타일링 카드 (왼쪽) - 빈 컨테이너 */}
+          <div 
+            className="flex-1 aspect-square rounded-3xl p-4 shadow-soft border border-gold-light/20"
+            style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(250,248,245,0.98) 100%)' }}
+          >
+            {/* 내용 추가 예정 */}
           </div>
-          <div className="flex justify-between">
-            {weekDays.map((day, idx) => (
-              <div 
-                key={day}
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
-                  idx === adjustedToday 
-                    ? 'bg-gradient-to-br from-gold to-gold-dark text-warm-white shadow-md' 
-                    : idx < adjustedToday 
-                      ? 'bg-gold/20 text-gold' 
-                      : 'bg-cream-dark dark:bg-charcoal-light/20 text-charcoal-light'
-                }`}
-              >
-                {day}
-              </div>
-            ))}
+
+          {/* 동글 캐릭터 (오른쪽) */}
+          {/* ▶ aspect-square: 정사각형 비율 유지 */}
+          <div className="w-1/2 aspect-square flex items-center justify-center rounded-3xl bg-warm-white/50 dark:bg-charcoal/30 border border-gold-light/20">
+            <style>
+              {`
+                @keyframes dongleFloat {
+                  0%, 100% { transform: rotate(-2deg); }
+                  50% { transform: rotate(2deg); }
+                }
+              `}
+            </style>
+            {/* ▶ w-20: 캐릭터 크기 (w-16=작게, w-24=크게, w-full=컨테이너꽉참) */}
+            <img 
+              src="/dongle.png" 
+              alt="동글쿤" 
+              className="w-40 h-auto"
+              style={{ 
+                animation: 'dongleFloat 2s linear infinite', // 2s=속도 (1s=빠름, 3s=느림)
+                transformOrigin: 'bottom center'
+              }} 
+            />
           </div>
         </div>
 

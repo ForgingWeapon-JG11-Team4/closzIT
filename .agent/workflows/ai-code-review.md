@@ -24,3 +24,5 @@ description: PR이 올라오면 AI가 자동으로 코드 리뷰를 수행합니
 ### 주의사항
 - 워크플로우 파일: `.github/workflows/ai-code-review.yml`
 - PR을 열거나 커밋을 푸시할 때마다 실행됨
+
+이제 되야되는디

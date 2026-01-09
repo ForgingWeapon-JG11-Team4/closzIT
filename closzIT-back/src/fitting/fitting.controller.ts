@@ -121,6 +121,93 @@ export class FittingController {
     return result;
   }
 
+  @Post('partial-try-on-by-ids')
+  async partialTryOnByIds(
+    @Request() req,
+    @Body() body: {
+      outerId?: string;
+      topId?: string;
+      bottomId?: string;
+      shoesId?: string;
+    },
+  ) {
+    const userId = req.user.id;
+    console.log('Partial VTO by IDs Request - userId:', userId);
+
+    // 사용자의 전신 이미지 조회
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { fullBodyImage: true },
+    });
+
+    if (!user?.fullBodyImage) {
+      throw new BadRequestException({
+        success: false,
+        code: 'NO_FULL_BODY_IMAGE',
+        message: '피팅 모델 이미지가 없어서 착장서비스 이용이 불가합니다.',
+      });
+    }
+
+    // 최소 1개 이상의 의류 ID가 있어야 함
+    if (!body.outerId && !body.topId && !body.bottomId && !body.shoesId) {
+      throw new BadRequestException({
+        success: false,
+        message: '최소 1개 이상의 의류를 선택해주세요.',
+      });
+    }
+
+    // 의류 ID로 이미지 URL 조회
+    const clothingUrls: {
+      outer?: string;
+      top?: string;
+      bottom?: string;
+      shoes?: string;
+    } = {};
+
+    const clothingIds = [body.outerId, body.topId, body.bottomId, body.shoesId].filter((id): id is string => !!id);
+    
+    if (clothingIds.length > 0) {
+      const clothes = await this.prisma.clothing.findMany({
+        where: {
+          id: { in: clothingIds },
+          userId, // 사용자 본인의 의류만 허용
+        },
+        select: {
+          id: true,
+          category: true,
+          imageUrl: true,
+          flattenImageUrl: true,
+        },
+      });
+
+      for (const cloth of clothes) {
+        // flattenImageUrl이 있으면 우선 사용
+        const imageUrl = cloth.flattenImageUrl || cloth.imageUrl;
+        
+        if (cloth.id === body.outerId) {
+          clothingUrls.outer = imageUrl;
+        } else if (cloth.id === body.topId) {
+          clothingUrls.top = imageUrl;
+        } else if (cloth.id === body.bottomId) {
+          clothingUrls.bottom = imageUrl;
+        } else if (cloth.id === body.shoesId) {
+          clothingUrls.shoes = imageUrl;
+        }
+      }
+    }
+
+    console.log('Clothing URLs found:', Object.keys(clothingUrls));
+
+    // VTO 처리 (백엔드에서 S3 이미지 fetch)
+    const result = await this.fittingService.processVirtualFittingFromUrls(
+      user.fullBodyImage,
+      clothingUrls,
+      userId,
+    );
+
+    return result;
+  }
+
   @Post('sns-virtual-try-on')
   async snsVirtualTryOn(
     @Request() req,

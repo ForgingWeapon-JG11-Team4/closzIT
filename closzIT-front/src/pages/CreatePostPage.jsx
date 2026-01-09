@@ -271,18 +271,19 @@ const CreatePostPage = () => {
           alert('게시물 수정에 실패했습니다');
         }
       } else {
-        // 생성 모드: POST 요청
+        // 생성 모드: POST 요청 (FormData로 파일 직접 전송)
+        const formData = new FormData();
+        formData.append('image', image); // 실제 파일 객체 전송
+        formData.append('caption', caption);
+        formData.append('clothingIds', JSON.stringify(selectedClothes.map(c => c.id)));
+
         const response = await fetch(`${API_BASE_URL}/posts`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            // Content-Type은 자동 설정됨 (multipart/form-data)
           },
-          body: JSON.stringify({
-            imageUrl: imagePreview,
-            caption,
-            clothingIds: selectedClothes.map(c => c.id),
-          }),
+          body: formData,
         });
 
         if (response.ok) {

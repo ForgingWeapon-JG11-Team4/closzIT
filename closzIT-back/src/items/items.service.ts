@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { S3Service } from '../s3/s3.service';
 
 @Injectable()
 export class ItemsService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private s3Service: S3Service,
+  ) { }
 
   async getItemsByUser(userId: string, category?: string) {
     const where: any = { userId };
@@ -37,27 +41,39 @@ export class ItemsService {
       },
     });
 
-    return items.map(item => ({
-      id: item.id,
-      name: item.subCategory,
-      // 펼쳐진 이미지가 있으면 우선 사용, 없으면 원본 이미지
-      image: item.flattenImageUrl || item.imageUrl,
-      originalImage: item.imageUrl,
-      flattenImage: item.flattenImageUrl,
-      category: item.category,
-      subCategory: item.subCategory,
-      colors: item.colors,
-      patterns: item.patterns,
-      details: item.details,
-      styleMoods: item.styleMoods,
-      tpos: item.tpos,
-      seasons: item.seasons,
-      userRating: item.userRating,
-      note: item.note,
-      wearCount: item.wearCount,
-      lastWorn: item.lastWorn,
-      createdAt: item.createdAt,
-    }));
+    // 모든 이미지 URL을 Pre-signed URL로 변환
+    const itemsWithPresignedUrls = await Promise.all(
+      items.map(async (item) => {
+        const [imageUrl, flattenImageUrl] = await Promise.all([
+          this.s3Service.convertToPresignedUrl(item.imageUrl),
+          this.s3Service.convertToPresignedUrl(item.flattenImageUrl),
+        ]);
+
+        return {
+          id: item.id,
+          name: item.subCategory,
+          // 펼쳐진 이미지가 있으면 우선 사용, 없으면 원본 이미지
+          image: flattenImageUrl || imageUrl,
+          originalImage: imageUrl,
+          flattenImage: flattenImageUrl,
+          category: item.category,
+          subCategory: item.subCategory,
+          colors: item.colors,
+          patterns: item.patterns,
+          details: item.details,
+          styleMoods: item.styleMoods,
+          tpos: item.tpos,
+          seasons: item.seasons,
+          userRating: item.userRating,
+          note: item.note,
+          wearCount: item.wearCount,
+          lastWorn: item.lastWorn,
+          createdAt: item.createdAt,
+        };
+      })
+    );
+
+    return itemsWithPresignedUrls;
   }
 
   async getItemsGroupedByCategory(userId: string) {

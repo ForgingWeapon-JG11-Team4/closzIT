@@ -9,16 +9,23 @@ import {
   Query,
   Request,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { PostsService } from './posts.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { S3Service } from '../s3/s3.service';
 
 @Controller('posts')
 @UseGuards(JwtAuthGuard)
 export class PostsController {
-  constructor(private readonly postsService: PostsService) { }
+  constructor(
+    private readonly postsService: PostsService,
+    private readonly s3Service: S3Service,
+  ) { }
 
   @Get('feed')
   async getFeed(
@@ -59,12 +66,25 @@ export class PostsController {
   }
 
   @Post()
+  @UseInterceptors(FileInterceptor('image'))
   async createPost(
     @Request() req,
-    @Body() body: { imageUrl: string; caption?: string; clothingIds?: string[] },
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: { caption?: string; clothingIds?: string },
   ) {
     const userId = req.user.id;
-    const { imageUrl, caption = '', clothingIds = [] } = body;
+    const { caption = '' } = body;
+    // clothingIds는 FormData로 올 때 문자열일 수 있음
+    const clothingIds = body.clothingIds ? JSON.parse(body.clothingIds) : [];
+
+    if (!file) {
+      throw new HttpException('Image file is required', HttpStatus.BAD_REQUEST);
+    }
+
+    // S3에 직접 업로드
+    const postId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const s3Key = `users/${userId}/posts/${postId}.${file.mimetype.split('/')[1] || 'png'}`;
+    const imageUrl = await this.s3Service.uploadBuffer(file.buffer, s3Key, file.mimetype);
 
     return this.postsService.createPost(userId, imageUrl, caption, clothingIds);
   }

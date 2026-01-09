@@ -14,7 +14,7 @@ const categories = [
 
 const MainPage = () => {
   const navigate = useNavigate();
-  const { requestPartialVto, checkPartialVtoLoading } = useVto();
+  const { requestPartialVtoByIds, checkPartialVtoLoading } = useVto();
   const isPartialVtoLoading = checkPartialVtoLoading('main');
 
   const [activeCategory, setActiveCategory] = useState('outerwear');
@@ -122,48 +122,16 @@ const MainPage = () => {
     }
 
     try {
-      const formData = new FormData();
-
-      // base64를 Blob으로 변환
-      const base64ToBlob = (base64, mimeType = 'image/jpeg') => {
-        const byteString = atob(base64.split(',')[1]);
-        const ab = new ArrayBuffer(byteString.length);
-        const ia = new Uint8Array(ab);
-        for (let i = 0; i < byteString.length; i++) {
-          ia[i] = byteString.charCodeAt(i);
-        }
-        return new Blob([ab], { type: mimeType });
+      // 의류 ID만 추출하여 백엔드에 전송 (CORS 문제 우회)
+      const clothingIds = {
+        outerId: selectedOutfit.outerwear?.id || undefined,
+        topId: selectedOutfit.tops?.id || undefined,
+        bottomId: selectedOutfit.bottoms?.id || undefined,
+        shoesId: selectedOutfit.shoes?.id || undefined,
       };
 
-      // URL에서 이미지를 Blob으로 가져오기
-      const urlToBlob = async (url) => {
-        const response = await fetch(url);
-        return await response.blob();
-      };
-
-      // 사용자 전신 사진 추가
-      const personBlob = base64ToBlob(userFullBodyImage);
-      formData.append('person', personBlob, 'person.jpg');
-
-      // 선택된 의류 이미지들 추가
-      const processImage = async (item, key) => {
-        if (!item) return;
-        const imageUrl = item.image || item.imageUrl || item.image_url;
-        if (imageUrl.startsWith('data:')) {
-          formData.append(key, base64ToBlob(imageUrl), `${key}.jpg`);
-        } else {
-          const blob = await urlToBlob(imageUrl);
-          formData.append(key, blob, `${key}.jpg`);
-        }
-      };
-
-      await processImage(selectedOutfit.outerwear, 'outer');
-      await processImage(selectedOutfit.tops, 'top');
-      await processImage(selectedOutfit.bottoms, 'bottom');
-      await processImage(selectedOutfit.shoes, 'shoes');
-
-      // VtoContext의 requestPartialVto 호출 (크레딧 모달 + 애니메이션)
-      requestPartialVto(formData, buttonPosition, 'main');
+      // VtoContext의 requestPartialVtoByIds 호출 (크레딧 모달 + 애니메이션)
+      requestPartialVtoByIds(clothingIds, buttonPosition, 'main');
 
     } catch (err) {
       console.error('Fitting setup error:', err);

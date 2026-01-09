@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { BedrockService } from '../ai/bedrock.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreditService } from '../credit/credit.service';
+import { S3Service } from '../s3/s3.service';
 import { GoogleGenAI } from '@google/genai';
 import FormData = require('form-data');
 
@@ -21,6 +22,7 @@ export class AnalysisService {
         private readonly prismaService: PrismaService,
         @Inject(forwardRef(() => CreditService))
         private readonly creditService: CreditService,
+        private readonly s3Service: S3Service,
     ) {
         this.fastApiUrl = this.configService.get<string>('FASTAPI_URL', 'http://localhost:8000');
 
@@ -126,8 +128,38 @@ export class AnalysisService {
                 const flattenImageBase64 = item.flatten_image_base64;
                 const embedding = item.embedding;
 
-                const imageDataUrl = `data:image/png;base64,${imageBase64}`;
-                const flattenImageDataUrl = flattenImageBase64 ? `data:image/png;base64,${flattenImageBase64}` : null;
+                // 임시 ID 생성 (UUID 형식으로 DB에서 생성될 ID와 동일한 형식)
+                const tempId = `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 9)}`;
+
+                // S3에 이미지 업로드 (병렬 처리)
+                const uploadPromises: Promise<string>[] = [];
+
+                // 원본 이미지 S3 업로드
+                uploadPromises.push(
+                    this.s3Service.uploadBase64Image(
+                        imageBase64,
+                        `users/${userId}/clothes/${tempId}.png`,
+                        'image/png'
+                    )
+                );
+
+                // 평탄화 이미지가 있으면 S3 업로드
+                if (flattenImageBase64) {
+                    uploadPromises.push(
+                        this.s3Service.uploadBase64Image(
+                            flattenImageBase64,
+                            `users/${userId}/clothes/${tempId}_flatten.png`,
+                            'image/png'
+                        )
+                    );
+                }
+
+                const uploadedUrls = await Promise.all(uploadPromises);
+                const imageUrl = uploadedUrls[0];
+                const flattenImageUrl = flattenImageBase64 ? uploadedUrls[1] : null;
+
+                this.logger.log(`[saveItems] Uploaded image to S3: ${imageUrl}`);
+
                 const embeddingString = `[${embedding.join(',')}]`;
                 const textEmbeddingString = `[${textEmbeddings[index].join(',')}]`;
 
@@ -157,8 +189,8 @@ export class AnalysisService {
                         ${style_mood || []}::"StyleMood"[],
                         ${tpo || []}::"TPO"[],
                         ${season || []}::"Season"[],
-                        ${imageDataUrl},
-                        ${flattenImageDataUrl},
+                        ${imageUrl},
+                        ${flattenImageUrl},
                         ${embeddingString}::vector,
                         ${textEmbeddingString}::vector
                     )
@@ -222,8 +254,12 @@ export class AnalysisService {
             throw new Error('Gemini AI is not initialized. Check GOOGLE_API_KEY.');
         }
 
+        // 병렬 처리 확인용 고유 요청 ID 및 타이밍
+        const requestId = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const requestStartTime = new Date();
         const startTime = Date.now();
-        this.logger.log(`[flattenClothing] Starting flattening for category: ${category}/${subCategory}, userId: ${userId}`);
+
+        this.logger.log(`[flattenClothing] Request started for userId: ${userId}, requestId: ${requestId}`);
 
         try {
             // 상세 라벨링 정보 구성
@@ -309,8 +345,9 @@ ${categorySpecificInstructions}
 OUTPUT: Generate ONLY the transformed flat-lay image. No text, no explanation.
 `;
 
-            // 디버깅: 이미지 크기 로깅
-            this.logger.log(`[flattenClothing] Image base64 length: ${imageBase64.length} chars`);
+
+
+            const apiCallStartTime = Date.now();
 
             const response = await this.ai.models.generateContent({
                 model: 'gemini-3-pro-image-preview',
@@ -328,8 +365,10 @@ OUTPUT: Generate ONLY the transformed flat-lay image. No text, no explanation.
                 },
             });
 
-            const processingTime = (Date.now() - startTime) / 1000;
-            this.logger.log(`[flattenClothing] Gemini API took ${processingTime.toFixed(2)}s`);
+            const apiCallEndTime = Date.now();
+            const apiDuration = (apiCallEndTime - apiCallStartTime) / 1000;
+            const totalDuration = (apiCallEndTime - startTime) / 1000;
+            this.logger.log(`[flattenClothing] Gemini API completed. Duration: ${totalDuration.toFixed(2)}s (requestId: ${requestId})`);
 
             // 응답에서 이미지 추출
             if (!response.candidates || response.candidates.length === 0) {
@@ -344,7 +383,7 @@ OUTPUT: Generate ONLY the transformed flat-lay image. No text, no explanation.
             for (const part of candidate.content.parts) {
                 if (part.inlineData) {
                     const flattenedImageBase64 = part.inlineData.data;
-                    this.logger.log('[flattenClothing] Image flattening successful');
+
 
                     // 성공 시 1 크레딧 차감
                     try {
@@ -358,7 +397,7 @@ OUTPUT: Generate ONLY the transformed flat-lay image. No text, no explanation.
                     return {
                         success: true,
                         flattened_image_base64: flattenedImageBase64,
-                        processingTime,
+                        processingTime: totalDuration,
                     };
                 }
             }
@@ -366,7 +405,8 @@ OUTPUT: Generate ONLY the transformed flat-lay image. No text, no explanation.
             throw new Error('No image data in Gemini response');
 
         } catch (error) {
-            this.logger.error('[flattenClothing] Error:', error.message);
+            const errorTime = (Date.now() - startTime) / 1000;
+            this.logger.error(`[flattenClothing] Error (requestId: ${requestId}): ${error.message}`);
             throw error;
         }
     }
@@ -423,13 +463,16 @@ OUTPUT: Generate ONLY the transformed flat-lay image. No text, no explanation.
 
             const similarItems = await (this.prismaService as any).$queryRawUnsafe(query, ...params);
 
-            const formattedItems = (similarItems as any[]).map((item: any) => ({
-                id: item.id,
-                category: item.category,
-                subCategory: item.subCategory,
-                image: item.imageUrl,
-                similarity: parseFloat(item.similarity) || 0,
-            }));
+            // 이미지 URL을 Pre-signed URL로 변환
+            const formattedItems = await Promise.all(
+                (similarItems as any[]).map(async (item: any) => ({
+                    id: item.id,
+                    category: item.category,
+                    subCategory: item.subCategory,
+                    image: await this.s3Service.convertToPresignedUrl(item.imageUrl),
+                    similarity: parseFloat(item.similarity) || 0,
+                }))
+            );
 
             this.logger.log(`[findSimilarItems] Found ${formattedItems.length} similar items`);
 

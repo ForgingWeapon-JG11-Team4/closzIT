@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ProfileEditModal from '../../components/ProfileEditModal';
+import FullBodyImageModal from '../../components/FullBodyImageModal';
 
 const MyPage = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -38,6 +42,24 @@ const MyPage = () => {
 
     fetchUserProfile();
   }, [navigate]);
+
+  const refreshUserData = async () => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+    
+    try {
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+      const response = await fetch(`${backendUrl}/user/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+      }
+    } catch (error) {
+      console.error('Failed to refresh user data:', error);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -174,7 +196,7 @@ const MyPage = () => {
                     />
                   </div>
                   <button
-                    onClick={() => navigate('/setup3?edit=true')}
+                    onClick={() => setShowImageModal(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-gold/10 text-gold rounded-xl text-sm font-medium border border-gold/20 hover:bg-gold/20 transition-colors"
                   >
                     <span className="material-symbols-rounded text-base">edit</span>
@@ -183,7 +205,7 @@ const MyPage = () => {
                 </div>
               ) : (
                 <button
-                  onClick={() => navigate('/setup3?edit=true')}
+                  onClick={() => setShowImageModal(true)}
                   className="flex items-center justify-center gap-2 w-full py-4 bg-gold/10 text-gold rounded-xl text-sm font-medium border border-dashed border-gold/30 hover:bg-gold/20 transition-colors"
                 >
                   <span className="material-symbols-rounded text-lg">add_a_photo</span>
@@ -197,7 +219,7 @@ const MyPage = () => {
         {/* Menu Items */}
         <div className="mt-6 bg-warm-white dark:bg-charcoal rounded-2xl overflow-hidden shadow-soft border border-gold-light/20">
           <button
-            onClick={() => navigate('/setup/profile1?edit=true')}
+            onClick={() => setShowEditModal(true)}
             className="w-full flex items-center justify-between px-6 py-4 hover:bg-gold-light/20 transition-colors border-b border-gold-light/20"
           >
             <div className="flex items-center gap-3">
@@ -240,6 +262,22 @@ const MyPage = () => {
           closzIT v1.0.0
         </p>
       </div>
+
+      {/* Profile Edit Modal */}
+      <ProfileEditModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onSave={refreshUserData}
+        initialData={user}
+      />
+
+      {/* Full Body Image Modal */}
+      <FullBodyImageModal
+        isOpen={showImageModal}
+        onClose={() => setShowImageModal(false)}
+        onSave={refreshUserData}
+        initialImage={user?.fullBodyImage}
+      />
     </div>
   );
 };
