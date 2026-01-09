@@ -71,7 +71,7 @@ const LoginPage = () => {
   return (
     <div className="bg-cream dark:bg-[#1A1918] font-sans antialiased h-screen flex flex-col justify-between overflow-hidden relative">
       <style>{mascotKeyframes}</style>
-      
+
       {/* 배경 블러 효과 - gold/cream 테마 */}
       <div className="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[40%] bg-gold/15 rounded-full blur-[100px]"></div>
@@ -83,7 +83,7 @@ const LoginPage = () => {
       <div className="flex-1 flex flex-col items-center justify-center p-8 w-full max-w-md mx-auto relative z-10">
         <div className="flex flex-col items-center">
           {/* CloszIT 로고 */}
-          <h1 
+          <h1
             className="text-6xl md:text-7xl font-black tracking-tighter"
             style={{ animation: 'logo-glow 3s ease-in-out infinite' }}
           >
@@ -93,17 +93,17 @@ const LoginPage = () => {
           <p className="mt-3 text-charcoal-light dark:text-cream-dark text-center font-medium">
             내 손안의 스마트 옷장
           </p>
-          
+
           {/* 캐릭터 마스코트 이미지 */}
-          <div 
+          <div
             className="mt-16 w-40 h-40 flex items-center justify-center"
             style={{
               animation: 'float-mascot 3s ease-in-out infinite',
               transformOrigin: 'center bottom',
             }}
           >
-            <img 
-              src="/assets/closzit-mascot.png" 
+            <img
+              src="/assets/closzit-mascot.png"
               alt="CloszIT Mascot"
               className="w-full h-full object-contain drop-shadow-lg"
               style={{
@@ -122,9 +122,9 @@ const LoginPage = () => {
             다른 방법으로 로그인
           </button>
         </div>
-        
+
         <p className="mt-8 text-xs text-center text-charcoal-light/60 dark:text-cream-dark/60 leading-relaxed">
-          계속 진행하면 CloszIT의 <a className="underline text-gold hover:text-gold-dark transition-colors" href="#">서비스 이용약관</a> 및 <br/>
+          계속 진행하면 CloszIT의 <a className="underline text-gold hover:text-gold-dark transition-colors" href="#">서비스 이용약관</a> 및 <br />
           <a className="underline text-gold hover:text-gold-dark transition-colors" href="#">개인정보 처리방침</a>에 동의하게 됩니다.
         </p>
       </div>

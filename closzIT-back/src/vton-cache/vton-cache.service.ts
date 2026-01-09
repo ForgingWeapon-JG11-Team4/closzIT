@@ -1,0 +1,266 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { S3Service } from '../s3/s3.service';
+import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
+import { firstValueFrom } from 'rxjs';
+
+export interface HumanCacheData {
+  human_img_url: string;
+  mask_url: string;
+  mask_gray_url: string;
+  pose_img_tensor_url: string;
+}
+
+export interface GarmentCacheData {
+  garm_img_url: string;
+  garm_tensor_url: string;
+}
+
+export interface TextCacheData {
+  prompt_embeds_url: string;
+  negative_prompt_embeds_url: string;
+  pooled_prompt_embeds_url: string;
+  negative_pooled_prompt_embeds_url: string;
+  prompt_embeds_c_url: string;
+}
+
+@Injectable()
+export class VtonCacheService {
+  private readonly logger = new Logger(VtonCacheService.name);
+  private readonly vtonApiUrl: string;
+
+  constructor(
+    private readonly s3Service: S3Service,
+    private readonly httpService: HttpService,
+    private readonly configService: ConfigService,
+  ) {
+    // IDM-VTON 전용 서버 URL (포트 8001, conda 환경)
+    this.vtonApiUrl = this.configService.get<string>('VTON_API_URL', 'http://localhost:8001');
+    this.logger.log(`VTON API URL: ${this.vtonApiUrl}`);
+  }
+
+  /**
+   * 사람 이미지 전처리 및 캐싱 (OpenPose + Parsing + DensePose)
+   * @param userId - 사용자 UUID
+   * @param imageBase64 - 사람 전신 이미지 (Base64)
+   * @returns S3에 저장된 캐시 데이터 URL들
+   */
+  async preprocessAndCacheHuman(userId: string, imageBase64: string): Promise<HumanCacheData> {
+    this.logger.log(`[preprocessHuman] Starting for userId: ${userId}`);
+    const startTime = Date.now();
+
+    try {
+      // IDM-VTON API 호출: OpenPose + Parsing + DensePose
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.vtonApiUrl}/vton/preprocess-human`, {
+          image_base64: imageBase64,
+        })
+      );
+
+      const { human_img, mask, mask_gray, pose_img_tensor } = response.data;
+
+      // S3에 병렬 업로드
+      const [human_img_url, mask_url, mask_gray_url, pose_img_tensor_url] = await Promise.all([
+        this.s3Service.uploadBase64Image(human_img, `users/${userId}/vton-cache/human_img.png`),
+        this.s3Service.uploadBase64Image(mask, `users/${userId}/vton-cache/mask.png`),
+        this.s3Service.uploadBase64Image(mask_gray, `users/${userId}/vton-cache/mask_gray.png`),
+        this.uploadTensorToS3(pose_img_tensor, `users/${userId}/vton-cache/pose_tensor.pt`),
+      ]);
+
+      const elapsed = (Date.now() - startTime) / 1000;
+      this.logger.log(`[preprocessHuman] Completed in ${elapsed.toFixed(2)}s for userId: ${userId}`);
+
+      return {
+        human_img_url,
+        mask_url,
+        mask_gray_url,
+        pose_img_tensor_url,
+      };
+    } catch (error) {
+      this.logger.error(`[preprocessHuman] Failed for userId: ${userId}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 옷 이미지 전처리 및 캐싱
+   * @param clothingId - 옷 UUID
+   * @param imageBase64 - 옷 이미지 (Base64)
+   * @returns S3에 저장된 캐시 데이터 URL들
+   */
+  async preprocessAndCacheGarment(
+    userId: string,
+    clothingId: string,
+    imageBase64: string
+  ): Promise<GarmentCacheData> {
+    this.logger.log(`[preprocessGarment] Starting for clothingId: ${clothingId}`);
+    const startTime = Date.now();
+
+    try {
+      // IDM-VTON API 호출: 옷 전처리 (리사이즈 + 텐서 변환)
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.vtonApiUrl}/vton/preprocess-garment`, {
+          image_base64: imageBase64,
+        })
+      );
+
+      const { garm_img, garm_tensor } = response.data;
+
+      // S3에 병렬 업로드
+      const [garm_img_url, garm_tensor_url] = await Promise.all([
+        this.s3Service.uploadBase64Image(garm_img, `users/${userId}/vton-cache/garments/${clothingId}_img.png`),
+        this.uploadTensorToS3(garm_tensor, `users/${userId}/vton-cache/garments/${clothingId}_tensor.pt`),
+      ]);
+
+      const elapsed = (Date.now() - startTime) / 1000;
+      this.logger.log(`[preprocessGarment] Completed in ${elapsed.toFixed(2)}s for clothingId: ${clothingId}`);
+
+      return {
+        garm_img_url,
+        garm_tensor_url,
+      };
+    } catch (error) {
+      this.logger.error(`[preprocessGarment] Failed for clothingId: ${clothingId}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 텍스트 설명을 임베딩으로 변환 및 캐싱
+   * @param userId - 사용자 UUID
+   * @param clothingId - 옷 UUID
+   * @param garmentDescription - 옷 설명 텍스트 (Claude 라벨링 결과)
+   * @returns S3에 저장된 임베딩 데이터 URL들
+   */
+  async preprocessAndCacheText(
+    userId: string,
+    clothingId: string,
+    garmentDescription: string
+  ): Promise<TextCacheData> {
+    this.logger.log(`[preprocessText] Starting for clothingId: ${clothingId}, text: "${garmentDescription}"`);
+    const startTime = Date.now();
+
+    try {
+      // IDM-VTON API 호출: CLIP 텍스트 인코딩
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.vtonApiUrl}/vton/preprocess-text`, {
+          garment_description: garmentDescription,
+        })
+      );
+
+      const {
+        prompt_embeds,
+        negative_prompt_embeds,
+        pooled_prompt_embeds,
+        negative_pooled_prompt_embeds,
+        prompt_embeds_c,
+      } = response.data;
+
+      // S3에 병렬 업로드
+      const [
+        prompt_embeds_url,
+        negative_prompt_embeds_url,
+        pooled_prompt_embeds_url,
+        negative_pooled_prompt_embeds_url,
+        prompt_embeds_c_url,
+      ] = await Promise.all([
+        this.uploadTensorToS3(prompt_embeds, `users/${userId}/vton-cache/text/${clothingId}_prompt_embeds.pt`),
+        this.uploadTensorToS3(negative_prompt_embeds, `users/${userId}/vton-cache/text/${clothingId}_negative_prompt_embeds.pt`),
+        this.uploadTensorToS3(pooled_prompt_embeds, `users/${userId}/vton-cache/text/${clothingId}_pooled_prompt_embeds.pt`),
+        this.uploadTensorToS3(negative_pooled_prompt_embeds, `users/${userId}/vton-cache/text/${clothingId}_negative_pooled_prompt_embeds.pt`),
+        this.uploadTensorToS3(prompt_embeds_c, `users/${userId}/vton-cache/text/${clothingId}_prompt_embeds_c.pt`),
+      ]);
+
+      const elapsed = (Date.now() - startTime) / 1000;
+      this.logger.log(`[preprocessText] Completed in ${elapsed.toFixed(2)}s for clothingId: ${clothingId}`);
+
+      return {
+        prompt_embeds_url,
+        negative_prompt_embeds_url,
+        pooled_prompt_embeds_url,
+        negative_pooled_prompt_embeds_url,
+        prompt_embeds_c_url,
+      };
+    } catch (error) {
+      this.logger.error(`[preprocessText] Failed for clothingId: ${clothingId}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 캐시된 데이터로 Diffusion 모델 실행 (단일 옷 입어보기)
+   * @param userId - 사용자 UUID
+   * @param clothingId - 옷 UUID
+   * @param denoiseSteps - Diffusion 스텝 수
+   * @param seed - Random seed
+   * @returns 생성된 이미지 Base64
+   */
+  async generateTryOn(
+    userId: string,
+    clothingId: string,
+    denoiseSteps: number = 20,
+    seed: number = 42
+  ): Promise<string> {
+    this.logger.log(`[generateTryOn] Starting for userId: ${userId}, clothingId: ${clothingId}`);
+    const startTime = Date.now();
+
+    try {
+      // IDM-VTON API 호출: 캐시된 데이터 URL들을 전달
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.vtonApiUrl}/vton/generate-tryon`, {
+          user_id: userId,
+          clothing_id: clothingId,
+          denoise_steps: denoiseSteps,
+          seed: seed,
+        })
+      );
+
+      const { result_image_base64 } = response.data;
+
+      const elapsed = (Date.now() - startTime) / 1000;
+      this.logger.log(`[generateTryOn] Completed in ${elapsed.toFixed(2)}s (Diffusion only)`);
+
+      return result_image_base64;
+    } catch (error) {
+      this.logger.error(`[generateTryOn] Failed for userId: ${userId}, clothingId: ${clothingId}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * PyTorch 텐서를 S3에 업로드 (Base64 또는 바이너리)
+   */
+  private async uploadTensorToS3(tensorData: string, key: string): Promise<string> {
+    try {
+      // tensorData가 Base64 문자열이라고 가정
+      const buffer = Buffer.from(tensorData, 'base64');
+      return await this.s3Service.uploadBuffer(buffer, key, 'application/octet-stream');
+    } catch (error) {
+      this.logger.error(`Failed to upload tensor to S3: ${key}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * S3에서 캐시 데이터 존재 여부 확인
+   */
+  async checkHumanCacheExists(userId: string): Promise<boolean> {
+    try {
+      const key = `users/${userId}/vton-cache/human_img.png`;
+      const url = await this.s3Service.convertToPresignedUrl(key);
+      return url !== null;
+    } catch {
+      return false;
+    }
+  }
+
+  async checkGarmentCacheExists(userId: string, clothingId: string): Promise<boolean> {
+    try {
+      const key = `users/${userId}/vton-cache/garments/${clothingId}_img.png`;
+      const url = await this.s3Service.convertToPresignedUrl(key);
+      return url !== null;
+    } catch {
+      return false;
+    }
+  }
+}

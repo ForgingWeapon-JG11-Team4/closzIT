@@ -877,8 +877,119 @@ const MainPage = () => {
               )}
             </div>
 
-            {/* Modal Footer - 수정/삭제 버튼 */}
+            {/* Modal Footer - 하나만 입어보기 / 수정/삭제 버튼 */}
             <div className="p-4 border-t border-gold-light/20 space-y-2">
+              {/* 하나만 입어보기 버튼 (IDM-VTON) */}
+              <button
+                onClick={async () => {
+                  if (!userFullBodyImage) {
+                    const confirm = window.confirm(
+                      '피팅 모델 이미지가 없어서 착장서비스 이용이 불가합니다. 등록하시겠습니까?'
+                    );
+                    if (confirm) {
+                      navigate('/setup3?edit=true');
+                    }
+                    return;
+                  }
+
+                  try {
+                    setSelectedClothDetail(null); // 모달 닫기
+
+                    const token = localStorage.getItem('accessToken');
+                    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+
+                    // 로딩 표시
+                    alert('단일 옷 가상 피팅을 생성 중입니다... (약 7-10초 소요)');
+
+                    const response = await fetch(`${backendUrl}/api/fitting/single-item-tryon`, {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        clothingId: selectedClothDetail.id,
+                        denoiseSteps: 20,
+                        seed: Math.floor(Math.random() * 1000000),
+                      }),
+                    });
+
+                    if (!response.ok) {
+                      const errorData = await response.json();
+                      throw new Error(errorData.message || '가상 피팅 실패');
+                    }
+
+                    const result = await response.json();
+
+                    // 결과 이미지 표시 (새 창 또는 모달로)
+                    if (result.success && result.imageUrl) {
+                      // 결과를 새 창으로 표시
+                      const resultWindow = window.open('', '_blank');
+                      resultWindow.document.write(`
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                          <title>가상 피팅 결과</title>
+                          <style>
+                            body {
+                              margin: 0;
+                              padding: 20px;
+                              background: #1a1918;
+                              display: flex;
+                              flex-direction: column;
+                              align-items: center;
+                              justify-content: center;
+                              min-height: 100vh;
+                              font-family: system-ui, -apple-system, sans-serif;
+                            }
+                            img {
+                              max-width: 100%;
+                              max-height: 80vh;
+                              border-radius: 12px;
+                              box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                            }
+                            h1 {
+                              color: #D4AF37;
+                              font-size: 24px;
+                              margin-bottom: 20px;
+                            }
+                            .btn {
+                              margin-top: 20px;
+                              padding: 12px 24px;
+                              background: #D4AF37;
+                              color: #1a1918;
+                              border: none;
+                              border-radius: 8px;
+                              font-size: 16px;
+                              font-weight: 600;
+                              cursor: pointer;
+                            }
+                            .btn:hover {
+                              background: #C9A962;
+                            }
+                          </style>
+                        </head>
+                        <body>
+                          <h1>✨ 가상 피팅 결과</h1>
+                          <img src="${result.imageUrl}" alt="Virtual Try-On Result" />
+                          <button class="btn" onclick="window.close()">닫기</button>
+                        </body>
+                        </html>
+                      `);
+                    } else {
+                      throw new Error('결과 이미지를 받지 못했습니다.');
+                    }
+                  } catch (error) {
+                    console.error('Single item try-on error:', error);
+                    alert(`가상 피팅 실패: ${error.message}`);
+                  }
+                }}
+                className="w-full py-3.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl font-bold hover:from-purple-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-rounded text-lg">auto_awesome</span>
+                하나만 입어보기 (AI)
+              </button>
+
               <div className="flex gap-2">
                 <button
                   onClick={() => {

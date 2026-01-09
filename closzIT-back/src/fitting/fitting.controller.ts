@@ -12,6 +12,7 @@ import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { FittingService } from './fitting.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { VtonCacheService } from '../vton-cache/vton-cache.service';
 
 @Controller('api/fitting')
 @UseGuards(JwtAuthGuard)
@@ -19,6 +20,7 @@ export class FittingController {
   constructor(
     private readonly fittingService: FittingService,
     private readonly prisma: PrismaService,
+    private readonly vtonCacheService: VtonCacheService,
   ) {}
 
   @Post('virtual-try-on')
@@ -301,6 +303,136 @@ export class FittingController {
   @Post('check-status')
   async checkStatus(@Body() body: { jobId: string }) {
     return await this.fittingService.checkJobStatus(body.jobId);
+  }
+
+  /**
+   * 단일 옷 가상 피팅 (IDM-VTON 캐시 사용)
+   * POST /api/fitting/single-item-tryon
+   */
+  @Post('single-item-tryon')
+  async singleItemTryOn(
+    @Request() req,
+    @Body() body: {
+      clothingId: string;
+      denoiseSteps?: number;
+      seed?: number;
+    },
+  ) {
+    const userId = req.user.id;
+    console.log('Single Item VTO Request - userId:', userId, 'clothingId:', body.clothingId);
+
+    if (!body.clothingId) {
+      throw new BadRequestException({
+        success: false,
+        message: 'clothingId is required',
+      });
+    }
+
+    // 캐시 존재 여부 확인
+    const humanCacheExists = await this.vtonCacheService.checkHumanCacheExists(userId);
+    const garmentCacheExists = await this.vtonCacheService.checkGarmentCacheExists(userId, body.clothingId);
+
+    if (!humanCacheExists) {
+      // 사용자 전신 이미지 가져와서 캐싱
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { fullBodyImage: true },
+      });
+
+      if (!user?.fullBodyImage) {
+        throw new BadRequestException({
+          success: false,
+          code: 'NO_FULL_BODY_IMAGE',
+          message: '피팅 모델 이미지가 없어서 착장서비스 이용이 불가합니다.',
+        });
+      }
+
+      // 전신 이미지를 base64로 변환 (S3 URL → fetch → base64)
+      const imageBase64 = await this.fetchImageAsBase64(user.fullBodyImage);
+      await this.vtonCacheService.preprocessAndCacheHuman(userId, imageBase64);
+      console.log('Human cache created for userId:', userId);
+    }
+
+    if (!garmentCacheExists) {
+      // 옷 이미지 가져와서 캐싱
+      const clothing = await this.prisma.clothing.findUnique({
+        where: { id: body.clothingId, userId }, // 본인 옷만
+        select: {
+          flattenImageUrl: true,
+          imageUrl: true,
+          category: true,
+          subCategory: true,
+          colors: true,
+          patterns: true,
+          details: true,
+        },
+      });
+
+      if (!clothing) {
+        throw new BadRequestException({
+          success: false,
+          message: '의류를 찾을 수 없습니다.',
+        });
+      }
+
+      const imageUrl = clothing.flattenImageUrl || clothing.imageUrl;
+      const imageBase64 = await this.fetchImageAsBase64(imageUrl);
+
+      // 옷 이미지 전처리 캐싱
+      await this.vtonCacheService.preprocessAndCacheGarment(userId, body.clothingId, imageBase64);
+
+      // 텍스트 임베딩 캐싱
+      const description = [
+        clothing.category || '',
+        clothing.subCategory || '',
+        ...(clothing.colors || []),
+        ...(clothing.patterns || []),
+        ...(clothing.details || []),
+      ].filter(Boolean).join(' ');
+
+      await this.vtonCacheService.preprocessAndCacheText(userId, body.clothingId, description);
+
+      console.log('Garment and text cache created for clothingId:', body.clothingId);
+    }
+
+    // Diffusion 생성
+    const resultImageBase64 = await this.vtonCacheService.generateTryOn(
+      userId,
+      body.clothingId,
+      body.denoiseSteps || 20,
+      body.seed || 42,
+    );
+
+    return {
+      success: true,
+      message: '단일 옷 가상 피팅이 완료되었습니다',
+      imageUrl: `data:image/png;base64,${resultImageBase64}`,
+    };
+  }
+
+  /**
+   * URL에서 이미지를 Base64로 변환
+   */
+  private async fetchImageAsBase64(url: string): Promise<string> {
+    try {
+      // Base64 Data URL인 경우 그대로 반환
+      if (url.startsWith('data:image/')) {
+        return url.split(',')[1];
+      }
+
+      // S3 URL인 경우 Pre-signed URL로 변환 후 fetch
+      // (FittingService의 fetchImageAsBuffer 로직 참고)
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status}`);
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      return buffer.toString('base64');
+    } catch (error) {
+      console.error(`Error fetching image from ${url}:`, error);
+      throw error;
+    }
   }
 }
 
