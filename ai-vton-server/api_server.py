@@ -370,6 +370,14 @@ def preprocess_text_internal(garment_des: str) -> dict:
     prompt_c = "a photo of " + garment_des
     negative_prompt = "monochrome, lowres, bad anatomy, worst quality, low quality"
 
+    # 📝 생성될 프롬프트 출력
+    print("=" * 80)
+    print("📝 Text Embedding Prompts:")
+    print(f"  ✅ Positive prompt: '{prompt}'")
+    print(f"  ✅ Condition prompt: '{prompt_c}'")
+    print(f"  ❌ Negative prompt: '{negative_prompt}'")
+    print("=" * 80)
+
     with torch.no_grad():
         pipe.to(device)
         original_dtype = pipe.text_encoder.dtype
@@ -618,18 +626,22 @@ async def generate_tryon(request: VtonGenerateRequest):
         mask_gray = base64_to_pil(request.mask_gray)
         garm_img = base64_to_pil(request.garm_img)
 
+        # ⭐ CRITICAL: 명시적으로 CUDA 사용
+        device_str = "cuda" if torch.cuda.is_available() else "cpu"
+        logger.info(f"[generate-tryon] Using device: {device_str}")
+
         # Base64 → PyTorch Tensors (pickled)
-        pose_img_tensor = base64_to_tensor(request.pose_tensor, device)
-        garm_tensor = base64_to_tensor(request.garm_tensor, device)
-        prompt_embeds = base64_to_tensor(request.prompt_embeds, device)
+        pose_img_tensor = base64_to_tensor(request.pose_tensor, device_str)
+        garm_tensor = base64_to_tensor(request.garm_tensor, device_str)
+        prompt_embeds = base64_to_tensor(request.prompt_embeds, device_str)
         negative_prompt_embeds = base64_to_tensor(
-            request.negative_prompt_embeds, device
+            request.negative_prompt_embeds, device_str
         )
-        pooled_prompt_embeds = base64_to_tensor(request.pooled_prompt_embeds, device)
+        pooled_prompt_embeds = base64_to_tensor(request.pooled_prompt_embeds, device_str)
         negative_pooled_prompt_embeds = base64_to_tensor(
-            request.negative_pooled_prompt_embeds, device
+            request.negative_pooled_prompt_embeds, device_str
         )
-        prompt_embeds_c = base64_to_tensor(request.prompt_embeds_c, device)
+        prompt_embeds_c = base64_to_tensor(request.prompt_embeds_c, device_str)
 
         # Diffusion 생성
         result_img, elapsed = generate_tryon_internal(
