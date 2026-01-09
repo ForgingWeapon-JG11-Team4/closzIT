@@ -38,7 +38,7 @@ conda activate idm-vton
 python main.py
 ```
 
-서버 주소: `http://localhost:8001`
+서버 주소: `http://localhost:55554`
 
 ### GPU 서버 배포
 
@@ -48,7 +48,7 @@ conda activate idm-vton
 nohup python main.py > vton-server.log 2>&1 &
 
 # 포트 확인
-curl http://localhost:8001/health
+curl http://localhost:55554/health
 ```
 
 ## API 엔드포인트
@@ -73,10 +73,10 @@ curl http://localhost:8001/health
 FASTAPI_URL=http://gpu-server:8000
 
 # IDM-VTON 서버 (당신 서버)
-VTON_API_URL=http://gpu-server:8001
+VTON_API_URL=http://gpu-server:55554
 ```
 
 ## 포트 구분
 
 - **8000**: 기존 FastAPI (venv, YOLO/CLIP/임베딩)
-- **8001**: IDM-VTON 서버 (conda, OpenPose/DensePose/Diffusion)
+- **55554**: IDM-VTON 서버 (conda, OpenPose/DensePose/Diffusion)

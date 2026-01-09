@@ -41,7 +41,7 @@ pip install -r requirements.txt
 ```bash
 # .env 파일 생성
 cat > .env << EOF
-VTON_PORT=8001
+VTON_PORT=55554
 AWS_S3_BUCKET=your-bucket-name
 AWS_ACCESS_KEY_ID=your-key
 AWS_SECRET_ACCESS_KEY=your-secret
@@ -51,8 +51,8 @@ EOF
 ### 5. 포트 열기
 
 ```bash
-# 방화벽에서 8001 포트 열기
-sudo ufw allow 8001/tcp
+# 방화벽에서 55554 포트 열기
+sudo ufw allow 55554/tcp
 ```
 
 ### 6. 서버 실행
@@ -81,10 +81,10 @@ tail -f vton-server.log
 
 ```bash
 # 로컬에서 확인
-curl http://localhost:8001/health
+curl http://localhost:55554/health
 
 # 외부에서 확인 (다른 서버나 로컬 PC에서)
-curl http://gpu-server-ip:8001/health
+curl http://gpu-server-ip:55554/health
 ```
 
 ## 🔧 서버 관리
@@ -124,8 +124,8 @@ NestJS 서버의 `.env` 파일에 추가:
 # 기존 FastAPI (팀원 서버, port 8000)
 FASTAPI_URL=http://gpu-server-ip:8000
 
-# IDM-VTON 서버 (당신 서버, port 8001)
-VTON_API_URL=http://gpu-server-ip:8001
+# IDM-VTON 서버 (당신 서버, port 55554)
+VTON_API_URL=http://gpu-server-ip:55554
 ```
 
 ## 📊 현재 시스템 구조
@@ -140,7 +140,7 @@ VTON_API_URL=http://gpu-server-ip:8001
                │                 │
                │                 │
        ┌───────▼────────┐ ┌─────▼──────────────┐
-       │  FastAPI 8000  │ │  VTON API 8001     │
+       │  FastAPI 8000  │ │  VTON API 55554     │
        │  (팀원, venv)  │ │  (당신, conda)     │
        │                │ │                    │
        │  - YOLO        │ │  - OpenPose        │
@@ -155,8 +155,8 @@ VTON_API_URL=http://gpu-server-ip:8001
 ### 포트가 이미 사용 중인 경우
 
 ```bash
-# 8001 포트 사용 프로세스 확인
-lsof -i :8001
+# 55554 포트 사용 프로세스 확인
+lsof -i :55554
 
 # 프로세스 종료
 kill -9 <PID>

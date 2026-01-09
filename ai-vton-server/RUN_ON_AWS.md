@@ -44,7 +44,7 @@ cd ~/app/virtual-try/IDM-VTON
 
 # .env 파일 생성
 cat > .env << 'EOF'
-VTON_PORT=8001
+VTON_PORT=55554
 AWS_S3_BUCKET=your-bucket-name
 AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key
@@ -63,11 +63,11 @@ conda activate vton
 pip install fastapi uvicorn[standard] python-multipart
 ```
 
-### 6. 포트 8001 개방
+### 6. 포트 55554 개방
 
 ```bash
-# 방화벽에서 8001 포트 열기
-sudo ufw allow 8001/tcp
+# 방화벽에서 55554 포트 열기
+sudo ufw allow 55554/tcp
 
 # 포트 상태 확인
 sudo ufw status
@@ -105,13 +105,13 @@ tail -f vton-api.log
 
 ```bash
 # 로컬에서 확인
-curl http://localhost:8001/health
+curl http://localhost:55554/health
 
 # 외부에서 확인
-curl http://your-gpu-server-ip:8001/health
+curl http://your-gpu-server-ip:55554/health
 
 # 상세 정보
-curl http://localhost:8001/
+curl http://localhost:55554/
 ```
 
 **예상 응답:**
@@ -119,7 +119,7 @@ curl http://localhost:8001/
 {
   "service": "IDM-VTON API Server",
   "status": "running",
-  "port": 8001,
+  "port": 55554,
   "environment": "conda",
   "models_loaded": true,
   "cache_stats": {
@@ -144,7 +144,7 @@ ps aux | grep api_server.py
 kill -9 <PID>
 
 # 또는 포트로 종료
-lsof -ti:8001 | xargs kill -9
+lsof -ti:55554 | xargs kill -9
 
 # 재시작
 cd ~/app/virtual-try/IDM-VTON
@@ -206,7 +206,7 @@ ps aux | grep api_server.py
 
 echo ""
 echo "Health Check:"
-curl http://localhost:8001/health
+curl http://localhost:55554/health
 EOF
 
 # 실행 권한 부여
@@ -223,7 +223,7 @@ chmod +x restart-vton-api.sh
 ### 1. Health Check
 
 ```bash
-curl http://localhost:8001/health
+curl http://localhost:55554/health
 ```
 
 ### 2. 사람 전처리 테스트
@@ -233,7 +233,7 @@ curl http://localhost:8001/health
 base64 -w 0 test_human.jpg > human_b64.txt
 
 # API 호출
-curl -X POST http://localhost:8001/vton/preprocess-human \
+curl -X POST http://localhost:55554/vton/preprocess-human \
   -H "Content-Type: application/json" \
   -d '{
     "image_base64": "'$(cat human_b64.txt)'"
@@ -245,7 +245,7 @@ curl -X POST http://localhost:8001/vton/preprocess-human \
 ```bash
 base64 -w 0 test_garment.jpg > garment_b64.txt
 
-curl -X POST http://localhost:8001/vton/preprocess-garment \
+curl -X POST http://localhost:55554/vton/preprocess-garment \
   -H "Content-Type: application/json" \
   -d '{
     "image_base64": "'$(cat garment_b64.txt)'"
@@ -255,7 +255,7 @@ curl -X POST http://localhost:8001/vton/preprocess-garment \
 ### 4. 텍스트 임베딩 테스트
 
 ```bash
-curl -X POST http://localhost:8001/vton/preprocess-text \
+curl -X POST http://localhost:55554/vton/preprocess-text \
   -H "Content-Type: application/json" \
   -d '{
     "garment_description": "a blue shirt"
@@ -280,10 +280,10 @@ nano .env
 **추가할 내용:**
 ```env
 # IDM-VTON API 서버
-VTON_API_URL=http://localhost:8001
+VTON_API_URL=http://localhost:55554
 
 # 외부 접근 시
-# VTON_API_URL=http://your-gpu-server-ip:8001
+# VTON_API_URL=http://your-gpu-server-ip:55554
 ```
 
 ### 2. NestJS 재시작
@@ -310,7 +310,7 @@ nohup npm run start:prod > nestjs.log 2>&1 &
                      │ HTTP Request
                      │
        ┌─────────────▼──────────────────┐
-       │  IDM-VTON API (port 8001)      │
+       │  IDM-VTON API (port 55554)      │
        │  ~/app/virtual-try/IDM-VTON/   │
        │                                │
        │  - /vton/preprocess-human      │
@@ -353,11 +353,11 @@ kill -9 <PID>
 ### 포트 충돌
 
 ```bash
-# 8001 포트 사용 확인
-lsof -i :8001
+# 55554 포트 사용 확인
+lsof -i :55554
 
 # 프로세스 종료
-lsof -ti:8001 | xargs kill -9
+lsof -ti:55554 | xargs kill -9
 ```
 
 ### Import 오류
@@ -389,7 +389,7 @@ ls -la gradio_demo/
 
 - 기존 Gradio 서버(`run.sh`)와 FastAPI 서버를 **동시에 실행 가능**
 - Gradio: Port 7860 (테스트용)
-- FastAPI: Port 8001 (프로덕션용)
+- FastAPI: Port 55554 (프로덕션용)
 - 모델은 공유되며, 각자 독립적인 캐시를 사용
 
 ---
@@ -405,5 +405,5 @@ pkill -f "python.*api_server.py" ; sleep 2 && \
 nohup python api_server.py > vton-api.log 2>&1 & \
 sleep 10 && \
 echo "서버 시작 완료!" && \
-curl http://localhost:8001/health
+curl http://localhost:55554/health
 ```

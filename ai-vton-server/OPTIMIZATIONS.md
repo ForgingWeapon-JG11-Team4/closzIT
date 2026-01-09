@@ -154,7 +154,7 @@ pip install boto3 xformers
 
 # 환경 변수 설정
 cat > .env << 'EOF'
-VTON_PORT=8001
+VTON_PORT=55554
 AWS_S3_BUCKET=your-bucket-name
 AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key

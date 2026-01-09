@@ -1,6 +1,6 @@
 """
 IDM-VTON 전용 FastAPI 서버
-포트: 8001 (conda 환경)
+포트: 55554 (conda 환경)
 GPU 서버 전용
 """
 
@@ -19,8 +19,10 @@ app = FastAPI(title="IDM-VTON API Server", version="1.0.0")
 # Request/Response Models
 # ============================================================================
 
+
 class HumanPreprocessRequest(BaseModel):
     image_base64: str
+
 
 class HumanPreprocessResponse(BaseModel):
     human_img: str
@@ -28,15 +30,19 @@ class HumanPreprocessResponse(BaseModel):
     mask_gray: str
     pose_img_tensor: str
 
+
 class GarmentPreprocessRequest(BaseModel):
     image_base64: str
+
 
 class GarmentPreprocessResponse(BaseModel):
     garm_img: str
     garm_tensor: str
 
+
 class TextPreprocessRequest(BaseModel):
     garment_description: str
+
 
 class TextPreprocessResponse(BaseModel):
     prompt_embeds: str
@@ -45,28 +51,33 @@ class TextPreprocessResponse(BaseModel):
     negative_pooled_prompt_embeds: str
     prompt_embeds_c: str
 
+
 class VtonGenerateRequest(BaseModel):
     user_id: str
     clothing_id: str
     denoise_steps: int = 20
     seed: int = 42
 
+
 class VtonGenerateResponse(BaseModel):
     result_image_base64: str
     processing_time: float
 
+
 # ============================================================================
 # Health Check
 # ============================================================================
+
 
 @app.get("/")
 def root():
     return {
         "service": "IDM-VTON API Server",
         "status": "running",
-        "port": 8001,
-        "environment": "conda"
+        "port": 55554,
+        "environment": "conda",
     }
+
 
 @app.get("/health")
 def health_check():
@@ -76,9 +87,11 @@ def health_check():
         "models_loaded": False,  # TODO: 모델 로드 후 True로 변경
     }
 
+
 # ============================================================================
 # IDM-VTON Endpoints (현재 Mock, 실제 모델 통합 필요)
 # ============================================================================
+
 
 @app.post("/vton/preprocess-human", response_model=HumanPreprocessResponse)
 async def preprocess_human(request: HumanPreprocessRequest):
@@ -91,7 +104,9 @@ async def preprocess_human(request: HumanPreprocessRequest):
     3. DensePose 모델 로드
     4. 이미지 전처리 실행
     """
-    logger.info(f"[VTON] preprocess-human called (image size: {len(request.image_base64)} chars)")
+    logger.info(
+        f"[VTON] preprocess-human called (image size: {len(request.image_base64)} chars)"
+    )
 
     # Mock implementation
     return HumanPreprocessResponse(
@@ -100,6 +115,7 @@ async def preprocess_human(request: HumanPreprocessRequest):
         mask_gray=request.image_base64,
         pose_img_tensor="",  # TODO: 실제 텐서 직렬화
     )
+
 
 @app.post("/vton/preprocess-garment", response_model=GarmentPreprocessResponse)
 async def preprocess_garment(request: GarmentPreprocessRequest):
@@ -111,13 +127,16 @@ async def preprocess_garment(request: GarmentPreprocessRequest):
     2. PyTorch 텐서 변환
     3. 정규화
     """
-    logger.info(f"[VTON] preprocess-garment called (image size: {len(request.image_base64)} chars)")
+    logger.info(
+        f"[VTON] preprocess-garment called (image size: {len(request.image_base64)} chars)"
+    )
 
     # Mock implementation
     return GarmentPreprocessResponse(
         garm_img=request.image_base64,
         garm_tensor="",  # TODO: 실제 텐서 직렬화
     )
+
 
 @app.post("/vton/preprocess-text", response_model=TextPreprocessResponse)
 async def preprocess_text(request: TextPreprocessRequest):
@@ -140,6 +159,7 @@ async def preprocess_text(request: TextPreprocessRequest):
         prompt_embeds_c="",
     )
 
+
 @app.post("/vton/generate-tryon", response_model=VtonGenerateResponse)
 async def generate_tryon(request: VtonGenerateRequest):
     """
@@ -150,13 +170,16 @@ async def generate_tryon(request: VtonGenerateRequest):
     2. IDM-VTON Diffusion 파이프라인 실행
     3. 결과 이미지 생성
     """
-    logger.info(f"[VTON] generate-tryon called: user={request.user_id}, clothing={request.clothing_id}")
+    logger.info(
+        f"[VTON] generate-tryon called: user={request.user_id}, clothing={request.clothing_id}"
+    )
 
     # Mock implementation
     return VtonGenerateResponse(
         result_image_base64="",  # TODO: 실제 생성된 이미지
         processing_time=0.5,
     )
+
 
 # ============================================================================
 # 서버 실행 (GPU 서버에서 conda 환경으로 실행)
@@ -166,7 +189,7 @@ if __name__ == "__main__":
     import uvicorn
 
     # GPU 서버 설정
-    port = int(os.getenv("VTON_PORT", "8001"))
+    port = int(os.getenv("VTON_PORT", "55554"))
 
     logger.info("=" * 80)
     logger.info("IDM-VTON FastAPI Server Starting...")
@@ -175,8 +198,5 @@ if __name__ == "__main__":
     logger.info("=" * 80)
 
     uvicorn.run(
-        app,
-        host="0.0.0.0",  # GPU 서버 외부 접근 허용
-        port=port,
-        log_level="info"
+        app, host="0.0.0.0", port=port, log_level="info"  # GPU 서버 외부 접근 허용
     )
