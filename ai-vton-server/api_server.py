@@ -382,7 +382,7 @@ def preprocess_text_internal(garment_des: str) -> dict:
     print("=" * 80)
     print("📝 Text Embedding Prompts:")
     print(f"  📥 Original description: '{garment_des}'")
-    print(f"  🎯 Using first word only: '{first_word}'")
+    print(f"  🎯 Using category only: '{category}'")
     print(f"  ✅ Positive prompt: '{prompt}'")
     print(f"  ✅ Condition prompt: '{prompt_c}'")
     print(f"  ❌ Negative prompt: '{negative_prompt}'")
