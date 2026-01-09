@@ -150,7 +150,7 @@ const LabelingPage = () => {
   const [zoomedImageSrc, setZoomedImageSrc] = useState(null); // 확대할 이미지 src
 
   // 옷 펴기 상태
-  const [isFlattening, setIsFlattening] = useState(false);
+  const [flatteningItems, setFlatteningItems] = useState(new Set()); // 옷 펴기 진행 중인 아이템 인덱스 Set
   const [flattenedImages, setFlattenedImages] = useState({}); // { itemIndex: base64Image }
   const [skippedFlattenImages, setSkippedFlattenImages] = useState([]); // 펼쳐진 이미지 제외 목록
   const [showFlattenConfirm, setShowFlattenConfirm] = useState(false); // 옷 펴기 확인 팝업
@@ -369,11 +369,12 @@ const LabelingPage = () => {
   const handleFlattenClothing = async () => {
     if (!analysisResults[currentItemIndex]) return;
 
-    setIsFlattening(true);
+    const itemIndex = currentItemIndex; // 클로저에 현재 인덱스 저장
+    setFlatteningItems(prev => new Set(prev).add(itemIndex));
 
     try {
-      const currentItem = analysisResults[currentItemIndex];
-      const formData = itemFormData[currentItemIndex] || {};
+      const currentItem = analysisResults[itemIndex];
+      const formData = itemFormData[itemIndex] || {};
 
       console.log('[DEBUG] Flattening clothing:', formData.category, formData.sub_category);
 
@@ -406,7 +407,7 @@ const LabelingPage = () => {
       if (result.success && result.flattened_image_base64) {
         setFlattenedImages(prev => ({
           ...prev,
-          [currentItemIndex]: result.flattened_image_base64,
+          [itemIndex]: result.flattened_image_base64,
         }));
       } else {
         throw new Error('No flattened image received');
@@ -415,7 +416,11 @@ const LabelingPage = () => {
       console.error('[ERROR] Flatten error:', error);
       alert(`옷 펴기 중 오류가 발생했습니다.\n${error.message}`);
     } finally {
-      setIsFlattening(false);
+      setFlatteningItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemIndex);
+        return newSet;
+      });
     }
   };
 
@@ -871,19 +876,19 @@ const LabelingPage = () => {
                   // 옷 펴기 버튼
                   <button
                     onClick={() => setShowFlattenConfirm(true)}
-                    disabled={isFlattening}
+                    disabled={flatteningItems.has(currentItemIndex)}
                     className="w-20 h-24 rounded-xl shadow-lg flex flex-col items-center justify-center transition-all hover:scale-105 active:scale-95"
                     style={{
-                      background: isFlattening
+                      background: flatteningItems.has(currentItemIndex)
                         ? '#9CA3AF'
                         : 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)',
-                      boxShadow: isFlattening
+                      boxShadow: flatteningItems.has(currentItemIndex)
                         ? 'none'
                         : '0 4px 14px rgba(184, 134, 11, 0.35)',
-                      cursor: isFlattening ? 'not-allowed' : 'pointer'
+                      cursor: flatteningItems.has(currentItemIndex) ? 'not-allowed' : 'pointer'
                     }}
                   >
-                    {isFlattening ? (
+                    {flatteningItems.has(currentItemIndex) ? (
                       <>
                         <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         <span className="text-xs text-white font-medium mt-1">생성 중...</span>
