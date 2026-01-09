@@ -275,7 +275,40 @@ def preprocess_human_internal(human_img: Image.Image) -> dict:
     if isinstance(human_img, np.ndarray):
         human_img = Image.fromarray(human_img)
 
-    human_img = human_img.convert("RGB").resize((768, 1024))
+    # 원본 비율 유지하며 리사이즈
+    original_size = human_img.size
+    target_width, target_height = 768, 1024
+
+    # 비율 계산
+    aspect_ratio = original_size[0] / original_size[1]
+    target_aspect = target_width / target_height
+
+    if aspect_ratio > target_aspect:
+        # 이미지가 더 넓음 -> 폭 기준으로 리사이즈
+        new_width = target_width
+        new_height = int(target_width / aspect_ratio)
+    else:
+        # 이미지가 더 높음 -> 높이 기준으로 리사이즈
+        new_height = target_height
+        new_width = int(target_height * aspect_ratio)
+
+    # 리사이즈 후 중앙 크롭 또는 패딩
+    human_img = human_img.convert("RGB").resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+    # 768x1024로 중앙 크롭 또는 패딩
+    if new_width < target_width or new_height < target_height:
+        # 패딩 필요
+        padded_img = Image.new("RGB", (target_width, target_height), (255, 255, 255))
+        paste_x = (target_width - new_width) // 2
+        paste_y = (target_height - new_height) // 2
+        padded_img.paste(human_img, (paste_x, paste_y))
+        human_img = padded_img
+    elif new_width > target_width or new_height > target_height:
+        # 크롭 필요
+        left = (new_width - target_width) // 2
+        top = (new_height - target_height) // 2
+        human_img = human_img.crop((left, top, left + target_width, top + target_height))
+
     human_img_arg = _apply_exif_orientation(human_img.resize((384, 512)))
     human_img_arg = convert_PIL_to_numpy(human_img_arg, format="BGR")
 
@@ -334,7 +367,36 @@ def preprocess_garment_internal(garm_img: Image.Image) -> dict:
     if isinstance(garm_img, np.ndarray):
         garm_img = Image.fromarray(garm_img)
 
-    garm_img = garm_img.convert("RGB").resize((768, 1024))
+    # 원본 비율 유지하며 768x1024로 리사이즈
+    garm_img = garm_img.convert("RGB")
+    original_size = garm_img.size
+    target_width, target_height = 768, 1024
+
+    # 비율 계산
+    aspect_ratio = original_size[0] / original_size[1]
+    target_aspect = target_width / target_height
+
+    if aspect_ratio > target_aspect:
+        new_width = target_width
+        new_height = int(target_width / aspect_ratio)
+    else:
+        new_height = target_height
+        new_width = int(target_height * aspect_ratio)
+
+    garm_img = garm_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+    # 중앙 정렬로 768x1024 맞추기 (흰색 배경으로 패딩)
+    if new_width < target_width or new_height < target_height:
+        padded_img = Image.new("RGB", (target_width, target_height), (255, 255, 255))
+        paste_x = (target_width - new_width) // 2
+        paste_y = (target_height - new_height) // 2
+        padded_img.paste(garm_img, (paste_x, paste_y))
+        garm_img = padded_img
+    elif new_width > target_width or new_height > target_height:
+        left = (new_width - target_width) // 2
+        top = (new_height - target_height) // 2
+        garm_img = garm_img.crop((left, top, left + target_width, top + target_height))
+
     garm_img_resized = garm_img.resize((384, 512))
     garm_tensor = (
         tensor_transfrom(garm_img_resized).unsqueeze(0).to(device, torch.float16)
