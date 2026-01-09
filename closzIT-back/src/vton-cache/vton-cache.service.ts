@@ -349,4 +349,74 @@ export class VtonCacheService {
       return false;
     }
   }
+
+  /**
+   * V2: FastAPI가 S3에서 직접 다운로드 (최적화)
+   */
+  async generateTryOnV2(
+    userId: string,
+    clothingId: string,
+    denoiseSteps: number = 20,
+    seed: number = 42
+  ): Promise<string> {
+    this.logger.log(`[generateTryOnV2] Starting for userId: ${userId}, clothingId: ${clothingId}`);
+    const startTime = Date.now();
+
+    try {
+      // IDM-VTON API 호출: FastAPI가 S3에서 직접 다운로드
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.vtonApiUrl}/vton/generate-tryon-v2`, {
+          user_id: userId,
+          clothing_id: clothingId,
+          denoise_steps: denoiseSteps,
+          seed: seed,
+        })
+      );
+
+      const { result_image_base64 } = response.data;
+
+      const elapsed = (Date.now() - startTime) / 1000;
+      this.logger.log(`[generateTryOnV2] Completed in ${elapsed.toFixed(2)}s (FastAPI direct S3 download)`);
+
+      return result_image_base64;
+    } catch (error) {
+      this.logger.error(`[generateTryOnV2] Failed for userId: ${userId}, clothingId: ${clothingId}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 배치 처리: 여러 옷을 동시에 입어보기
+   */
+  async generateBatchTryOn(
+    userId: string,
+    clothingIds: string[],
+    denoiseSteps: number = 20,
+    seed: number = 42
+  ): Promise<any[]> {
+    this.logger.log(`[generateBatchTryOn] Starting for userId: ${userId}, ${clothingIds.length} items`);
+    const startTime = Date.now();
+
+    try {
+      // IDM-VTON API 호출: 배치 처리
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.vtonApiUrl}/vton/generate-batch`, {
+          user_id: userId,
+          clothing_ids: clothingIds,
+          denoise_steps: denoiseSteps,
+          seed: seed,
+        })
+      );
+
+      const { results } = response.data;
+
+      const elapsed = (Date.now() - startTime) / 1000;
+      this.logger.log(`[generateBatchTryOn] Completed in ${elapsed.toFixed(2)}s`);
+
+      return results;
+    } catch (error) {
+      this.logger.error(`[generateBatchTryOn] Failed for userId: ${userId}`, error);
+      throw error;
+    }
+  }
 }

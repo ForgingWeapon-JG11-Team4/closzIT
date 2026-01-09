@@ -413,6 +413,76 @@ export class FittingController {
     };
   }
 
+  @Post('single-item-tryon-v2')
+  @UseGuards(JwtAuthGuard)
+  async singleItemTryOnV2(@Request() req, @Body() body: { clothingId: string; denoiseSteps?: number; seed?: number }) {
+    /**
+     * 최적화 버전: FastAPI가 S3에서 직접 다운로드
+     * - NestJS는 userId, clothingId만 전달
+     * - FastAPI가 S3 병렬 다운로드
+     * - 예상 2-3초 단축
+     */
+    const userId = req.user.id;
+
+    console.log('[singleItemTryOnV2] Starting optimized try-on', { userId, clothingId: body.clothingId });
+
+    // 캐시 존재 확인
+    const humanCacheExists = await this.vtonCacheService.checkHumanCacheExists(userId);
+    const garmentCacheExists = await this.vtonCacheService.checkGarmentCacheExists(userId, body.clothingId);
+    const textCacheExists = await this.vtonCacheService.checkTextCacheExists(userId, body.clothingId);
+
+    if (!humanCacheExists || !garmentCacheExists || !textCacheExists) {
+      throw new BadRequestException({
+        success: false,
+        message: '캐시가 생성되지 않았습니다. 먼저 /single-item-tryon을 호출하여 캐시를 생성하세요.',
+      });
+    }
+
+    // V2 API 호출 (FastAPI가 S3 직접 다운로드)
+    const resultImageBase64 = await this.vtonCacheService.generateTryOnV2(
+      userId,
+      body.clothingId,
+      body.denoiseSteps || 20,
+      body.seed || 42,
+    );
+
+    return {
+      success: true,
+      message: '최적화 버전으로 가상 피팅이 완료되었습니다',
+      imageUrl: `data:image/png;base64,${resultImageBase64}`,
+    };
+  }
+
+  @Post('batch-tryon')
+  @UseGuards(JwtAuthGuard)
+  async batchTryOn(@Request() req, @Body() body: { clothingIds: string[]; denoiseSteps?: number; seed?: number }) {
+    /**
+     * 배치 처리: 여러 옷을 동시에 입어보기
+     */
+    const userId = req.user.id;
+
+    console.log('[batchTryOn] Starting batch try-on', { userId, count: body.clothingIds.length });
+
+    // 배치 API 호출
+    const results = await this.vtonCacheService.generateBatchTryOn(
+      userId,
+      body.clothingIds,
+      body.denoiseSteps || 20,
+      body.seed || 42,
+    );
+
+    return {
+      success: true,
+      message: `${body.clothingIds.length}개 옷 배치 피팅이 완료되었습니다`,
+      results: results.map(r => ({
+        clothingId: r.clothing_id,
+        imageUrl: r.result_image_base64 ? `data:image/png;base64,${r.result_image_base64}` : null,
+        processingTime: r.processing_time,
+        success: r.success,
+      })),
+    };
+  }
+
   /**
    * URL에서 이미지를 Base64로 변환
    */
