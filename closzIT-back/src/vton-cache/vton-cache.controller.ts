@@ -9,7 +9,7 @@ export class VtonCacheController {
   constructor(
     private readonly vtonCacheService: VtonCacheService,
     private readonly prismaService: PrismaService,
-  ) {}
+  ) { }
 
   /**
    * 사람 이미지 전처리 및 캐싱
@@ -181,7 +181,7 @@ export class VtonCacheController {
       const resultImageBase64 = await this.vtonCacheService.generateTryOn(
         userId,
         clothingId,
-        denoiseSteps || 20,
+        String(denoiseSteps || 20),
         seed || 42
       );
 

@@ -34,8 +34,8 @@ export class VtonCacheService {
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
   ) {
-    // IDM-VTON 전용 서버 URL (포트 8001, conda 환경)
-    this.vtonApiUrl = this.configService.get<string>('VTON_API_URL', 'http://localhost:8001');
+    // IDM-VTON 전용 서버 URL (포트 55554, conda 환경)
+    this.vtonApiUrl = this.configService.get<string>('VTON_API_URL', 'http://localhost:55554');
     this.logger.log(`VTON API URL: ${this.vtonApiUrl}`);
   }
 
