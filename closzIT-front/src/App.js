@@ -15,7 +15,7 @@ import FeedPage from './pages/FeedPage';
 import CreatePostPage from './pages/CreatePostPage';
 import PostDetailPage from './pages/PostDetailPage';
 import ProfilePage from './pages/ProfilePage';
-import ConversationalRecommendationPage from './pages/ConversationalRecommendation/ConversationalRecommendationPage';
+import ConversationalChatPage from './pages/ConversationalRecommendation/ConversationalChatPage';
 import './App.css';
 
 function App() {
@@ -40,7 +40,7 @@ function App() {
         <Route path="/post/:postId" element={<PostDetailPage />} />
         <Route path="/profile/:userId" element={<ProfilePage />} />
         <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/conversational-recommendation" element={<ConversationalRecommendationPage />} />
+        <Route path="/chat-recommendation" element={<ConversationalChatPage />} />
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>

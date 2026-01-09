@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 
-interface ParsedQuery {
+export interface ParsedQuery {
   locationKeyword: string;
   keepCategories: string[];
   replaceCategories: string[];
@@ -15,12 +15,19 @@ export class ConversationalRagService {
 
   constructor() {
     // AWS Bedrock 클라이언트 초기화
+    const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+
+    if (!accessKeyId || !secretAccessKey) {
+      this.logger.warn('AWS credentials not found. Bedrock client will not work.');
+    }
+
     this.bedrockClient = new BedrockRuntimeClient({
       region: process.env.AWS_REGION || 'ap-northeast-1',
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-      },
+      credentials: accessKeyId && secretAccessKey ? {
+        accessKeyId,
+        secretAccessKey,
+      } : undefined,
     });
   }
 
@@ -71,7 +78,7 @@ Respond ONLY with valid JSON in this format:
       };
 
       const command = new InvokeModelCommand({
-        modelId: 'jp.anthropic.claude-sonnet-4-5-20250929-v1:0',
+        modelId: 'anthropic.claude-3-5-sonnet-20240620-v1:0',
         contentType: 'application/json',
         accept: 'application/json',
         body: JSON.stringify(requestBody),

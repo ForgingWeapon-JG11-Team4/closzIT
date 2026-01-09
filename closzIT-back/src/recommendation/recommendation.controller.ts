@@ -18,6 +18,7 @@ import { FeedbackRequestDto } from './dto/feedback-request.dto';
 import { SearchResponseDto } from './dto/search-response.dto';
 import { SearchContext, TPO } from './types/clothing.types';
 import { OutfitRagService } from './services/outfit-rag.service';
+import { ConversationalAgentService } from './services/conversational-agent.service';
 
 @Controller('recommendation')
 @UseGuards(JwtAuthGuard)
@@ -27,6 +28,7 @@ export class RecommendationController {
     private readonly feedbackService: FeedbackService,
     private readonly calendarService: CalendarService,
     private readonly outfitRagService: OutfitRagService,
+    private readonly conversationalAgentService: ConversationalAgentService,
   ) {}
 
   /**
@@ -109,7 +111,7 @@ export class RecommendationController {
   }
 
   /**
-   * 대화형 코디 추천
+   * 대화형 코디 추천 (기존 방식 - 단순 파싱)
    * POST /api/recommendation/conversational
    */
   @Post('conversational')
@@ -124,5 +126,35 @@ export class RecommendationController {
       body.query,
     );
     return result;
+  }
+
+  /**
+   * 대화형 코디 추천 (Langchain Agent 방식 - 유연한 처리)
+   * POST /api/recommendation/chat
+   */
+  @Post('chat')
+  @HttpCode(HttpStatus.OK)
+  async chat(
+    @Req() req: any,
+    @Body() body: { query: string },
+  ) {
+    const userId = req.user.id;
+    const result = await this.conversationalAgentService.processConversation(
+      userId,
+      body.query,
+    );
+    return result;
+  }
+
+  /**
+   * 대화 기록 초기화
+   * POST /api/recommendation/clear-chat
+   */
+  @Post('clear-chat')
+  @HttpCode(HttpStatus.OK)
+  async clearChat(@Req() req: any) {
+    const userId = req.user.id;
+    await this.conversationalAgentService.clearConversation(userId);
+    return { success: true, message: '대화 기록이 초기화되었습니다.' };
   }
 }

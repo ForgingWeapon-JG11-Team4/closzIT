@@ -1,17 +1,17 @@
 // prisma/schema/outfit_log.prisma
 
 model OutfitLog {
-  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId          String    @map("user_id") @db.Uuid
+  id              String    @id @default(dbgenerated("gen_random_uuid()::text"))
+  userId          String    @map("user_id")
   wornDate        DateTime  @map("worn_date") @db.Timestamp(6)
   location        String?   @db.VarChar(255)
   tpo             TPO
   weatherTemp     Float?    @map("weather_temp")
   weatherCondition String?  @map("weather_condition") @db.VarChar(50)
-  outerId         String?   @map("outer_id") @db.Uuid
-  topId           String    @map("top_id") @db.Uuid
-  bottomId        String    @map("bottom_id") @db.Uuid
-  shoesId         String    @map("shoes_id") @db.Uuid
+  outerId         String?   @map("outer_id")
+  topId           String    @map("top_id")
+  bottomId        String    @map("bottom_id")
+  shoesId         String    @map("shoes_id")
   userNote        String?   @map("user_note") @db.Text
   feedbackScore   Int?      @map("feedback_score")
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamp(6)

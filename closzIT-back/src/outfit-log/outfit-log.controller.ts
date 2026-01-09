@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Param, Delete, Patch, UseGuards, Req } from '@nestjs/common';
 import { OutfitLogService } from './outfit-log.service';
 import { CreateOutfitLogDto } from './dto/create-outfit-log.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('outfit-log')
 @UseGuards(JwtAuthGuard)

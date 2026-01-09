@@ -6,8 +6,8 @@ import { ConfigService } from '@nestjs/config';
 export class BedrockService {
     private client: BedrockRuntimeClient;
     private readonly logger = new Logger(BedrockService.name);
-    // Claude Sonnet 4.5 Model ID (Japan Cross-Region Inference)
-    private readonly modelId = 'jp.anthropic.claude-sonnet-4-5-20250929-v1:0';
+    // Claude 3.5 Sonnet (June 2024 version)
+    private readonly modelId = 'anthropic.claude-3-5-sonnet-20240620-v1:0';
 
     constructor(private configService: ConfigService) {
         this.client = new BedrockRuntimeClient({

@@ -11,6 +11,7 @@ import { ScoringService } from './services/scoring.service';
 import { FeedbackService } from './services/feedback.service';
 import { ConversationalRagService } from './services/conversational-rag.service';
 import { OutfitRagService } from './services/outfit-rag.service';
+import { ConversationalAgentService } from './services/conversational-agent.service';
 
 import { UserModule } from '../user/user.module';
 import { CalendarModule } from '../calendar/calendar.module';
@@ -34,6 +35,7 @@ import { OutfitLogModule } from '../outfit-log/outfit-log.module';
     FeedbackService,
     ConversationalRagService,
     OutfitRagService,
+    ConversationalAgentService,
   ],
   exports: [VectorDBService, FeedbackService],
 })

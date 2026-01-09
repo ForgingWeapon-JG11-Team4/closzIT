@@ -38,7 +38,7 @@ RAG와 Langchain을 이용한 대화형 옷 추천 시스템을 상용 서비스
 - `ConversationalRecommendationPage.jsx`: UI 컴포넌트
 - `ConversationalRecommendationPage.css`: 스타일링
 
-**라우트 추가**: `/conversational-recommendation`
+**라우트 추가**: `/chat-recommendation`
 
 ### 4. API 엔드포인트
 
@@ -75,7 +75,7 @@ npm start
 ### 4. 브라우저에서 접속
 
 ```
-http://localhost:3001/conversational-recommendation
+http://localhost:3001/chat-recommendation
 ```
 
 ## 🔧 환경 변수
