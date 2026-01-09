@@ -893,6 +893,10 @@ def apply_gpu_optimizations():
     """GPU 최적화 적용"""
     global GPU_OPTIMIZATIONS_ENABLED
 
+    # Device 명시적 설정
+    device_str = "cuda" if torch.cuda.is_available() else "cpu"
+    logger.info(f"📍 Using device: {device_str}")
+
     logger.info("=" * 80)
     logger.info("🚀 Applying GPU Optimizations...")
     logger.info("=" * 80)
@@ -935,27 +939,27 @@ def apply_gpu_optimizations():
                 dummy_garm_img = Image.new("RGB", (768, 1024))
                 dummy_mask = Image.new("RGB", (768, 1024))
 
-                # Tensor 변환
+                # Tensor 변환 (device_str 사용)
                 dummy_human_tensor = (
                     tensor_transfrom(dummy_human_img)
                     .unsqueeze(0)
-                    .to(device, torch.float16)
+                    .to(device_str, torch.float16)
                 )
                 dummy_garm_tensor = (
                     tensor_transfrom(dummy_garm_img.resize((384, 512)))
                     .unsqueeze(0)
-                    .to(device, torch.float16)
+                    .to(device_str, torch.float16)
                 )
                 dummy_mask_tensor = (
-                    tensor_transfrom(dummy_mask).unsqueeze(0).to(device, torch.float16)
+                    tensor_transfrom(dummy_mask).unsqueeze(0).to(device_str, torch.float16)
                 )
 
                 # 더미 텍스트 임베딩
                 dummy_prompt_embeds = torch.randn(
-                    1, 77, 2048, device=device, dtype=torch.float16
+                    1, 77, 2048, device=device_str, dtype=torch.float16
                 )
                 dummy_pooled_embeds = torch.randn(
-                    1, 2048, device=device, dtype=torch.float16
+                    1, 2048, device=device_str, dtype=torch.float16
                 )
 
                 logger.info("   Running warmup diffusion (5 steps)...")
