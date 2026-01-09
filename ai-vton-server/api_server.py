@@ -366,13 +366,23 @@ def preprocess_text_internal(garment_des: str) -> dict:
     logger.info(f"⏳ Encoding text: '{garment_des}'")
     start = time.time()
 
-    prompt = "model wearing " + garment_des
-    prompt_c = "a photo of " + garment_des
+    # 카테고리만 사용 (첫 1-2개 단어)
+    garment_des_parts = garment_des.split()
+
+    # 첫 2개 단어까지만 사용 (예: "Outer Jacket" → 카테고리 정보만)
+    # 너무 구체적인 설명(색상, 디테일 등)은 제외
+    category_words = garment_des_parts[:2] if len(garment_des_parts) >= 2 else garment_des_parts[:1]
+    category = " ".join(category_words) if category_words else garment_des
+
+    prompt = "model wearing " + category
+    prompt_c = "a photo of " + category
     negative_prompt = "monochrome, lowres, bad anatomy, worst quality, low quality"
 
     # 📝 생성될 프롬프트 출력
     print("=" * 80)
     print("📝 Text Embedding Prompts:")
+    print(f"  📥 Original description: '{garment_des}'")
+    print(f"  🎯 Using first word only: '{first_word}'")
     print(f"  ✅ Positive prompt: '{prompt}'")
     print(f"  ✅ Condition prompt: '{prompt_c}'")
     print(f"  ❌ Negative prompt: '{negative_prompt}'")
