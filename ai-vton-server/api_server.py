@@ -28,7 +28,14 @@ with open("gradio_demo/app.py", "r") as f:
 
 # 모델 로딩 코드 추출 및 실행
 init_code = app_code.split("def start_tryon")[0].split("garm_list = os.listdir")[0]
-exec(init_code)
+exec(init_code, globals())
+
+# ⭐ CRITICAL: Device를 CUDA로 강제 설정
+import torch
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"=" * 80)
+print(f"🎯 Device explicitly set to: {device}")
+print(f"=" * 80)
 
 import numpy as np
 import time
@@ -891,7 +898,7 @@ async def generate_batch(request: VtonBatchGenerateRequest):
 
 def apply_gpu_optimizations():
     """GPU 최적화 적용"""
-    global GPU_OPTIMIZATIONS_ENABLED
+    global GPU_OPTIMIZATIONS_ENABLED, device
 
     # Device 명시적 설정
     device_str = "cuda" if torch.cuda.is_available() else "cpu"
@@ -902,6 +909,10 @@ def apply_gpu_optimizations():
     logger.info("=" * 80)
 
     try:
+        # 0. 파이프라인을 GPU로 이동 (가장 중요!)
+        logger.info("0️⃣ Moving pipeline to GPU...")
+        pipe.to(device)
+        logger.info(f"✅ Pipeline moved to {device}")
         # 1. xFormers 메모리 효율적 어텐션
         logger.info("1️⃣ Enabling xFormers memory efficient attention...")
         try:
