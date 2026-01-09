@@ -428,16 +428,35 @@ def preprocess_text_internal(garment_des: str) -> dict:
     logger.info(f"⏳ Encoding text: '{garment_des}'")
     start = time.time()
 
-    # 카테고리만 사용 (첫 1-2개 단어)
-    garment_des_parts = garment_des.split()
+    # 간단한 카테고리 매핑 (Gradio 스타일)
+    # "Outer Jacket Navy..." -> "a jacket"
+    # "Top Shirt White..." -> "a shirt"
+    garment_des_lower = garment_des.lower()
 
-    # 첫 2개 단어까지만 사용 (예: "Outer Jacket" → 카테고리 정보만)
-    # 너무 구체적인 설명(색상, 디테일 등)은 제외
-    category_words = garment_des_parts[:2] if len(garment_des_parts) >= 2 else garment_des_parts[:1]
-    category = " ".join(category_words) if category_words else garment_des
+    # 카테고리 키워드 매핑
+    if "jacket" in garment_des_lower or "outer" in garment_des_lower or "coat" in garment_des_lower:
+        simple_category = "a jacket"
+    elif "shirt" in garment_des_lower or "blouse" in garment_des_lower:
+        simple_category = "a shirt"
+    elif "sweater" in garment_des_lower or "sweatshirt" in garment_des_lower or "hoodie" in garment_des_lower:
+        simple_category = "a sweater"
+    elif "dress" in garment_des_lower:
+        simple_category = "a dress"
+    elif "pants" in garment_des_lower or "jeans" in garment_des_lower or "trousers" in garment_des_lower:
+        simple_category = "pants"
+    elif "skirt" in garment_des_lower:
+        simple_category = "a skirt"
+    elif "top" in garment_des_lower:
+        simple_category = "a top"
+    elif "bottom" in garment_des_lower:
+        simple_category = "pants"
+    else:
+        # 기본값: 첫 단어 + 관사
+        first_word = garment_des.split()[0].lower() if garment_des.split() else "clothing"
+        simple_category = f"a {first_word}"
 
-    prompt = "model wearing " + category
-    prompt_c = "a photo of " + category
+    prompt = "model wearing " + simple_category
+    prompt_c = "a photo of " + simple_category
     negative_prompt = "monochrome, lowres, bad anatomy, worst quality, low quality"
 
     # 📝 생성될 프롬프트 출력
