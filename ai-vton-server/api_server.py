@@ -435,8 +435,11 @@ def generate_tryon_internal(
     logger.info("⚡ Generating try-on with diffusion...")
     start = time.time()
 
+    # Device 명시적 설정 (CUDA 사용)
+    device_str = "cuda" if torch.cuda.is_available() else "cpu"
+
     with torch.no_grad():
-        generator = torch.Generator(device).manual_seed(int(seed))
+        generator = torch.Generator(device_str).manual_seed(int(seed))
 
         images = pipe(
             prompt_embeds=prompt_embeds,
@@ -474,7 +477,7 @@ def root():
         "service": "IDM-VTON API Server",
         "version": "2.0.0",
         "status": "running",
-        "port": 55554,
+        "port": 8001,
         "environment": "production",
         "models_loaded": True,
         "caching": "S3-based (NestJS managed)",
@@ -933,13 +936,27 @@ def apply_gpu_optimizations():
                 dummy_mask = Image.new("RGB", (768, 1024))
 
                 # Tensor 변환
-                dummy_human_tensor = tensor_transfrom(dummy_human_img).unsqueeze(0).to(device, torch.float16)
-                dummy_garm_tensor = tensor_transfrom(dummy_garm_img.resize((384, 512))).unsqueeze(0).to(device, torch.float16)
-                dummy_mask_tensor = tensor_transfrom(dummy_mask).unsqueeze(0).to(device, torch.float16)
+                dummy_human_tensor = (
+                    tensor_transfrom(dummy_human_img)
+                    .unsqueeze(0)
+                    .to(device, torch.float16)
+                )
+                dummy_garm_tensor = (
+                    tensor_transfrom(dummy_garm_img.resize((384, 512)))
+                    .unsqueeze(0)
+                    .to(device, torch.float16)
+                )
+                dummy_mask_tensor = (
+                    tensor_transfrom(dummy_mask).unsqueeze(0).to(device, torch.float16)
+                )
 
                 # 더미 텍스트 임베딩
-                dummy_prompt_embeds = torch.randn(1, 77, 2048, device=device, dtype=torch.float16)
-                dummy_pooled_embeds = torch.randn(1, 2048, device=device, dtype=torch.float16)
+                dummy_prompt_embeds = torch.randn(
+                    1, 77, 2048, device=device, dtype=torch.float16
+                )
+                dummy_pooled_embeds = torch.randn(
+                    1, 2048, device=device, dtype=torch.float16
+                )
 
                 logger.info("   Running warmup diffusion (5 steps)...")
                 # 짧은 warmup 실행 (5 steps만)
@@ -990,7 +1007,7 @@ def apply_gpu_optimizations():
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(os.getenv("VTON_PORT", "55554"))
+    port = int(os.getenv("VTON_PORT", "8001"))
 
     logger.info("=" * 80)
     logger.info("✅ IDM-VTON Models Loaded Successfully!")

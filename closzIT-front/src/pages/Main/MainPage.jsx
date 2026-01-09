@@ -23,6 +23,7 @@ const MainPage = () => {
   const [userName, setUserName] = useState('');
   const [userCredit, setUserCredit] = useState(0);
   const [userFullBodyImage, setUserFullBodyImage] = useState(null);
+  const [vtoResultImage, setVtoResultImage] = useState(null); // VTO 결과 이미지
   const [userClothes, setUserClothes] = useState({
     outerwear: [],
     tops: [],
@@ -921,61 +922,11 @@ const MainPage = () => {
 
                     const result = await response.json();
 
-                    // 결과 이미지 표시 (새 창 또는 모달로)
+                    // 결과 이미지 표시 (모달로)
                     if (result.success && result.imageUrl) {
-                      // 결과를 새 창으로 표시
-                      const resultWindow = window.open('', '_blank');
-                      resultWindow.document.write(`
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                          <title>가상 피팅 결과</title>
-                          <style>
-                            body {
-                              margin: 0;
-                              padding: 20px;
-                              background: #1a1918;
-                              display: flex;
-                              flex-direction: column;
-                              align-items: center;
-                              justify-content: center;
-                              min-height: 100vh;
-                              font-family: system-ui, -apple-system, sans-serif;
-                            }
-                            img {
-                              max-width: 100%;
-                              max-height: 80vh;
-                              border-radius: 12px;
-                              box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-                            }
-                            h1 {
-                              color: #D4AF37;
-                              font-size: 24px;
-                              margin-bottom: 20px;
-                            }
-                            .btn {
-                              margin-top: 20px;
-                              padding: 12px 24px;
-                              background: #D4AF37;
-                              color: #1a1918;
-                              border: none;
-                              border-radius: 8px;
-                              font-size: 16px;
-                              font-weight: 600;
-                              cursor: pointer;
-                            }
-                            .btn:hover {
-                              background: #C9A962;
-                            }
-                          </style>
-                        </head>
-                        <body>
-                          <h1>✨ 가상 피팅 결과</h1>
-                          <img src="${result.imageUrl}" alt="Virtual Try-On Result" />
-                          <button class="btn" onclick="window.close()">닫기</button>
-                        </body>
-                        </html>
-                      `);
+                      // 팝업 차단 문제 방지: 모달로 표시
+                      setSelectedClothDetail(null); // 기존 모달 닫기
+                      setVtoResultImage(result.imageUrl); // 결과 이미지 표시
                     } else {
                       throw new Error('결과 이미지를 받지 못했습니다.');
                     }
@@ -1039,6 +990,57 @@ const MainPage = () => {
               >
                 닫기
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VTO 결과 모달 */}
+      {vtoResultImage && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
+          onClick={() => setVtoResultImage(null)}
+        >
+          <div
+            className="bg-warm-white dark:bg-charcoal rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-charcoal dark:text-cream flex items-center gap-2">
+                  <span className="material-symbols-rounded text-2xl text-gold">auto_awesome</span>
+                  가상 피팅 결과
+                </h2>
+                <button
+                  onClick={() => setVtoResultImage(null)}
+                  className="p-2 hover:bg-charcoal/10 dark:hover:bg-cream/10 rounded-lg transition-colors"
+                >
+                  <span className="material-symbols-rounded text-charcoal dark:text-cream">close</span>
+                </button>
+              </div>
+
+              <img
+                src={vtoResultImage}
+                alt="Virtual Try-On Result"
+                className="w-full rounded-xl shadow-lg"
+              />
+
+              <div className="mt-4 flex gap-2">
+                <a
+                  href={vtoResultImage}
+                  download="virtual-tryon-result.png"
+                  className="flex-1 py-3 bg-gold text-charcoal rounded-xl font-semibold hover:bg-gold-dark transition-colors flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-rounded text-lg">download</span>
+                  다운로드
+                </a>
+                <button
+                  onClick={() => setVtoResultImage(null)}
+                  className="flex-1 py-3 bg-charcoal/10 dark:bg-cream/10 text-charcoal dark:text-cream rounded-xl font-semibold hover:bg-charcoal/20 dark:hover:bg-cream/20 transition-colors"
+                >
+                  닫기
+                </button>
+              </div>
             </div>
           </div>
         </div>
