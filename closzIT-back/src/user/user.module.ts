@@ -5,10 +5,14 @@ import { Module, forwardRef } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UserController } from './user.controller';
 import { CreditModule } from '../credit/credit.module';
+import { VtonCacheModule } from '../vton-cache/vton-cache.module';
 
 @Module({
   // PrismaModule은 @Global()로 선언되어 있어 자동으로 PrismaService 사용 가능
-  imports: [forwardRef(() => CreditModule)],
+  imports: [
+    forwardRef(() => CreditModule),
+    VtonCacheModule,
+  ],
   controllers: [UserController],
   providers: [UserService],
   exports: [UserService],

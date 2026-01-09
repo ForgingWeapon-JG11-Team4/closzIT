@@ -923,20 +923,44 @@ def apply_gpu_optimizations():
         except Exception as e:
             logger.warning(f"⚠️  Channels last failed: {e}")
 
-        # 4. CUDA Graphs (더 빠른 실행)
-        logger.info("4️⃣ Enabling CUDA Graphs (warmup)...")
+        # 4. CUDA Graphs & Warmup (더 빠른 실행)
+        logger.info("4️⃣ Running warmup inference (reduces first request latency)...")
         try:
-            # Warmup 실행 (CUDA Graphs 최적화)
             with torch.no_grad():
-                dummy_prompt = torch.randn(
-                    1, 77, 2048, device=device, dtype=torch.float16
+                # 실제 입어보기와 동일한 크기의 더미 데이터 생성
+                dummy_human_img = Image.new("RGB", (768, 1024))
+                dummy_garm_img = Image.new("RGB", (768, 1024))
+                dummy_mask = Image.new("RGB", (768, 1024))
+
+                # Tensor 변환
+                dummy_human_tensor = tensor_transfrom(dummy_human_img).unsqueeze(0).to(device, torch.float16)
+                dummy_garm_tensor = tensor_transfrom(dummy_garm_img.resize((384, 512))).unsqueeze(0).to(device, torch.float16)
+                dummy_mask_tensor = tensor_transfrom(dummy_mask).unsqueeze(0).to(device, torch.float16)
+
+                # 더미 텍스트 임베딩
+                dummy_prompt_embeds = torch.randn(1, 77, 2048, device=device, dtype=torch.float16)
+                dummy_pooled_embeds = torch.randn(1, 2048, device=device, dtype=torch.float16)
+
+                logger.info("   Running warmup diffusion (5 steps)...")
+                # 짧은 warmup 실행 (5 steps만)
+                pipe(
+                    prompt_embeds=dummy_prompt_embeds,
+                    negative_prompt_embeds=dummy_prompt_embeds,
+                    pooled_prompt_embeds=dummy_pooled_embeds,
+                    negative_pooled_prompt_embeds=dummy_pooled_embeds,
+                    num_inference_steps=5,  # 빠른 warmup
+                    guidance_scale=2.0,
+                    image=dummy_human_img,
+                    mask_image=dummy_mask,
+                    image_embeds=dummy_garm_tensor,
+                    pose_img=dummy_human_tensor,
+                    height=1024,
+                    width=768,
                 )
-                dummy_img = Image.new("RGB", (768, 1024))
-                logger.info("   Running warmup inference...")
-                # 실제 warmup은 첫 요청 시 자동 수행됨
-            logger.info("✅ CUDA Graphs ready")
+                logger.info("✅ Warmup completed - CUDA kernels compiled and cached")
         except Exception as e:
-            logger.warning(f"⚠️  CUDA Graphs warmup failed: {e}")
+            logger.warning(f"⚠️  Warmup failed: {e}")
+            logger.warning("   First inference will be slower due to JIT compilation")
 
         # 5. cuDNN Benchmark
         logger.info("5️⃣ Enabling cuDNN benchmarking...")

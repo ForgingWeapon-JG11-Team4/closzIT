@@ -331,6 +331,9 @@ export class FittingController {
     // 캐시 존재 여부 확인
     const humanCacheExists = await this.vtonCacheService.checkHumanCacheExists(userId);
     const garmentCacheExists = await this.vtonCacheService.checkGarmentCacheExists(userId, body.clothingId);
+    const textCacheExists = await this.vtonCacheService.checkTextCacheExists(userId, body.clothingId);
+
+    console.log(`[Cache Check] human=${humanCacheExists}, garment=${garmentCacheExists}, text=${textCacheExists}`);
 
     if (!humanCacheExists) {
       // 사용자 전신 이미지 가져와서 캐싱
@@ -390,11 +393,21 @@ export class FittingController {
 
       // 옷 이미지 전처리 캐싱
       await this.vtonCacheService.preprocessAndCacheGarment(userId, body.clothingId, imageBase64);
+      console.log('Garment cache created for clothingId:', body.clothingId);
+    }
 
-      // 텍스트 임베딩 캐싱
-      await this.vtonCacheService.preprocessAndCacheText(userId, body.clothingId, description);
-
-      console.log('Garment and text cache created for clothingId:', body.clothingId);
+    // 텍스트 캐시 별도 확인 (옷 캐시와 독립적으로)
+    if (!textCacheExists) {
+      console.log(`[Text Cache] Creating for clothingId: ${body.clothingId}, description: "${description}"`);
+      try {
+        await this.vtonCacheService.preprocessAndCacheText(userId, body.clothingId, description);
+        console.log(`[Text Cache] ✅ Successfully created for clothingId: ${body.clothingId}`);
+      } catch (error) {
+        console.error(`[Text Cache] ❌ Failed for clothingId: ${body.clothingId}`, error.message);
+        throw error;
+      }
+    } else {
+      console.log(`[Text Cache] Already exists for clothingId: ${body.clothingId}`);
     }
 
     // Diffusion 생성 (description 전달)

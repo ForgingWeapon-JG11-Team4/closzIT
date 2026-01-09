@@ -323,8 +323,7 @@ export class VtonCacheService {
   async checkHumanCacheExists(userId: string): Promise<boolean> {
     try {
       const key = `users/${userId}/vton-cache/human_img.png`;
-      const url = await this.s3Service.convertToPresignedUrl(key);
-      return url !== null;
+      return await this.s3Service.checkObjectExists(key);
     } catch {
       return false;
     }
@@ -333,8 +332,7 @@ export class VtonCacheService {
   async checkGarmentCacheExists(userId: string, clothingId: string): Promise<boolean> {
     try {
       const key = `users/${userId}/vton-cache/garments/${clothingId}_img.png`;
-      const url = await this.s3Service.convertToPresignedUrl(key);
-      return url !== null;
+      return await this.s3Service.checkObjectExists(key);
     } catch {
       return false;
     }
@@ -343,8 +341,7 @@ export class VtonCacheService {
   async checkTextCacheExists(userId: string, clothingId: string): Promise<boolean> {
     try {
       const key = `users/${userId}/vton-cache/text/${clothingId}_prompt_embeds.pkl`;
-      const url = await this.s3Service.convertToPresignedUrl(key);
-      return url !== null;
+      return await this.s3Service.checkObjectExists(key);
     } catch {
       return false;
     }
