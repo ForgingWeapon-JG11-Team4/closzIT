@@ -353,28 +353,38 @@ export class FittingController {
       console.log('Human cache created for userId:', userId);
     }
 
+    // 옷 정보 가져오기 (description 생성용)
+    const clothing = await this.prisma.clothing.findUnique({
+      where: { id: body.clothingId, userId }, // 본인 옷만
+      select: {
+        flattenImageUrl: true,
+        imageUrl: true,
+        category: true,
+        subCategory: true,
+        colors: true,
+        patterns: true,
+        details: true,
+      },
+    });
+
+    if (!clothing) {
+      throw new BadRequestException({
+        success: false,
+        message: '의류를 찾을 수 없습니다.',
+      });
+    }
+
+    // Description 생성
+    const description = [
+      clothing.category || '',
+      clothing.subCategory || '',
+      ...(clothing.colors || []),
+      ...(clothing.patterns || []),
+      ...(clothing.details || []),
+    ].filter(Boolean).join(' ');
+
     if (!garmentCacheExists) {
       // 옷 이미지 가져와서 캐싱
-      const clothing = await this.prisma.clothing.findUnique({
-        where: { id: body.clothingId, userId }, // 본인 옷만
-        select: {
-          flattenImageUrl: true,
-          imageUrl: true,
-          category: true,
-          subCategory: true,
-          colors: true,
-          patterns: true,
-          details: true,
-        },
-      });
-
-      if (!clothing) {
-        throw new BadRequestException({
-          success: false,
-          message: '의류를 찾을 수 없습니다.',
-        });
-      }
-
       const imageUrl = clothing.flattenImageUrl || clothing.imageUrl;
       const imageBase64 = await this.fetchImageAsBase64(imageUrl);
 
@@ -382,23 +392,16 @@ export class FittingController {
       await this.vtonCacheService.preprocessAndCacheGarment(userId, body.clothingId, imageBase64);
 
       // 텍스트 임베딩 캐싱
-      const description = [
-        clothing.category || '',
-        clothing.subCategory || '',
-        ...(clothing.colors || []),
-        ...(clothing.patterns || []),
-        ...(clothing.details || []),
-      ].filter(Boolean).join(' ');
-
       await this.vtonCacheService.preprocessAndCacheText(userId, body.clothingId, description);
 
       console.log('Garment and text cache created for clothingId:', body.clothingId);
     }
 
-    // Diffusion 생성
+    // Diffusion 생성 (description 전달)
     const resultImageBase64 = await this.vtonCacheService.generateTryOn(
       userId,
       body.clothingId,
+      description,  // garmentDescription 전달
       body.denoiseSteps || 20,
       body.seed || 42,
     );
