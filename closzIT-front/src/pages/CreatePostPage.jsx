@@ -6,7 +6,7 @@ const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000
 
 const CreatePostPage = () => {
   const navigate = useNavigate();
-  const { postId } = useParams(); // 수정 모드일 경우 postId가 존재
+  const { postId } = useParams(); // 수정 모드일 경우 postId 존재
   const isEditMode = !!postId;
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
