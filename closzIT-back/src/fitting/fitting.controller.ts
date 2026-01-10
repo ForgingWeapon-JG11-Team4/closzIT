@@ -306,20 +306,14 @@ export class FittingController {
   }
 
   /**
-   * 단일 옷 가상 피팅 (IDM-VTON 캐시 사용)
+   * 단일 옷 가상 피팅 (자동 캐싱 + V2 최적화)
    * POST /api/fitting/single-item-tryon
    */
   @Post('single-item-tryon')
-  async singleItemTryOn(
-    @Request() req,
-    @Body() body: {
-      clothingId: string;
-      denoiseSteps?: number;
-      seed?: number;
-    },
-  ) {
+  @UseGuards(JwtAuthGuard)
+  async singleItemTryOn(@Request() req, @Body() body: { clothingId: string; denoiseSteps?: number; seed?: number }) {
     const userId = req.user.id;
-    console.log('Single Item VTO Request - userId:', userId, 'clothingId:', body.clothingId);
+    console.log('[singleItemTryOn] Starting - userId:', userId, 'clothingId:', body.clothingId);
 
     if (!body.clothingId) {
       throw new BadRequestException({
@@ -328,15 +322,15 @@ export class FittingController {
       });
     }
 
-    // 캐시 존재 여부 확인
+    // 캐시 존재 확인
     const humanCacheExists = await this.vtonCacheService.checkHumanCacheExists(userId);
     const garmentCacheExists = await this.vtonCacheService.checkGarmentCacheExists(userId, body.clothingId);
     const textCacheExists = await this.vtonCacheService.checkTextCacheExists(userId, body.clothingId);
 
     console.log(`[Cache Check] human=${humanCacheExists}, garment=${garmentCacheExists}, text=${textCacheExists}`);
 
+    // 1. Human 캐시 생성 (필요시)
     if (!humanCacheExists) {
-      // 사용자 전신 이미지 가져와서 캐싱
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: { fullBodyImage: true },
@@ -350,108 +344,57 @@ export class FittingController {
         });
       }
 
-      // 전신 이미지를 base64로 변환 (S3 URL → fetch → base64)
       const imageBase64 = await this.fetchImageAsBase64(user.fullBodyImage);
       await this.vtonCacheService.preprocessAndCacheHuman(userId, imageBase64);
-      console.log('Human cache created for userId:', userId);
+      console.log('[Cache] Human cache created');
     }
 
-    // 옷 정보 가져오기 (description 생성용)
-    const clothing = await this.prisma.clothing.findUnique({
-      where: { id: body.clothingId, userId }, // 본인 옷만
-      select: {
-        flattenImageUrl: true,
-        imageUrl: true,
-        category: true,
-        subCategory: true,
-        colors: true,
-        patterns: true,
-        details: true,
-      },
-    });
-
-    if (!clothing) {
-      throw new BadRequestException({
-        success: false,
-        message: '의류를 찾을 수 없습니다.',
+    // 2. Garment & Text 캐시 생성 (필요시)
+    if (!garmentCacheExists || !textCacheExists) {
+      const clothing = await this.prisma.clothing.findUnique({
+        where: { id: body.clothingId, userId },
+        select: {
+          flattenImageUrl: true,
+          imageUrl: true,
+          category: true,
+          subCategory: true,
+          colors: true,
+          patterns: true,
+          details: true,
+        },
       });
-    }
 
-    // Description 생성
-    const description = [
-      clothing.category || '',
-      clothing.subCategory || '',
-      ...(clothing.colors || []),
-      ...(clothing.patterns || []),
-      ...(clothing.details || []),
-    ].filter(Boolean).join(' ');
-
-    if (!garmentCacheExists) {
-      // 옷 이미지 가져와서 캐싱
-      const imageUrl = clothing.flattenImageUrl || clothing.imageUrl;
-      const imageBase64 = await this.fetchImageAsBase64(imageUrl);
-
-      // 옷 이미지 전처리 캐싱
-      await this.vtonCacheService.preprocessAndCacheGarment(userId, body.clothingId, imageBase64);
-      console.log('Garment cache created for clothingId:', body.clothingId);
-    }
-
-    // 텍스트 캐시 별도 확인 (옷 캐시와 독립적으로)
-    if (!textCacheExists) {
-      console.log(`[Text Cache] Creating for clothingId: ${body.clothingId}, description: "${description}"`);
-      try {
-        await this.vtonCacheService.preprocessAndCacheText(userId, body.clothingId, description);
-        console.log(`[Text Cache] ✅ Successfully created for clothingId: ${body.clothingId}`);
-      } catch (error) {
-        console.error(`[Text Cache] ❌ Failed for clothingId: ${body.clothingId}`, error.message);
-        throw error;
+      if (!clothing) {
+        throw new BadRequestException({
+          success: false,
+          message: '의류를 찾을 수 없습니다.',
+        });
       }
-    } else {
-      console.log(`[Text Cache] Already exists for clothingId: ${body.clothingId}`);
+
+      // Garment 캐시
+      if (!garmentCacheExists) {
+        const imageUrl = clothing.flattenImageUrl || clothing.imageUrl;
+        const imageBase64 = await this.fetchImageAsBase64(imageUrl);
+        await this.vtonCacheService.preprocessAndCacheGarment(userId, body.clothingId, imageBase64);
+        console.log('[Cache] Garment cache created');
+      }
+
+      // Text 캐시
+      if (!textCacheExists) {
+        const description = [
+          clothing.category || '',
+          clothing.subCategory || '',
+          ...(clothing.colors || []),
+          ...(clothing.patterns || []),
+          ...(clothing.details || []),
+        ].filter(Boolean).join(' ');
+
+        await this.vtonCacheService.preprocessAndCacheText(userId, body.clothingId, description);
+        console.log('[Cache] Text cache created');
+      }
     }
 
-    // Diffusion 생성 (description 전달)
-    const resultImageBase64 = await this.vtonCacheService.generateTryOn(
-      userId,
-      body.clothingId,
-      description,  // garmentDescription 전달
-      body.denoiseSteps || 20,
-      body.seed || 42,
-    );
-
-    return {
-      success: true,
-      message: '단일 옷 가상 피팅이 완료되었습니다',
-      imageUrl: `data:image/png;base64,${resultImageBase64}`,
-    };
-  }
-
-  @Post('single-item-tryon-v2')
-  @UseGuards(JwtAuthGuard)
-  async singleItemTryOnV2(@Request() req, @Body() body: { clothingId: string; denoiseSteps?: number; seed?: number }) {
-    /**
-     * 최적화 버전: FastAPI가 S3에서 직접 다운로드
-     * - NestJS는 userId, clothingId만 전달
-     * - FastAPI가 S3 병렬 다운로드
-     * - 예상 2-3초 단축
-     */
-    const userId = req.user.id;
-
-    console.log('[singleItemTryOnV2] Starting optimized try-on', { userId, clothingId: body.clothingId });
-
-    // 캐시 존재 확인
-    const humanCacheExists = await this.vtonCacheService.checkHumanCacheExists(userId);
-    const garmentCacheExists = await this.vtonCacheService.checkGarmentCacheExists(userId, body.clothingId);
-    const textCacheExists = await this.vtonCacheService.checkTextCacheExists(userId, body.clothingId);
-
-    if (!humanCacheExists || !garmentCacheExists || !textCacheExists) {
-      throw new BadRequestException({
-        success: false,
-        message: '캐시가 생성되지 않았습니다. 먼저 /single-item-tryon을 호출하여 캐시를 생성하세요.',
-      });
-    }
-
-    // V2 API 호출 (FastAPI가 S3 직접 다운로드)
+    // 3. V2 API 호출 (FastAPI가 S3 직접 다운로드)
     const resultImageBase64 = await this.vtonCacheService.generateTryOnV2(
       userId,
       body.clothingId,
@@ -461,7 +404,7 @@ export class FittingController {
 
     return {
       success: true,
-      message: '최적화 버전으로 가상 피팅이 완료되었습니다',
+      message: '가상 피팅이 완료되었습니다',
       imageUrl: `data:image/png;base64,${resultImageBase64}`,
     };
   }

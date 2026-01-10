@@ -902,7 +902,7 @@ const MainPage = () => {
                     // 로딩 표시
                     alert('단일 옷 가상 피팅을 생성 중입니다... (약 4-5초 소요)');
 
-                    const response = await fetch(`${backendUrl}/api/fitting/single-item-tryon-v2`, {
+                    const response = await fetch(`${backendUrl}/api/fitting/single-item-tryon`, {
                       method: 'POST',
                       headers: {
                         'Authorization': `Bearer ${token}`,
