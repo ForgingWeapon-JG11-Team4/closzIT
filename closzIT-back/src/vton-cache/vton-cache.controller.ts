@@ -177,11 +177,11 @@ export class VtonCacheController {
         );
       }
 
-      // Diffusion 생성
-      const resultImageBase64 = await this.vtonCacheService.generateTryOn(
+      // Diffusion 생성 (V2 - FastAPI가 S3 직접 다운로드)
+      const resultImageBase64 = await this.vtonCacheService.generateTryOnV2(
         userId,
         clothingId,
-        String(denoiseSteps || 20),
+        denoiseSteps || 20,
         seed || 42
       );
 

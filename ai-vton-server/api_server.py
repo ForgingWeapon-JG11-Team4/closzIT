@@ -55,6 +55,7 @@ from pydantic import BaseModel
 import logging
 import boto3
 from botocore.exceptions import ClientError
+import asyncio
 
 # .env 파일 로드
 try:
@@ -92,6 +93,10 @@ s3_client = boto3.client(
 
 # FastAPI 앱 생성
 app = FastAPI(title="IDM-VTON API Server", version="2.0.0")
+
+# GPU 동시성 제어 (한 번에 하나의 diffusion만 실행)
+gpu_lock = asyncio.Lock()
+request_queue_size = 0
 
 # GPU 최적화 플래그
 GPU_OPTIMIZATIONS_ENABLED = False
@@ -541,7 +546,7 @@ def generate_tryon_internal(
 
     # Gradio 스타일: autocast 사용
     with torch.no_grad(), torch.cuda.amp.autocast():
-        generator = torch.Generator(device_str).manual_seed(int(seed))
+        generator = torch.Generator(device=device_str).manual_seed(int(seed))
 
         images = pipe(
             prompt_embeds=prompt_embeds,
@@ -693,71 +698,7 @@ async def preprocess_text(request: TextPreprocessRequest):
 
 
 @app.post("/vton/generate-tryon", response_model=VtonGenerateResponse)
-async def generate_tryon(request: VtonGenerateRequest):
-    """
-    캐시된 S3 데이터로 Diffusion 실행 (레거시 버전)
-
-    NestJS가 S3에서 캐시 데이터를 다운로드해서 전달:
-    - human_img, mask, mask_gray, pose_tensor
-    - garm_img, garm_tensor
-    - text embeddings
-    """
-    try:
-        logger.info(
-            f"[generate-tryon] user_id={request.user_id}, clothing_id={request.clothing_id}"
-        )
-
-        # Base64 → PIL Images
-        human_img = base64_to_pil(request.human_img)
-        mask = base64_to_pil(request.mask)
-        mask_gray = base64_to_pil(request.mask_gray)
-        garm_img = base64_to_pil(request.garm_img)
-
-        # ⭐ CRITICAL: 명시적으로 CUDA 사용
-        device_str = "cuda" if torch.cuda.is_available() else "cpu"
-        logger.info(f"[generate-tryon] Using device: {device_str}")
-
-        # Base64 → PyTorch Tensors (pickled)
-        pose_img_tensor = base64_to_tensor(request.pose_tensor, device_str)
-        garm_tensor = base64_to_tensor(request.garm_tensor, device_str)
-        prompt_embeds = base64_to_tensor(request.prompt_embeds, device_str)
-        negative_prompt_embeds = base64_to_tensor(
-            request.negative_prompt_embeds, device_str
-        )
-        pooled_prompt_embeds = base64_to_tensor(request.pooled_prompt_embeds, device_str)
-        negative_pooled_prompt_embeds = base64_to_tensor(
-            request.negative_pooled_prompt_embeds, device_str
-        )
-        prompt_embeds_c = base64_to_tensor(request.prompt_embeds_c, device_str)
-
-        # Diffusion 생성
-        result_img, elapsed = generate_tryon_internal(
-            human_img=human_img,
-            mask=mask,
-            mask_gray=mask_gray,
-            pose_img_tensor=pose_img_tensor,
-            garm_img=garm_img,
-            garm_tensor=garm_tensor,
-            prompt_embeds=prompt_embeds,
-            negative_prompt_embeds=negative_prompt_embeds,
-            pooled_prompt_embeds=pooled_prompt_embeds,
-            negative_pooled_prompt_embeds=negative_pooled_prompt_embeds,
-            prompt_embeds_c=prompt_embeds_c,
-            denoise_steps=request.denoise_steps,
-            seed=request.seed,
-        )
-
-        return VtonGenerateResponse(
-            result_image_base64=pil_to_base64(result_img), processing_time=elapsed
-        )
-
-    except Exception as e:
-        logger.error(f"[generate-tryon] Error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/vton/generate-tryon-v2", response_model=VtonGenerateResponse)
-async def generate_tryon_v2(request: VtonGenerateRequestV2):
+async def generate_tryon(request: VtonGenerateRequestV2):
     """
     최적화 버전: FastAPI가 S3에서 직접 다운로드
 
@@ -766,105 +707,114 @@ async def generate_tryon_v2(request: VtonGenerateRequestV2):
     - S3 다운로드 병렬 처리
     - 예상 2-3초 단축
     """
+    global request_queue_size
+
+    # 큐 진입
+    request_queue_size += 1
+    queue_position = request_queue_size
+    logger.info(f"[generate-tryon-v2] Request queued (position: {queue_position})")
+
     try:
-        logger.info(
-            f"[generate-tryon-v2] user_id={request.user_id}, clothing_id={request.clothing_id}"
-        )
-        start_time = time.time()
+        # GPU Lock 획득 (대기)
+        async with gpu_lock:
+            logger.info(
+                f"[generate-tryon-v2] Processing started - user_id={request.user_id}, clothing_id={request.clothing_id}"
+            )
+            start_time = time.time()
 
-        # S3에서 캐시 데이터 병렬 다운로드
-        logger.info("⚡ Downloading cache from S3...")
-        download_start = time.time()
+            # S3에서 캐시 데이터 병렬 다운로드
+            logger.info("⚡ Downloading cache from S3...")
+            download_start = time.time()
 
-        import concurrent.futures
+            import concurrent.futures
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
-            # S3 Key 생성
-            user_id = request.user_id
-            clothing_id = request.clothing_id
+            with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
+                # S3 Key 생성
+                user_id = request.user_id
+                clothing_id = request.clothing_id
 
-            futures = {
-                "human_img": executor.submit(
-                    download_s3_as_pil, f"users/{user_id}/vton-cache/human_img.png"
-                ),
-                "mask": executor.submit(
-                    download_s3_as_pil, f"users/{user_id}/vton-cache/mask.png"
-                ),
-                "mask_gray": executor.submit(
-                    download_s3_as_pil, f"users/{user_id}/vton-cache/mask_gray.png"
-                ),
-                "pose_tensor": executor.submit(
-                    download_s3_as_tensor,
-                    f"users/{user_id}/vton-cache/pose_tensor.pkl",
-                    device,
-                ),
-                "garm_img": executor.submit(
-                    download_s3_as_pil,
-                    f"users/{user_id}/vton-cache/garments/{clothing_id}_img.png",
-                ),
-                "garm_tensor": executor.submit(
-                    download_s3_as_tensor,
-                    f"users/{user_id}/vton-cache/garments/{clothing_id}_tensor.pkl",
-                    device,
-                ),
-                "prompt_embeds": executor.submit(
-                    download_s3_as_tensor,
-                    f"users/{user_id}/vton-cache/text/{clothing_id}_prompt_embeds.pkl",
-                    device,
-                ),
-                "negative_prompt_embeds": executor.submit(
-                    download_s3_as_tensor,
-                    f"users/{user_id}/vton-cache/text/{clothing_id}_negative_prompt_embeds.pkl",
-                    device,
-                ),
-                "pooled_prompt_embeds": executor.submit(
-                    download_s3_as_tensor,
-                    f"users/{user_id}/vton-cache/text/{clothing_id}_pooled_prompt_embeds.pkl",
-                    device,
-                ),
-                "negative_pooled_prompt_embeds": executor.submit(
-                    download_s3_as_tensor,
-                    f"users/{user_id}/vton-cache/text/{clothing_id}_negative_pooled_prompt_embeds.pkl",
-                    device,
-                ),
-                "prompt_embeds_c": executor.submit(
-                    download_s3_as_tensor,
-                    f"users/{user_id}/vton-cache/text/{clothing_id}_prompt_embeds_c.pkl",
-                    device,
-                ),
-            }
+                futures = {
+                    "human_img": executor.submit(
+                        download_s3_as_pil, f"users/{user_id}/vton-cache/human_img.png"
+                    ),
+                    "mask": executor.submit(
+                        download_s3_as_pil, f"users/{user_id}/vton-cache/mask.png"
+                    ),
+                    "mask_gray": executor.submit(
+                        download_s3_as_pil, f"users/{user_id}/vton-cache/mask_gray.png"
+                    ),
+                    "pose_tensor": executor.submit(
+                        download_s3_as_tensor,
+                        f"users/{user_id}/vton-cache/pose_tensor.pkl",
+                        device,
+                    ),
+                    "garm_img": executor.submit(
+                        download_s3_as_pil,
+                        f"users/{user_id}/vton-cache/garments/{clothing_id}_img.png",
+                    ),
+                    "garm_tensor": executor.submit(
+                        download_s3_as_tensor,
+                        f"users/{user_id}/vton-cache/garments/{clothing_id}_tensor.pkl",
+                        device,
+                    ),
+                    "prompt_embeds": executor.submit(
+                        download_s3_as_tensor,
+                        f"users/{user_id}/vton-cache/text/{clothing_id}_prompt_embeds.pkl",
+                        device,
+                    ),
+                    "negative_prompt_embeds": executor.submit(
+                        download_s3_as_tensor,
+                        f"users/{user_id}/vton-cache/text/{clothing_id}_negative_prompt_embeds.pkl",
+                        device,
+                    ),
+                    "pooled_prompt_embeds": executor.submit(
+                        download_s3_as_tensor,
+                        f"users/{user_id}/vton-cache/text/{clothing_id}_pooled_prompt_embeds.pkl",
+                        device,
+                    ),
+                    "negative_pooled_prompt_embeds": executor.submit(
+                        download_s3_as_tensor,
+                        f"users/{user_id}/vton-cache/text/{clothing_id}_negative_pooled_prompt_embeds.pkl",
+                        device,
+                    ),
+                    "prompt_embeds_c": executor.submit(
+                        download_s3_as_tensor,
+                        f"users/{user_id}/vton-cache/text/{clothing_id}_prompt_embeds_c.pkl",
+                        device,
+                    ),
+                }
 
-            # 결과 수집
-            cache_data = {key: future.result() for key, future in futures.items()}
+                # 결과 수집
+                cache_data = {key: future.result() for key, future in futures.items()}
 
-        download_elapsed = time.time() - download_start
-        logger.info(f"✅ S3 download completed in {download_elapsed:.2f}s")
+            download_elapsed = time.time() - download_start
+            logger.info(f"✅ S3 download completed in {download_elapsed:.2f}s")
 
-        # Diffusion 생성
-        result_img, diffusion_elapsed = generate_tryon_internal(
-            human_img=cache_data["human_img"],
-            mask=cache_data["mask"],
-            mask_gray=cache_data["mask_gray"],
-            pose_img_tensor=cache_data["pose_tensor"],
-            garm_img=cache_data["garm_img"],
-            garm_tensor=cache_data["garm_tensor"],
-            prompt_embeds=cache_data["prompt_embeds"],
-            negative_prompt_embeds=cache_data["negative_prompt_embeds"],
-            pooled_prompt_embeds=cache_data["pooled_prompt_embeds"],
-            negative_pooled_prompt_embeds=cache_data["negative_pooled_prompt_embeds"],
-            prompt_embeds_c=cache_data["prompt_embeds_c"],
-            denoise_steps=request.denoise_steps,
-            seed=request.seed,
-        )
+            # Diffusion 생성
+            result_img, diffusion_elapsed = generate_tryon_internal(
+                human_img=cache_data["human_img"],
+                mask=cache_data["mask"],
+                mask_gray=cache_data["mask_gray"],
+                pose_img_tensor=cache_data["pose_tensor"],
+                garm_img=cache_data["garm_img"],
+                garm_tensor=cache_data["garm_tensor"],
+                prompt_embeds=cache_data["prompt_embeds"],
+                negative_prompt_embeds=cache_data["negative_prompt_embeds"],
+                pooled_prompt_embeds=cache_data["pooled_prompt_embeds"],
+                negative_pooled_prompt_embeds=cache_data["negative_pooled_prompt_embeds"],
+                prompt_embeds_c=cache_data["prompt_embeds_c"],
+                denoise_steps=request.denoise_steps,
+                seed=request.seed,
+            )
 
-        total_elapsed = time.time() - start_time
-        logger.info(
-            f"🎉 Total: {total_elapsed:.2f}s (S3: {download_elapsed:.2f}s + Diffusion: {diffusion_elapsed:.2f}s)"
-        )
+            total_elapsed = time.time() - start_time
+            logger.info(
+                f"🎉 Total: {total_elapsed:.2f}s (S3: {download_elapsed:.2f}s + Diffusion: {diffusion_elapsed:.2f}s)"
+            )
 
-        return VtonGenerateResponse(
-            result_image_base64=pil_to_base64(result_img), processing_time=total_elapsed
-        )
+            return VtonGenerateResponse(
+                result_image_base64=pil_to_base64(result_img), processing_time=total_elapsed
+            )
 
     except Exception as e:
         logger.error(f"[generate-tryon-v2] Error: {e}", exc_info=True)
@@ -1047,4 +997,11 @@ if __name__ == "__main__":
     # GPU 최적화 적용
     apply_gpu_optimizations()
 
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=port,
+        log_level="info",
+        timeout_keep_alive=75,  # Keep-alive 타임아웃 증가
+        backlog=100,  # 대기열 크기 증가 (큐잉 지원)
+    )
