@@ -35,6 +35,7 @@ function App() {
           <Route path="/setup3" element={<UserProfileSetup3 />} />
           <Route path="/setup/profile3" element={<UserProfileSetup3 />} />
           <Route path="/main" element={<MainPage2 />} />
+          <Route path="/main_ex" element={<MainPage />} />
           {/* <Route path="/main2" element={<MainPage2 />} /> */}
           <Route path="/mypage" element={<MyPage />} />
           <Route path="/register" element={<RegisterPage />} />
