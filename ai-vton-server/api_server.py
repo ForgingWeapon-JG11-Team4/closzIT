@@ -12,6 +12,12 @@ IDM-VTON FastAPI Server (Production)
 import sys
 import os
 
+# Windows에서 UTF-8 출력 지원
+if sys.platform == "win32":
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 # IDM-VTON gradio_demo 모듈 경로 추가
 IDMVTON_ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(IDMVTON_ROOT, "gradio_demo"))
@@ -460,14 +466,7 @@ def preprocess_text_internal(garment_des: str) -> dict:
     negative_prompt = "monochrome, lowres, bad anatomy, worst quality, low quality"
 
     # 📝 생성될 프롬프트 출력
-    print("=" * 80)
-    print("📝 Text Embedding Prompts:")
-    print(f"  📥 Original description: '{garment_des}'")
-    print(f"  🎯 Using category only: '{category}'")
-    print(f"  ✅ Positive prompt: '{prompt}'")
-    print(f"  ✅ Condition prompt: '{prompt_c}'")
-    print(f"  ❌ Negative prompt: '{negative_prompt}'")
-    print("=" * 80)
+    print(f"📝 '{garment_des}' → '{simple_category}'")
 
     with torch.no_grad():
         pipe.to(device)
@@ -1044,66 +1043,13 @@ def apply_gpu_optimizations():
         except Exception as e:
             logger.warning(f"⚠️  Channels last failed: {e}")
 
-        # 4. CUDA Graphs & Warmup (더 빠른 실행)
-        logger.info("4️⃣ Running warmup inference (reduces first request latency)...")
-        try:
-            with torch.no_grad():
-                # 실제 입어보기와 동일한 크기의 더미 데이터 생성
-                dummy_human_img = Image.new("RGB", (768, 1024))
-                dummy_garm_img = Image.new("RGB", (768, 1024))
-                dummy_mask = Image.new("RGB", (768, 1024))
-
-                # Tensor 변환 (device_str 사용)
-                dummy_human_tensor = (
-                    tensor_transfrom(dummy_human_img)
-                    .unsqueeze(0)
-                    .to(device_str, torch.float16)
-                )
-                dummy_garm_tensor = (
-                    tensor_transfrom(dummy_garm_img.resize((384, 512)))
-                    .unsqueeze(0)
-                    .to(device_str, torch.float16)
-                )
-                dummy_mask_tensor = (
-                    tensor_transfrom(dummy_mask).unsqueeze(0).to(device_str, torch.float16)
-                )
-
-                # 더미 텍스트 임베딩
-                dummy_prompt_embeds = torch.randn(
-                    1, 77, 2048, device=device_str, dtype=torch.float16
-                )
-                dummy_pooled_embeds = torch.randn(
-                    1, 2048, device=device_str, dtype=torch.float16
-                )
-
-                logger.info("   Running warmup diffusion (5 steps)...")
-                # 짧은 warmup 실행 (5 steps만)
-                pipe(
-                    prompt_embeds=dummy_prompt_embeds,
-                    negative_prompt_embeds=dummy_prompt_embeds,
-                    pooled_prompt_embeds=dummy_pooled_embeds,
-                    negative_pooled_prompt_embeds=dummy_pooled_embeds,
-                    num_inference_steps=5,  # 빠른 warmup
-                    guidance_scale=2.0,
-                    image=dummy_human_img,
-                    mask_image=dummy_mask,
-                    image_embeds=dummy_garm_tensor,
-                    pose_img=dummy_human_tensor,
-                    height=1024,
-                    width=768,
-                )
-                logger.info("✅ Warmup completed - CUDA kernels compiled and cached")
-        except Exception as e:
-            logger.warning(f"⚠️  Warmup failed: {e}")
-            logger.warning("   First inference will be slower due to JIT compilation")
-
-        # 5. cuDNN Benchmark
-        logger.info("5️⃣ Enabling cuDNN benchmarking...")
+        # 4. cuDNN Benchmark (Warmup 제거 - Gradio처럼)
+        logger.info("4️⃣ Enabling cuDNN benchmarking...")
         torch.backends.cudnn.benchmark = True
         logger.info("✅ cuDNN benchmark enabled")
 
-        # 6. TF32 활성화 (Ampere GPU 이상)
-        logger.info("6️⃣ Enabling TF32 precision...")
+        # 5. TF32 활성화 (Ampere GPU 이상)
+        logger.info("5️⃣ Enabling TF32 precision...")
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
         logger.info("✅ TF32 enabled")
