@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, ListObjectsV2Command, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, ListObjectsV2Command, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 @Injectable()
@@ -218,6 +218,28 @@ export class S3Service {
         } catch (error) {
             this.logger.error(`Failed to generate presigned URL for key: ${key}`, error);
             throw error;
+        }
+    }
+
+    /**
+     * S3 객체가 존재하는지 확인합니다.
+     * @param key - S3 객체 키
+     * @returns 파일 존재 여부
+     */
+    async checkObjectExists(key: string): Promise<boolean> {
+        try {
+            const command = new HeadObjectCommand({
+                Bucket: this.bucketName,
+                Key: key,
+            });
+            await this.s3Client.send(command);
+            return true;
+        } catch (error: any) {
+            if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+                return false;
+            }
+            this.logger.error(`Error checking if S3 object exists: ${key}`, error);
+            return false;
         }
     }
 

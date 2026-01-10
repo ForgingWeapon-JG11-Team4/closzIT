@@ -203,7 +203,7 @@ uvicorn main:app --reload
 해결: 이미 사용 중인 포트가 있다면:
      - 백엔드: nest-cli.json에서 포트 변경
      - 프론트엔드: package.json의 PORT 환경변수 설정
-     - AI 서버: uvicorn main:app --port 8001 --reload
+     - AI 서버: uvicorn main:app --port 55554 --reload
 
 [문제 5] AWS Bedrock 권한 에러
 해결: 팀 리더에게 AWS 키 요청

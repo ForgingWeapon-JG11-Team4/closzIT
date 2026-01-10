@@ -267,14 +267,88 @@ async def embed_text(request: TextEmbeddingRequest):
     try:
         manager = ModelManager()
         embeddings = []
-        
+
         for text in request.texts:
             embedding = manager.extract_text_embedding(text)
             embeddings.append(embedding)
-        
+
         return {"embeddings": embeddings}
-    
+
     except Exception as e:
         logger.error(f"텍스트 임베딩 중 오류 발생: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# =============================================================================
+# IDM-VTON 전처리 엔드포인트 (향후 실제 모델 통합 예정)
+# =============================================================================
+
+class HumanPreprocessRequest(BaseModel):
+    image_base64: str
+
+class GarmentPreprocessRequest(BaseModel):
+    image_base64: str
+
+class TextPreprocessRequest(BaseModel):
+    garment_description: str
+
+class VtonGenerateRequest(BaseModel):
+    user_id: str
+    clothing_id: str
+    denoise_steps: int = 20
+    seed: int = 42
+
+@app.post("/vton/preprocess-human")
+async def preprocess_human(request: HumanPreprocessRequest):
+    """
+    사람 이미지 전처리: OpenPose + Parsing + DensePose
+    TODO: 실제 IDM-VTON 모델 통합 필요
+    """
+    logger.warning("[VTON] preprocess-human called - Mock implementation")
+    # Mock response - 실제 구현 시 OpenPose, Parsing, DensePose 실행
+    return {
+        "human_img": request.image_base64,  # Mock: 원본 그대로 반환
+        "mask": request.image_base64,
+        "mask_gray": request.image_base64,
+        "pose_img_tensor": "",  # Mock: 빈 텐서
+    }
+
+@app.post("/vton/preprocess-garment")
+async def preprocess_garment(request: GarmentPreprocessRequest):
+    """
+    옷 이미지 전처리: 리사이즈 + 텐서 변환
+    TODO: 실제 IDM-VTON 모델 통합 필요
+    """
+    logger.warning("[VTON] preprocess-garment called - Mock implementation")
+    return {
+        "garm_img": request.image_base64,  # Mock: 원본 그대로 반환
+        "garm_tensor": "",  # Mock: 빈 텐서
+    }
+
+@app.post("/vton/preprocess-text")
+async def preprocess_text(request: TextPreprocessRequest):
+    """
+    텍스트 인코딩: CLIP 텍스트 임베딩
+    TODO: 실제 IDM-VTON CLIP 모델 통합 필요
+    """
+    logger.warning("[VTON] preprocess-text called - Mock implementation")
+    return {
+        "prompt_embeds": "",
+        "negative_prompt_embeds": "",
+        "pooled_prompt_embeds": "",
+        "negative_pooled_prompt_embeds": "",
+        "prompt_embeds_c": "",
+    }
+
+@app.post("/vton/generate-tryon")
+async def generate_tryon(request: VtonGenerateRequest):
+    """
+    캐시된 데이터로 Diffusion 실행
+    TODO: 실제 IDM-VTON Diffusion 파이프라인 통합 필요
+    """
+    logger.warning("[VTON] generate-tryon called - Mock implementation")
+    # Mock: 빈 이미지 반환 (실제로는 S3에서 캐시 데이터를 가져와 Diffusion 실행)
+    return {
+        "result_image_base64": "",  # Mock: 빈 이미지
+        "processing_time": 0.5,
+    }
 

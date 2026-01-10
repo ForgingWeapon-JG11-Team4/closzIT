@@ -6,6 +6,7 @@ import { BedrockService } from '../ai/bedrock.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreditService } from '../credit/credit.service';
 import { S3Service } from '../s3/s3.service';
+import { VtonCacheService } from '../vton-cache/vton-cache.service';
 import { GoogleGenAI } from '@google/genai';
 import FormData = require('form-data');
 
@@ -23,6 +24,8 @@ export class AnalysisService {
         @Inject(forwardRef(() => CreditService))
         private readonly creditService: CreditService,
         private readonly s3Service: S3Service,
+        @Inject(forwardRef(() => VtonCacheService))
+        private readonly vtonCacheService: VtonCacheService,
     ) {
         this.fastApiUrl = this.configService.get<string>('FASTAPI_URL', 'http://localhost:8000');
 
@@ -165,9 +168,9 @@ export class AnalysisService {
 
                 const result = await (this.prismaService as any).$queryRaw`
                     INSERT INTO "clothes" (
-                        user_id, 
-                        category, 
-                        sub_category, 
+                        user_id,
+                        category,
+                        sub_category,
                         colors,
                         patterns,
                         details,
@@ -196,6 +199,37 @@ export class AnalysisService {
                     )
                     RETURNING id;
                 `;
+
+                const clothingId = result[0].id;
+
+                // VTON 캐싱: 옷 전처리 (백그라운드 작업)
+                try {
+                    const imageToCache = flattenImageBase64 || imageBase64;
+                    await this.vtonCacheService.preprocessAndCacheGarment(userId, clothingId, imageToCache);
+                    this.logger.log(`[saveItems] VTON garment cache created for clothingId: ${clothingId}`);
+                } catch (vtonError) {
+                    this.logger.warn(`[saveItems] VTON garment caching failed for clothingId: ${clothingId}`, vtonError.message);
+                    // 캐싱 실패해도 저장은 계속 진행
+                }
+
+                // VTON 캐싱: 텍스트 임베딩
+                try {
+                    // Gradio 스타일: 간결한 설명 생성 (예: "Short Sleeve Round Neck T-shirts")
+                    // sub_category + 주요 색상(1개) + 주요 디테일(최대 1개)
+                    const parts = [
+                        sub_category || '',
+                        colors && colors.length > 0 ? colors[0] : '',
+                        detail && detail.length > 0 && detail[0] !== 'Other' ? detail[0] : '',
+                    ].filter(Boolean);
+
+                    const description = parts.join(' ');
+
+                    await this.vtonCacheService.preprocessAndCacheText(userId, clothingId, description);
+                    this.logger.log(`[saveItems] VTON text cache created for clothingId: ${clothingId}, description: "${description}"`);
+                } catch (vtonError) {
+                    this.logger.warn(`[saveItems] VTON text caching failed for clothingId: ${clothingId}`, vtonError.message);
+                }
+
                 return result[0];
             }));
 
@@ -204,7 +238,8 @@ export class AnalysisService {
             // 각 의류 등록마다 10크레딧 지급
             try {
                 for (let i = 0; i < results.length; i++) {
-                    await this.creditService.grantClothingAddedCredit(userId);
+                    const clothingId = results[i].id;
+                    await this.creditService.grantClothingAddedCredit(userId, clothingId);
                 }
                 this.logger.log(`[saveItems] Granted ${results.length * 10} credits for clothing registration`);
             } catch (creditError) {

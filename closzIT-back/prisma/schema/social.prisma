@@ -4,34 +4,33 @@
 
 model Post {
   /// 고유 ID (자동 생성 UUID)
-  id          String   @id @default(dbgenerated("gen_random_uuid()"))
+  id            String         @id @default(dbgenerated("gen_random_uuid()"))
 
   /// 작성자 유저 ID
-  userId      String   @map("user_id")
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String         @map("user_id")
 
   /// 게시물 이미지 URL
-  imageUrl    String   @map("image_url")
+  imageUrl      String         @map("image_url")
 
   /// 게시물 설명/캡션
-  caption     String?
+  caption       String?
 
   /// 좋아요 수
-  likesCount  Int      @default(0) @map("likes_count")
+  likesCount    Int            @default(0) @map("likes_count")
 
   /// 댓글 수
-  commentsCount Int    @default(0) @map("comments_count")
+  commentsCount Int            @default(0) @map("comments_count")
 
   /// 등록일
-  createdAt   DateTime @default(now()) @map("created_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
 
   /// 수정일
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at")
 
-  /// 관계
-  comments    Comment[]
-  likes       Like[]
-  postClothes PostClothing[]
+  comments      Comment[]
+  likes         Like[]
+  postClothes   PostClothing[]
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdAt])
@@ -46,14 +45,14 @@ model PostClothing {
 
   /// 게시물 ID
   postId     String   @map("post_id")
-  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   /// 옷 ID
   clothingId String   @map("clothing_id")
-  clothing   Clothing @relation(fields: [clothingId], references: [id], onDelete: Cascade)
 
   /// 등록일
   createdAt  DateTime @default(now()) @map("created_at")
+  clothing   Clothing @relation(fields: [clothingId], references: [id], onDelete: Cascade)
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@unique([postId, clothingId])
   @@index([postId])
@@ -69,11 +68,9 @@ model Comment {
 
   /// 게시물 ID
   postId    String   @map("post_id")
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   /// 작성자 ID
   userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   /// 댓글 내용
   content   String
@@ -83,6 +80,8 @@ model Comment {
 
   /// 수정일
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([postId])
   @@index([userId])
@@ -97,14 +96,14 @@ model Like {
 
   /// 게시물 ID
   postId    String   @map("post_id")
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   /// 좋아요 누른 유저 ID
   userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   /// 등록일
   createdAt DateTime @default(now()) @map("created_at")
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([postId, userId])
   @@index([postId])
@@ -120,14 +119,14 @@ model Follow {
 
   /// 팔로워 (팔로우하는 사람)
   followerId  String   @map("follower_id")
-  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
 
   /// 팔로잉 (팔로우 당하는 사람)
   followingId String   @map("following_id")
-  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
 
   /// 등록일
   createdAt   DateTime @default(now()) @map("created_at")
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@unique([followerId, followingId])
   @@index([followerId])

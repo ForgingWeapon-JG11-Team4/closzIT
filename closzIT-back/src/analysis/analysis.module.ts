@@ -6,6 +6,7 @@ import { BedrockModule } from '../ai/bedrock.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { CreditModule } from '../credit/credit.module';
 import { S3Module } from '../s3/s3.module';
+import { VtonCacheModule } from '../vton-cache/vton-cache.module';
 
 @Module({
     imports: [
@@ -14,6 +15,7 @@ import { S3Module } from '../s3/s3.module';
         BedrockModule,
         forwardRef(() => CreditModule),
         S3Module,
+        forwardRef(() => VtonCacheModule),
     ],
     controllers: [AnalysisController],
     providers: [AnalysisService],

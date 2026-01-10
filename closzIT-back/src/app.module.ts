@@ -18,6 +18,7 @@ import { RecommendationModule } from './recommendation/recommendation.module';
 import { CreditModule } from './credit/credit.module';
 import { WeatherModule } from './weather/weather.module';
 import { S3Module } from './s3/s3.module';
+import { VtonCacheModule } from './vton-cache/vton-cache.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { S3Module } from './s3/s3.module';
     RecommendationModule,
     CreditModule,
     WeatherModule,
+    VtonCacheModule,
   ],
   controllers: [AppController],
   providers: [AppService],

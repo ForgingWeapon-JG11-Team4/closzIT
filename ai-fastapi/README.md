@@ -37,7 +37,7 @@ python download_models.py
 ### 3. 서버 실행
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8001
+uvicorn main:app --reload --host 0.0.0.0 --port 55554
 ```
 
 ## API 엔드포인트
