@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
+const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange, searchText = '' }) => {
   const navigate = useNavigate();
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(true);
@@ -57,19 +57,30 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
     }
   };
 
-  const handleKeywordClick = (keyword) => {
-    if (selectedKeywords.includes(keyword)) {
-      onKeywordsChange(selectedKeywords.filter(k => k !== keyword));
-    } else {
-      onKeywordsChange([...selectedKeywords, keyword]);
+  const handleKeywordClick = (keyword, type) => {
+    // 해당 카테고리(TPO/Style)의 목록을 가져옴
+    const categoryList = type === 'TPO' ? tpoList : styleList;
+    
+    // 1. 현재 선택된 키워드 중, '이번에 클릭한 카테고리'에 속하는 것들을 모두 제거
+    // (즉, 기존에 선택된 TPO가 있다면 지우고 새로 선택한걸 넣기 위함)
+    const filteredKeywords = selectedKeywords.filter(k => !categoryList.includes(k));
+
+    // 2. 이미 선택되어 있던 키워드를 누른게 아니라면, 새로 클릭한 키워드 추가
+    // (이미 선택된걸 눌렀다면 위에서 제거되었으므로 토글 OFF 효과)
+    if (!selectedKeywords.includes(keyword)) {
+      filteredKeywords.push(keyword);
     }
+
+    onKeywordsChange(filteredKeywords);
   };
 
   const handleGenerate = () => {
     navigate('/fitting', { 
       state: { 
-        calendarEvent: selectedEvent.title,
-        isToday: selectedEvent.isToday,
+        calendarEvent: selectedEvent?.title,
+        isToday: selectedEvent?.isToday,
+        userQuery: searchText,
+        keywords: selectedKeywords, 
       } 
     });
   };
@@ -130,7 +141,7 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
           {tpoList.map((tpo) => (
             <button
               key={tpo}
-              onClick={() => handleKeywordClick(tpo)}
+              onClick={() => handleKeywordClick(tpo, 'TPO')}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                 selectedKeywords.includes(tpo)
                   ? 'bg-gold/20 text-gold border border-gold/30'
@@ -150,7 +161,7 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
           {styleList.map((style) => (
             <button
               key={style}
-              onClick={() => handleKeywordClick(style)}
+              onClick={() => handleKeywordClick(style, 'STYLE')}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                 selectedKeywords.includes(style)
                   ? 'bg-gold/20 text-gold border border-gold/30'
@@ -164,7 +175,7 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange }) => {
       </div>
 
       {/* Generate Button */}
-      {selectedEvent && (
+      {(selectedEvent || searchText || selectedKeywords.length > 0) && (
         <div className="mb-4 animate-fadeIn">
           <button
             onClick={handleGenerate}
