@@ -120,7 +120,7 @@ class VtonGenerateRequestV2(BaseModel):
 
     user_id: str  # UUID
     clothing_id: str  # UUID
-    denoise_steps: int = 20
+    denoise_steps: int = 15
     seed: int = 42
 
 
@@ -129,7 +129,7 @@ class VtonBatchGenerateRequest(BaseModel):
 
     user_id: str
     clothing_ids: list[str]  # 여러 옷 ID
-    denoise_steps: int = 20
+    denoise_steps: int = 15
     seed: int = 42
 
 
@@ -185,7 +185,7 @@ class VtonGenerateRequest(BaseModel):
     user_id: str  # UUID
     clothing_id: str  # UUID
     garment_description: str  # 캐시된 텍스트 임베딩 키
-    denoise_steps: int = 20
+    denoise_steps: int = 15
     seed: int = 42
     # NestJS가 S3에서 로드한 캐시 데이터
     human_img: str  # base64
