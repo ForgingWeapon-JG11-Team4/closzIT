@@ -543,7 +543,8 @@ def generate_tryon_internal(
     # Device 명시적 설정 (CUDA 사용)
     device_str = "cuda" if torch.cuda.is_available() else "cpu"
 
-    with torch.no_grad():
+    # Gradio 스타일: autocast 사용
+    with torch.no_grad(), torch.cuda.amp.autocast():
         generator = torch.Generator(device_str).manual_seed(int(seed))
 
         images = pipe(
@@ -1011,48 +1012,30 @@ def apply_gpu_optimizations():
     logger.info("=" * 80)
 
     try:
-        # 0. 파이프라인을 GPU로 이동 (가장 중요!)
-        logger.info("0️⃣ Moving pipeline to GPU...")
+        # Gradio 스타일: 최소한의 최적화만 사용
+        # 0. 파이프라인을 GPU로 이동 (float16 사용)
+        logger.info("0️⃣ Moving pipeline to GPU (float16)...")
         pipe.to(device)
         logger.info(f"✅ Pipeline moved to {device}")
-        # 1. xFormers 메모리 효율적 어텐션
-        logger.info("1️⃣ Enabling xFormers memory efficient attention...")
-        try:
-            pipe.enable_xformers_memory_efficient_attention()
-            logger.info("✅ xFormers enabled")
-        except Exception as e:
-            logger.warning(f"⚠️  xFormers not available: {e}")
 
-        # 2. Torch Compile (PyTorch 2.0+)
-        logger.info("2️⃣ Applying torch.compile...")
-        try:
-            if hasattr(torch, "compile"):
-                # UNet만 컴파일 (가장 연산 집약적)
-                pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead")
-                logger.info("✅ torch.compile applied to UNet")
-            else:
-                logger.warning("⚠️  torch.compile not available (PyTorch < 2.0)")
-        except Exception as e:
-            logger.warning(f"⚠️  torch.compile failed: {e}")
+        # Gradio에서 사용하지 않는 최적화들 비활성화:
+        # - xFormers: 제거 (Gradio에 없음)
+        # - torch.compile: 제거 (첫 실행 너무 느림)
+        # - channels_last: 제거 (Gradio에 없음)
+        # - warmup: 제거 (이미 제거함)
 
-        # 3. Channels Last Memory Format (더 빠른 Convolution)
-        logger.info("3️⃣ Setting channels_last memory format...")
-        try:
-            pipe.unet.to(memory_format=torch.channels_last)
-            logger.info("✅ Channels last format applied")
-        except Exception as e:
-            logger.warning(f"⚠️  Channels last failed: {e}")
-
-        # 4. cuDNN Benchmark (Warmup 제거 - Gradio처럼)
-        logger.info("4️⃣ Enabling cuDNN benchmarking...")
+        # 1. cuDNN Benchmark (Gradio 기본 동작)
+        logger.info("1️⃣ Enabling cuDNN benchmarking...")
         torch.backends.cudnn.benchmark = True
         logger.info("✅ cuDNN benchmark enabled")
 
-        # 5. TF32 활성화 (Ampere GPU 이상)
-        logger.info("5️⃣ Enabling TF32 precision...")
+        # 2. TF32 활성화 (Ampere GPU 이상 - Gradio도 사용)
+        logger.info("2️⃣ Enabling TF32 precision...")
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
         logger.info("✅ TF32 enabled")
+
+        logger.info("📝 Using Gradio-style minimal optimizations (float16 + autocast)")
 
         GPU_OPTIMIZATIONS_ENABLED = True
         logger.info("=" * 80)
