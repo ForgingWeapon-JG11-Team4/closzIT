@@ -337,3 +337,4 @@ jobs:
           echo "   🔵 AI FastAPI: http://10.1.157.47:8000"
           echo "   🟢 VTON API: http://10.1.157.47:8001"
           echo ""
+        #test
