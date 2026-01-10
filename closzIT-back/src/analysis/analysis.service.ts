@@ -204,7 +204,8 @@ export class AnalysisService {
             // 각 의류 등록마다 10크레딧 지급
             try {
                 for (let i = 0; i < results.length; i++) {
-                    await this.creditService.grantClothingAddedCredit(userId);
+                    const clothingId = results[i].id;
+                    await this.creditService.grantClothingAddedCredit(userId, clothingId);
                 }
                 this.logger.log(`[saveItems] Granted ${results.length * 10} credits for clothing registration`);
             } catch (creditError) {
