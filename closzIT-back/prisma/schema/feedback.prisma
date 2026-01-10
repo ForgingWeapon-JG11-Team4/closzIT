@@ -1,0 +1,24 @@
+/// 피드백 유형
+enum FeedbackType {
+  ACCEPT
+  REJECT
+  WORN
+}
+
+/// 코디 피드백 테이블
+model OutfitFeedback {
+  id              String       @id @default(uuid())
+  userId          String       @map("user_id")
+  outfitHash      String       @map("outfit_hash")
+  feedbackType    FeedbackType @map("feedback_type")
+  idempotencyKey  String?      @unique @map("idempotency_key")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, outfitHash])
+  @@map("outfit_feedback")
+  @@index([userId])
+  @@index([outfitHash])
+}

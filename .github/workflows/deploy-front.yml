@@ -43,6 +43,13 @@ jobs:
         run: |
           aws s3 sync ./closzIT-front/build s3://closzit-frontend --delete
       
+      - name: Set Cache Headers for index.html
+        run: |
+          aws s3 cp s3://closzit-frontend/index.html s3://closzit-frontend/index.html \
+            --metadata-directive REPLACE \
+            --cache-control "no-cache, no-store, must-revalidate" \
+            --content-type "text/html"
+      
       - name: CloudFront Invalidation
         run: |
           aws cloudfront create-invalidation \

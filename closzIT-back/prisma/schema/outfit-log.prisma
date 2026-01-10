@@ -1,0 +1,28 @@
+/// 착장 기록 테이블
+model OutfitLog {
+  id               String    @id @default(dbgenerated("gen_random_uuid()"))
+  userId           String    @map("user_id")
+  wornDate         DateTime  @map("worn_date") @db.Timestamp(6)
+  location         String?   @db.VarChar(255)
+  tpo              TPO
+  weatherTemp      Float?    @map("weather_temp")
+  weatherCondition String?   @map("weather_condition") @db.VarChar(50)
+  outerId          String?   @map("outer_id")
+  topId            String    @map("top_id")
+  bottomId         String    @map("bottom_id")
+  shoesId          String    @map("shoes_id")
+  userNote         String?   @map("user_note")
+  feedbackScore    Int?      @map("feedback_score")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outer  Clothing? @relation("OutfitLogOuter", fields: [outerId], references: [id])
+  top    Clothing  @relation("OutfitLogTop", fields: [topId], references: [id])
+  bottom Clothing  @relation("OutfitLogBottom", fields: [bottomId], references: [id])
+  shoes  Clothing  @relation("OutfitLogShoes", fields: [shoesId], references: [id])
+
+  @@map("outfit_logs")
+  @@index([userId, location])
+  @@index([userId, wornDate])
+}

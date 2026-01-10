@@ -1,90 +1,59 @@
 // closzIT-back/prisma/schema/clothing.prisma
 
 model Clothing {
-  // ===== 기본 정보 =====
-
   /// 고유 ID (자동 생성 UUID)
-  id       String @id @default(dbgenerated("gen_random_uuid()"))
-
+  id                                         String                 @id @default(dbgenerated("gen_random_uuid()"))
   /// 옷 주인의 유저 ID (User.id 참조)
-  userId   String @map("user_id")
-  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  userId                                     String                 @map("user_id")
   /// 원본 이미지 URL (S3)
   /// 예: https://s3.../clothes/user_123/blazer_001.png
-  imageUrl String @map("image_url")
-
-  /// 펼쳐진 의상 이미지 URL (옷 펴기 기능 사용 시 저장)
-  flattenImageUrl String? @map("flatten_image_url")
-
-  // ===== 카테고리 =====
-
+  imageUrl                                   String                 @map("image_url")
   /// 대분류: Outer, Top, Bottom, Shoes, Other
-  category    Category
-
+  category                                   Category
   /// 소분류: Blazer, Shirt, Denim, Sneakers 등
-  subCategory String @map("sub_category")
-
-  // ===== 속성 (배열) - Bedrock 라벨링 결과 =====
-
+  subCategory                                String                 @map("sub_category")
   /// 색상 목록
-  colors     Color[]
-
+  colors                                     Color[]
   /// 패턴 목록
-  patterns   Pattern[]
-
+  patterns                                   Pattern[]
   /// 디테일 목록
-  details    Detail[]
-
+  details                                    Detail[]
   /// 스타일/무드 목록
-  styleMoods StyleMood[] @map("style_mood")
-
+  styleMoods                                 StyleMood[]            @map("style_mood")
   /// TPO 목록
-  tpos       TPO[]
-
+  tpos                                       TPO[]
   /// 계절 목록
-  seasons    Season[]
-
-  // ===== 개인화 데이터 (RAG 추천에서 사용) =====
-
+  seasons                                    Season[]
   /// 개인 평점 (0 ~ 5)
-  userRating  Float     @default(5.0) @map("user_rating")
-
+  userRating                                 Float                  @default(5.0) @map("user_rating")
   /// 사용자 메모
-  note        String?
-
+  note                                       String?
   /// 총 착용 횟수
-  wearCount   Int       @default(0) @map("wear_count")
-
+  wearCount                                  Int                    @default(0) @map("wear_count")
   /// 마지막 착용일
-  lastWorn    DateTime? @map("last_worn")
-
+  lastWorn                                   DateTime?              @map("last_worn")
   /// 추천 수락 횟수
-  acceptCount Int       @default(0) @map("accept_count")
-
+  acceptCount                                Int                    @default(0) @map("accept_count")
   /// 추천 거절 횟수
-  rejectCount Int       @default(0) @map("reject_count")
-
-  // ===== 시간 정보 =====
-
+  rejectCount                                Int                    @default(0) @map("reject_count")
   /// 등록일 (자동 생성)
-  createdAt DateTime @default(now()) @map("created_at")
-
+  createdAt                                  DateTime               @default(now()) @map("created_at")
   /// 수정일 (자동 업데이트)
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
-
-  // ===== 임베딩 (pgvector) =====
-
-  /// 이미지 임베딩 (이미지 → FashionSigLIP)
-  image_embedding Unsupported("vector")?
-
+  updatedAt                                  DateTime               @default(now()) @updatedAt @map("updated_at")
   /// 텍스트 임베딩 (텍스트 → CLIP)
-  textEmbedding   Unsupported("vector")? @map("text_embedding")
+  textEmbedding                              Unsupported("vector")? @map("text_embedding")
+  /// 이미지 임베딩 (이미지 → FashionSigLIP)
+  image_embedding                            Unsupported("vector")?
+  /// 펼쳐진 의상 이미지 URL (옷 펴기 기능 사용 시 저장)
+  flattenImageUrl                            String?                @map("flatten_image_url")
+  user                                       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 착장 기록 관계
+  outfitLogsAsOuter  OutfitLog[] @relation("OutfitLogOuter")
+  outfitLogsAsTop    OutfitLog[] @relation("OutfitLogTop")
+  outfitLogsAsBottom OutfitLog[] @relation("OutfitLogBottom")
+  outfitLogsAsShoes  OutfitLog[] @relation("OutfitLogShoes")
+  postClothes                                PostClothing[]
 
-  // ===== 관계 =====
-  postClothes PostClothing[]
-
-  // ===== 테이블 매핑 =====
   @@index([userId])
   @@map("clothes")
 }

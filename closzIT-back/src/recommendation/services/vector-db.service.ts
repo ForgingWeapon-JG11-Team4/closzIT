@@ -185,6 +185,33 @@ export class VectorDBService implements OnModuleInit {
     });
   }
 
+  async decrementWearCount(clothingId: string): Promise<void> {
+    await this.prisma.clothing.update({
+      where: { id: clothingId },
+      data: {
+        wearCount: { decrement: 1 },
+      },
+    });
+  }
+
+  async decrementAcceptCount(clothingId: string): Promise<void> {
+    await this.prisma.clothing.update({
+      where: { id: clothingId },
+      data: {
+        acceptCount: { decrement: 1 },
+      },
+    });
+  }
+
+  async decrementRejectCount(clothingId: string): Promise<void> {
+    await this.prisma.clothing.update({
+      where: { id: clothingId },
+      data: {
+        rejectCount: { decrement: 1 },
+      },
+    });
+  }
+
   async deleteClothing(clothingId: string): Promise<void> {
     await this.prisma.clothing.delete({
       where: { id: clothingId },
