@@ -56,18 +56,39 @@ import logging
 import boto3
 from botocore.exceptions import ClientError
 
+# .env 파일 로드
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("✅ .env file loaded successfully")
+except ImportError:
+    print("⚠️  python-dotenv not installed, using system environment variables")
+
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# S3 설정 확인
+AWS_REGION = os.getenv("AWS_REGION", "ap-northeast-2")
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+S3_BUCKET = os.getenv("AWS_S3_BUCKET", "your-bucket-name")
+
+print("=" * 80)
+print("🔑 S3 Configuration Check:")
+print(f"   Region: {AWS_REGION}")
+print(f"   Bucket: {S3_BUCKET}")
+print(f"   Access Key: {'✅ Set' if AWS_ACCESS_KEY_ID else '❌ Missing'}")
+print(f"   Secret Key: {'✅ Set' if AWS_SECRET_ACCESS_KEY else '❌ Missing'}")
+print("=" * 80)
+
 # S3 클라이언트 초기화
 s3_client = boto3.client(
     "s3",
-    region_name=os.getenv("AWS_REGION", "ap-northeast-2"),
-    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+    region_name=AWS_REGION,
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
 )
-S3_BUCKET = os.getenv("AWS_S3_BUCKET", "your-bucket-name")
 
 # FastAPI 앱 생성
 app = FastAPI(title="IDM-VTON API Server", version="2.0.0")
