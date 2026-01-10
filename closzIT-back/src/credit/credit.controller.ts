@@ -1,4 +1,6 @@
-import { Controller, Get, UseGuards, Request } from '@nestjs/common';
+// src/credit/credit.controller.ts
+
+import { Controller, Get, Post, Body, Headers, UseGuards, Request } from '@nestjs/common';
 import { CreditService } from './credit.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -25,5 +27,14 @@ export class CreditController {
     const userId = req.user.id;
     const history = await this.creditService.getCreditHistory(userId);
     return { history };
+  }
+
+  /**
+   * 크레딧 정합성 검증
+   */
+  @Get('verify')
+  async verifyMyCredit(@Request() req) {
+    const userId = req.user.id;
+    return this.creditService.verifyIntegrity(userId);
   }
 }
