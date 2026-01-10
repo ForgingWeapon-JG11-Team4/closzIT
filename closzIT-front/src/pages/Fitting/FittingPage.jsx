@@ -8,7 +8,7 @@ const FittingPage = () => {
   const location = useLocation();
   const { requestPartialVtoByIds, checkPartialVtoLoading } = useVto();
   const isPartialVtoLoading = checkPartialVtoLoading('fitting');
-  const { calendarEvent, isToday } = location.state || {};
+  const { calendarEvent, isToday, userQuery, keywords } = location.state || {};
 
   const [outfits, setOutfits] = useState([]);         // 상위 5개 조합
   const [candidates, setCandidates] = useState(null); // 카테고리별 후보
@@ -25,7 +25,8 @@ const FittingPage = () => {
 
   // API에서 추천 받아오기 + 사용자 전신 사진 가져오기
   useEffect(() => {
-    if (!calendarEvent) {
+    // calendarEvent 또는 userQuery 또는 keywords 중 하나라도 있어야 함
+    if (!calendarEvent && !userQuery && (!keywords || keywords.length === 0)) {
       navigate('/');
       return;
     }
@@ -59,7 +60,10 @@ const FittingPage = () => {
           },
           body: JSON.stringify({
             calendarEvent,
+            calendarEvent,
             isToday,
+            query: userQuery,
+            keywords,
           }),
         });
 
