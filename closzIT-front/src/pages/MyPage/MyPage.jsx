@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProfileEditModal from '../../components/ProfileEditModal';
+import FullBodyImageModal from '../../components/FullBodyImageModal';
 
 const MyPage = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -194,7 +196,7 @@ const MyPage = () => {
                     />
                   </div>
                   <button
-                    onClick={() => navigate('/setup3?edit=true')}
+                    onClick={() => setShowImageModal(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-gold/10 text-gold rounded-xl text-sm font-medium border border-gold/20 hover:bg-gold/20 transition-colors"
                   >
                     <span className="material-symbols-rounded text-base">edit</span>
@@ -203,7 +205,7 @@ const MyPage = () => {
                 </div>
               ) : (
                 <button
-                  onClick={() => navigate('/setup3?edit=true')}
+                  onClick={() => setShowImageModal(true)}
                   className="flex items-center justify-center gap-2 w-full py-4 bg-gold/10 text-gold rounded-xl text-sm font-medium border border-dashed border-gold/30 hover:bg-gold/20 transition-colors"
                 >
                   <span className="material-symbols-rounded text-lg">add_a_photo</span>
@@ -267,6 +269,14 @@ const MyPage = () => {
         onClose={() => setShowEditModal(false)}
         onSave={refreshUserData}
         initialData={user}
+      />
+
+      {/* Full Body Image Modal */}
+      <FullBodyImageModal
+        isOpen={showImageModal}
+        onClose={() => setShowImageModal(false)}
+        onSave={refreshUserData}
+        initialImage={user?.fullBodyImage}
       />
     </div>
   );

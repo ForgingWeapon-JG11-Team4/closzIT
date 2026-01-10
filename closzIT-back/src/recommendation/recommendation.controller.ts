@@ -3,18 +3,21 @@
 import {
   Controller,
   Post,
+  Delete,
   Body,
+  Headers,
   UseGuards,
   Req,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RagSearchService, OutfitSearchResults } from './services/rag-search.service';
 import { FeedbackService } from './services/feedback.service';
 import { CalendarService } from '../calendar/calendar.service';
 import { SearchRequestDto } from './dto/search-request.dto';
-import { FeedbackRequestDto } from './dto/feedback-request.dto';
+import { FeedbackRequestDto, CancelFeedbackRequestDto } from './dto/feedback-request.dto';
 import { SearchResponseDto } from './dto/search-response.dto';
 import { SearchContext, TPO } from './types/clothing.types';
 
@@ -39,7 +42,6 @@ export class RecommendationController {
   ): Promise<SearchResponseDto> {
     const userId = req.user.id;
 
-    // 1. 날짜 결정
     let targetDate: Date;
     if (dto.date) {
       targetDate = new Date(dto.date);
@@ -53,31 +55,25 @@ export class RecommendationController {
     let tpo: TPO = 'Daily';
     let weather: any = null;
 
-    // 2. 캘린더에서 TPO와 날씨 추출
     try {
       const events = await this.calendarService.getEventsWithWeather(
         userId,
         targetDate,
       );
 
-      const matchedEvent = events.find(
-        (e) => e.summary === dto.calendarEvent
-      );
+      const matchedEvent = events.find((e) => e.summary === dto.calendarEvent);
 
       if (matchedEvent) {
         tpo = matchedEvent.tpo as TPO;
         weather = matchedEvent.weather;
-        console.log(`[Recommendation] 일정 "${dto.calendarEvent}" → TPO: ${tpo}`);
       } else if (events.length > 0) {
         tpo = events[0].tpo as TPO;
         weather = events[0].weather;
-        console.log(`[Recommendation] 일정 미매칭, 첫 번째 이벤트 사용 → TPO: ${tpo}`);
       }
     } catch (error) {
       console.error('[Recommendation] 캘린더 조회 실패:', error.message);
     }
 
-    // 3. 검색 컨텍스트 구성
     const context: SearchContext = {
       tpo,
       weather: weather
@@ -90,15 +86,10 @@ export class RecommendationController {
       date: targetDate,
     };
 
-    console.log('[Recommendation] 검색 컨텍스트:', {
-      calendarEvent: dto.calendarEvent,
-      tpo: context.tpo,
-      weather: context.weather,
-      date: context.date,
-    });
-
-    // 4. RAG 검색 + 조합 스코어링
-    const results: OutfitSearchResults = await this.ragSearchService.search(userId, context);
+    const results: OutfitSearchResults = await this.ragSearchService.search(
+      userId,
+      context,
+    );
 
     return {
       success: true,
@@ -117,9 +108,18 @@ export class RecommendationController {
   @HttpCode(HttpStatus.OK)
   async feedback(
     @Req() req: any,
+    @Headers('Idempotency-Key') idempotencyKey: string,
     @Body() dto: FeedbackRequestDto,
-  ): Promise<{ success: boolean }> {
-    await this.feedbackService.recordOutfitFeedback(
+  ) {
+    if (idempotencyKey && !this.isValidUUID(idempotencyKey)) {
+      throw new BadRequestException({
+        code: 'INVALID_IDEMPOTENCY_KEY',
+        message: '멱등키는 UUID v4 형식이어야 합니다.',
+      });
+    }
+
+    return this.feedbackService.recordOutfitFeedback(
+      req.user.id,
       {
         outer: dto.outer_id,
         top: dto.top_id,
@@ -127,8 +127,31 @@ export class RecommendationController {
         shoes: dto.shoes_id,
       },
       dto.feedback_type,
+      idempotencyKey,
     );
+  }
 
-    return { success: true };
+  /**
+   * 피드백 취소
+   * DELETE /recommendation/feedback
+   */
+  @Delete('feedback')
+  @HttpCode(HttpStatus.OK)
+  async cancelFeedback(
+    @Req() req: any,
+    @Body() dto: CancelFeedbackRequestDto,
+  ) {
+    return this.feedbackService.cancelFeedback(req.user.id, {
+      outer: dto.outer_id,
+      top: dto.top_id,
+      bottom: dto.bottom_id,
+      shoes: dto.shoes_id,
+    });
+  }
+
+  private isValidUUID(str: string): boolean {
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
   }
 }

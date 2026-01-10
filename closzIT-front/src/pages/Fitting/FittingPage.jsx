@@ -1,3 +1,5 @@
+// src/pages/fitting/FittingPage.jsx
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import SharedHeader from '../../components/SharedHeader';
@@ -10,20 +12,19 @@ const FittingPage = () => {
   const isPartialVtoLoading = checkPartialVtoLoading('fitting');
   const { calendarEvent, isToday } = location.state || {};
 
-  const [outfits, setOutfits] = useState([]);         // 상위 5개 조합
-  const [candidates, setCandidates] = useState(null); // 카테고리별 후보
-  const [meta, setMeta] = useState(null);             // 검색 메타 정보
-  const [currentOutfitIndex, setCurrentOutfitIndex] = useState(0); // 현재 선택된 조합
+  const [outfits, setOutfits] = useState([]);
+  const [candidates, setCandidates] = useState(null);
+  const [meta, setMeta] = useState(null);
+  const [currentOutfitIndex, setCurrentOutfitIndex] = useState(0);
   const [context, setContext] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [fittingError, setFittingError] = useState(null);
   const [userFullBodyImage, setUserFullBodyImage] = useState(null);
+  const [isFeedbackLoading, setIsFeedbackLoading] = useState(false);
 
-  // 현재 선택된 outfit
   const currentOutfit = outfits[currentOutfitIndex] || null;
 
-  // API에서 추천 받아오기 + 사용자 전신 사진 가져오기
   useEffect(() => {
     if (!calendarEvent) {
       navigate('/');
@@ -40,7 +41,6 @@ const FittingPage = () => {
 
         const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
-        // 사용자 정보 가져오기 (전신 사진 포함)
         const userResponse = await fetch(`${backendUrl}/user/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -50,7 +50,6 @@ const FittingPage = () => {
           setUserFullBodyImage(userData.fullBodyImage);
         }
 
-        // 코디 추천 받기
         const response = await fetch(`${backendUrl}/recommendation/search`, {
           method: 'POST',
           headers: {
@@ -94,7 +93,6 @@ const FittingPage = () => {
     fetchData();
   }, [calendarEvent, isToday, navigate]);
 
-  // base64를 Blob으로 변환
   const base64ToBlob = (base64, mimeType = 'image/jpeg') => {
     const byteString = atob(base64.split(',')[1]);
     const ab = new ArrayBuffer(byteString.length);
@@ -105,13 +103,11 @@ const FittingPage = () => {
     return new Blob([ab], { type: mimeType });
   };
 
-  // URL에서 이미지를 Blob으로 가져오기
   const urlToBlob = async (url) => {
     const response = await fetch(url);
     return await response.blob();
   };
 
-  // 이미지 URL 가져오기 헬퍼 (flatten_image_url 우선)
   const getImageUrl = (item) => {
     if (!item) return null;
     // flatten_image_url이 있으면 우선 사용
@@ -119,21 +115,18 @@ const FittingPage = () => {
       || item.image_url || item.imageUrl || item.image;
   };
 
-  // 이전 조합으로 이동
   const handlePrevOutfit = () => {
     setCurrentOutfitIndex((prev) =>
       prev === 0 ? outfits.length - 1 : prev - 1
     );
   };
 
-  // 다음 조합으로 이동
   const handleNextOutfit = () => {
     setCurrentOutfitIndex((prev) =>
       prev === outfits.length - 1 ? 0 : prev + 1
     );
   };
 
-  // 피팅하기 버튼 클릭
   const handleFittingClick = async (event) => {
     let buttonPosition = null;
     if (event?.currentTarget) {
@@ -177,39 +170,49 @@ const FittingPage = () => {
     }
   };
 
-  // 피드백 전송
   const handleFeedback = async (feedbackType) => {
-    if (!currentOutfit) return;
+    if (!currentOutfit || isFeedbackLoading) return;
+
+    setIsFeedbackLoading(true);
+
+    const feedbackTypeMap = {
+      'accept': 'ACCEPT',
+      'reject': 'REJECT',
+      'worn': 'WORN',
+    };
 
     try {
       const token = localStorage.getItem('accessToken');
       const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
-      await fetch(`${backendUrl}/recommendation/feedback`, {
+      const response = await fetch(`${backendUrl}/recommendation/feedback`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
+          'Idempotency-Key': crypto.randomUUID(),
         },
         body: JSON.stringify({
           outer_id: currentOutfit.outer?.id,
           top_id: currentOutfit.top?.id,
           bottom_id: currentOutfit.bottom?.id,
           shoes_id: currentOutfit.shoes?.id,
-          feedback_type: feedbackType,
+          feedback_type: feedbackTypeMap[feedbackType],
         }),
       });
 
-      // 거절 시 다음 조합으로 이동
-      if (feedbackType === 'reject' && outfits.length > 1) {
-        handleNextOutfit();
+      const result = await response.json();
+
+      if (result.duplicate) {
+        console.log('이미 처리된 피드백:', result.message);
       }
     } catch (err) {
       console.error('Feedback error:', err);
+    } finally {
+      setIsFeedbackLoading(false);
     }
   };
 
-  // 로딩 화면
   if (isLoading) {
     return (
       <div className="bg-cream dark:bg-[#1A1918] min-h-screen font-sans flex flex-col items-center justify-center">
@@ -222,7 +225,6 @@ const FittingPage = () => {
     );
   }
 
-  // 에러 화면
   if (error) {
     return (
       <div className="bg-cream dark:bg-[#1A1918] min-h-screen font-sans flex flex-col items-center justify-center p-4">
@@ -241,7 +243,6 @@ const FittingPage = () => {
     );
   }
 
-  // 추천 결과 없음
   if (outfits.length === 0) {
     return (
       <div className="bg-cream dark:bg-[#1A1918] min-h-screen font-sans flex flex-col items-center justify-center p-4">
@@ -266,7 +267,6 @@ const FittingPage = () => {
             </div>
           )}
 
-          {/* 카테고리별 후보 개수 */}
           {meta?.totalCandidates && (
             <div className="mb-4 p-3 bg-warm-white dark:bg-charcoal/50 rounded-xl">
               <p className="text-xs text-charcoal-light dark:text-cream-dark mb-2">카테고리별 후보</p>
@@ -305,7 +305,6 @@ const FittingPage = () => {
     );
   }
 
-  // 추천된 아이템들을 표시용 배열로 변환
   const outfitItems = [
     currentOutfit?.outer && {
       name: '외투',
@@ -347,14 +346,12 @@ const FittingPage = () => {
 
   return (
     <div className="bg-cream dark:bg-[#1A1918] min-h-screen font-sans flex flex-col">
-      {/* Shared Header */}
       <SharedHeader
         title="코디 추천"
         showBackButton
         onBackClick={() => navigate(-1)}
       />
 
-      {/* Context Info */}
       {context && (
         <div className="px-4 py-3 bg-gradient-to-r from-gold/10 to-gold-light/5 border-b border-gold/20">
           <div className="flex items-center justify-center gap-4 text-sm">
@@ -375,9 +372,7 @@ const FittingPage = () => {
         </div>
       )}
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-between py-4 px-4">
-        {/* 조합 선택 인디케이터 */}
         {outfits.length > 1 && (
           <div className="w-full flex items-center justify-between mb-3">
             <button
@@ -409,7 +404,6 @@ const FittingPage = () => {
           </div>
         )}
 
-        {/* 조합 점수 표시 */}
         {currentOutfit?.displayScore && (
           <div className="mb-2 px-4 py-1.5 bg-gold/10 rounded-full">
             <span className="text-xs text-charcoal dark:text-cream">
@@ -418,7 +412,6 @@ const FittingPage = () => {
           </div>
         )}
 
-        {/* Outfit Display */}
         <div className="flex-1 w-full flex items-center justify-center">
           <div className="w-full h-[380px] relative mx-2 bg-warm-white/50 dark:bg-charcoal/30 rounded-3xl border border-gold-light/20 shadow-soft">
             {outfitItems.map((item, index) => (
@@ -439,46 +432,57 @@ const FittingPage = () => {
           </div>
         </div>
 
-        {/* Error Message */}
         {fittingError && (
           <div className="w-full mb-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
             <p className="text-sm text-red-600 dark:text-red-400 text-center">{fittingError}</p>
           </div>
         )}
 
-        {/* Action Buttons */}
         <div className="w-full space-y-3 mt-4 mb-4">
-          {/* 피드백 버튼 */}
           <div className="flex gap-3">
             <button
               onClick={() => handleFeedback('reject')}
-              className="flex-1 h-12 rounded-xl font-medium border-2 border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2"
+              disabled={isFeedbackLoading}
+              className={`flex-1 h-12 rounded-xl font-medium border-2 border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2 ${
+                isFeedbackLoading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
-              <span className="material-symbols-rounded text-xl">thumb_down</span>
-              다른 코디
+              {isFeedbackLoading ? (
+                <span className="material-symbols-rounded text-xl animate-spin">progress_activity</span>
+              ) : (
+                <span className="material-symbols-rounded text-xl">thumb_down</span>
+              )}
+              싫어요
             </button>
             <button
               onClick={() => handleFeedback('accept')}
-              className="flex-1 h-12 rounded-xl font-medium border-2 border-green-300 dark:border-green-700 text-green-500 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors flex items-center justify-center gap-2"
+              disabled={isFeedbackLoading}
+              className={`flex-1 h-12 rounded-xl font-medium border-2 border-green-300 dark:border-green-700 text-green-500 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors flex items-center justify-center gap-2 ${
+                isFeedbackLoading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
-              <span className="material-symbols-rounded text-xl">thumb_up</span>
-              마음에 들어요
+              {isFeedbackLoading ? (
+                <span className="material-symbols-rounded text-xl animate-spin">progress_activity</span>
+              ) : (
+                <span className="material-symbols-rounded text-xl">thumb_up</span>
+              )}
+              좋아요
             </button>
           </div>
 
-          {/* 피팅 버튼 */}
           <button
             onClick={(e) => {
-              if (!isPartialVtoLoading) {
-                handleFeedback('accept'); // 피팅 시 자동으로 accept
+              if (!isPartialVtoLoading && !isFeedbackLoading) {
+                handleFeedback('accept');
                 handleFittingClick(e);
               }
             }}
-            disabled={isPartialVtoLoading}
-            className={`w-full h-14 rounded-2xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${isPartialVtoLoading
-              ? 'bg-gold-light/50 text-charcoal cursor-wait'
-              : 'btn-premium text-warm-white hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0'
-              }`}
+            disabled={isPartialVtoLoading || isFeedbackLoading}
+            className={`w-full h-14 rounded-2xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${
+              isPartialVtoLoading || isFeedbackLoading
+                ? 'bg-gold-light/50 text-charcoal cursor-wait'
+                : 'btn-premium text-warm-white hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0'
+            }`}
           >
             {isPartialVtoLoading ? (
               <>
@@ -495,7 +499,6 @@ const FittingPage = () => {
         </div>
       </main>
 
-      {/* Bottom Navigation */}
       <div className="h-20 glass-warm border-t border-gold-light/20 flex items-center justify-around pb-2 z-50 safe-area-pb">
         <button
           onClick={() => navigate('/main')}

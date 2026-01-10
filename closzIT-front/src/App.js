@@ -18,6 +18,8 @@ import FeedPage from './pages/FeedPage';
 import CreatePostPage from './pages/CreatePostPage';
 import PostDetailPage from './pages/PostDetailPage';
 import ProfilePage from './pages/ProfilePage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsOfServicePage from './pages/TermsOfServicePage';
 import { VtoProvider } from './context/VtoContext';
 import './App.css';
 
@@ -48,6 +50,8 @@ function App() {
           <Route path="/post/:postId" element={<PostDetailPage />} />
           <Route path="/profile/:userId" element={<ProfilePage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms" element={<TermsOfServicePage />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
       </Router>

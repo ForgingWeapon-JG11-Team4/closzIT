@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import GoogleLoginButton from '../../components/GoogleLoginButton';
 
 const LoginPage = () => {
@@ -124,8 +124,8 @@ const LoginPage = () => {
         </div>
 
         <p className="mt-8 text-xs text-center text-charcoal-light/60 dark:text-cream-dark/60 leading-relaxed">
-          계속 진행하면 CloszIT의 <a className="underline text-gold hover:text-gold-dark transition-colors" href="#">서비스 이용약관</a> 및 <br />
-          <a className="underline text-gold hover:text-gold-dark transition-colors" href="#">개인정보 처리방침</a>에 동의하게 됩니다.
+          계속 진행하면 CloszIT의 <Link className="underline text-gold hover:text-gold-dark transition-colors" to="/terms">서비스 이용약관</Link> 및 <br/>
+          <Link className="underline text-gold hover:text-gold-dark transition-colors" to="/privacy">개인정보 처리방침</Link>에 동의하게 됩니다.
         </p>
       </div>
     </div>

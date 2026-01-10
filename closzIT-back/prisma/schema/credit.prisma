@@ -1,33 +1,33 @@
 /// 크레딧 거래 유형
 enum CreditTransactionType {
-  SIGNUP           // 회원가입 보상
-  CLOTHING_ADDED   // 의류 등록 보상
-  VTO_USED         // VTO 서비스 사용
-  FLATTEN_USED     // 옷 펴기 서비스 사용
-  ADMIN_ADJUSTMENT // 관리자 조정
+  SIGNUP          // 회원가입 보상
+  CLOTHING_ADDED  // 의류 등록 보상
+  VTO_USED        // VTO 서비스 사용
+  FLATTEN_USED    // 옷 펴기 서비스 사용
+  ADMIN_ADD       // 관리자 지급
+  ADMIN_SUB       // 관리자 차감
+  ADMIN_SET       // 관리자 직접 설정
+  ADMIN_FIX       // 정합성 복구
 }
 
 /// 크레딧 이력 테이블
 model CreditHistory {
-  /// 고유 ID (자동 생성 UUID)
-  id            String                 @id @default(uuid())
-  /// 사용자 ID
-  userId        String                 @map("user_id")
-  /// 거래 유형
-  type          CreditTransactionType
-  /// 변동 금액 (양수: 증가, 음수: 감소)
-  amount        Int
-  /// 거래 후 잔액
-  balanceAfter  Int                    @map("balance_after")
-  /// 설명
-  description   String?
-  /// 생성일 (자동 생성)
-  createdAt     DateTime               @default(now()) @map("created_at")
+  id              String                @id @default(uuid())
+  userId          String                @map("user_id")
+  type            CreditTransactionType
+  amount          Int
+  balanceAfter    Int                   @map("balance_after")
+  description     String?
+  idempotencyKey  String?               @unique @map("idempotency_key")
+  adminId         String?               @map("admin_id")
+  createdAt       DateTime              @default(now()) @map("created_at")
 
-  /// 사용자 관계
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  admin User? @relation("AdminCreditActions", fields: [adminId], references: [id])
 
-  @@map("credit_history")
   @@index([userId])
   @@index([createdAt])
+  @@index([type])
+  @@map("credit_history")
 }
+

@@ -102,7 +102,7 @@ enum Detail {
   Embroidery
   Quilted
   Distressed
-  KnitRib @map("Knit-rib")
+  KnitRib    @map("Knit-rib")
   Other
 }
 
