@@ -1014,26 +1014,10 @@ def apply_gpu_optimizations():
         pipe.to(device)
         logger.info(f"✅ Pipeline moved to {device}")
 
-        # 1. xFormers 메모리 효율적 어텐션 (속도 2-3배 향상)
-        logger.info("1️⃣ Enabling xFormers memory efficient attention...")
-        try:
-            pipe.enable_xformers_memory_efficient_attention()
-            logger.info("✅ xFormers enabled")
-        except Exception as e:
-            logger.warning(f"⚠️  xFormers not available: {e}")
-
-        # 2. cuDNN Benchmark
-        logger.info("2️⃣ Enabling cuDNN benchmarking...")
-        torch.backends.cudnn.benchmark = True
-        logger.info("✅ cuDNN benchmark enabled")
-
-        # 3. TF32 활성화 (Ampere GPU 이상)
-        logger.info("3️⃣ Enabling TF32 precision...")
-        torch.backends.cuda.matmul.allow_tf32 = True
-        torch.backends.cudnn.allow_tf32 = True
-        logger.info("✅ TF32 enabled")
-
-        logger.info("📝 Using optimized settings (xFormers + float16 + autocast)")
+        # 모든 최적화 비활성화 - 순수 Gradio 스타일
+        logger.info("📝 Pure Gradio style: NO optimizations")
+        logger.info("   Skipping: xFormers, torch.compile, cuDNN benchmark, TF32")
+        logger.info("   Using only: float16 + autocast")
 
         GPU_OPTIMIZATIONS_ENABLED = True
         logger.info("=" * 80)
