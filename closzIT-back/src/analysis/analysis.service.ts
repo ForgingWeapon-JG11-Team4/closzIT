@@ -214,16 +214,18 @@ export class AnalysisService {
 
                 // VTON 캐싱: 텍스트 임베딩
                 try {
-                    const description = [
-                        category || '',
+                    // Gradio 스타일: 간결한 설명 생성 (예: "Short Sleeve Round Neck T-shirts")
+                    // sub_category + 주요 색상(1개) + 주요 디테일(최대 1개)
+                    const parts = [
                         sub_category || '',
-                        ...(colors || []),
-                        ...(pattern || []),
-                        ...(detail || []),
-                    ].filter(Boolean).join(' ');
+                        colors && colors.length > 0 ? colors[0] : '',
+                        detail && detail.length > 0 && detail[0] !== 'Other' ? detail[0] : '',
+                    ].filter(Boolean);
+
+                    const description = parts.join(' ');
 
                     await this.vtonCacheService.preprocessAndCacheText(userId, clothingId, description);
-                    this.logger.log(`[saveItems] VTON text cache created for clothingId: ${clothingId}`);
+                    this.logger.log(`[saveItems] VTON text cache created for clothingId: ${clothingId}, description: "${description}"`);
                 } catch (vtonError) {
                     this.logger.warn(`[saveItems] VTON text caching failed for clothingId: ${clothingId}`, vtonError.message);
                 }

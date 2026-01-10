@@ -434,39 +434,14 @@ def preprocess_text_internal(garment_des: str) -> dict:
     logger.info(f"⏳ Encoding text: '{garment_des}'")
     start = time.time()
 
-    # 간단한 카테고리 매핑 (Gradio 스타일)
-    # "Outer Jacket Navy..." -> "a jacket"
-    # "Top Shirt White..." -> "a shirt"
-    garment_des_lower = garment_des.lower()
-
-    # 카테고리 키워드 매핑
-    if "jacket" in garment_des_lower or "outer" in garment_des_lower or "coat" in garment_des_lower:
-        simple_category = "a jacket"
-    elif "shirt" in garment_des_lower or "blouse" in garment_des_lower:
-        simple_category = "a shirt"
-    elif "sweater" in garment_des_lower or "sweatshirt" in garment_des_lower or "hoodie" in garment_des_lower:
-        simple_category = "a sweater"
-    elif "dress" in garment_des_lower:
-        simple_category = "a dress"
-    elif "pants" in garment_des_lower or "jeans" in garment_des_lower or "trousers" in garment_des_lower:
-        simple_category = "pants"
-    elif "skirt" in garment_des_lower:
-        simple_category = "a skirt"
-    elif "top" in garment_des_lower:
-        simple_category = "a top"
-    elif "bottom" in garment_des_lower:
-        simple_category = "pants"
-    else:
-        # 기본값: 첫 단어 + 관사
-        first_word = garment_des.split()[0].lower() if garment_des.split() else "clothing"
-        simple_category = f"a {first_word}"
-
-    prompt = "model wearing " + simple_category
-    prompt_c = "a photo of " + simple_category
+    # Gradio 스타일: NestJS에서 전달받은 간결한 설명을 그대로 사용
+    # 예: "Cardigan Gray Button" (이미 NestJS에서 간결하게 처리됨)
+    prompt = "model is wearing " + garment_des
+    prompt_c = "a photo of " + garment_des
     negative_prompt = "monochrome, lowres, bad anatomy, worst quality, low quality"
 
     # 📝 생성될 프롬프트 출력
-    print(f"📝 '{garment_des}' → '{simple_category}'")
+    print(f"📝 Text prompt: '{garment_des}'")
 
     with torch.no_grad():
         pipe.to(device)
