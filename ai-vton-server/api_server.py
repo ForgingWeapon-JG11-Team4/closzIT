@@ -284,7 +284,8 @@ def download_s3_as_tensor(key: str, device_name: str = "cuda") -> torch.Tensor:
 
     data = download_from_s3(key)
     tensor = pickle.loads(data)
-    return tensor.to(device_name, torch.float16)
+    # ⚡ contiguous memory layout으로 변환 (diffusion 속도 개선)
+    return tensor.to(device_name, torch.float16).contiguous()
 
 
 # ============================================================================
@@ -546,7 +547,9 @@ def generate_tryon_internal(
     Returns:
         (result_image: PIL.Image, elapsed: float)
     """
-    logger.info("⚡ Generating try-on with diffusion...")
+    logger.info(f"⚡ Generating try-on with diffusion (steps={denoise_steps})...")
+    logger.info(f"🔍 Input tensor devices: pose={pose_img_tensor.device}, garm={garm_tensor.device}, prompt={prompt_embeds.device}")
+    logger.info(f"🔍 Pipeline device: unet={pipe.unet.device}, vae={pipe.vae.device}")
     start = time.time()
 
     # test.py 스타일: autocast 없이 순수하게 실행
@@ -570,12 +573,13 @@ def generate_tryon_internal(
             width=768,
             ip_adapter_image=garm_img,
             guidance_scale=2.0,
-        )[0]
+        )[0]  # pipe() returns a list, [0] gets the first batch
 
     elapsed = time.time() - start
-    logger.info(f"⚡ Diffusion completed in {elapsed:.2f}s")
+    logger.info(f"⚡ Diffusion completed in {elapsed:.2f}s ({elapsed/int(denoise_steps):.3f}s per step)")
 
-    return images[0], elapsed
+    # images is already the first batch result (a PIL Image)
+    return images, elapsed
 
 
 # ============================================================================
