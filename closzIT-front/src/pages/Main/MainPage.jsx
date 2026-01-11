@@ -879,6 +879,59 @@ const MainPage = () => {
 
             {/* Modal Footer - 수정/삭제 버튼 */}
             <div className="p-4 border-t border-gold-light/20 space-y-2">
+              {/* 하나만 입어보기 버튼 */}
+              <button
+                onClick={(e) => {
+                  // 선택한 옷만으로 피팅 요청
+                  const categoryMap = {
+                    'Outer': 'outerwear',
+                    'Top': 'tops',
+                    'Bottom': 'bottoms',
+                    'Shoes': 'shoes'
+                  };
+
+                  const clothingIds = {
+                    outerId: selectedClothDetail.category === 'Outer' ? selectedClothDetail.id : undefined,
+                    topId: selectedClothDetail.category === 'Top' ? selectedClothDetail.id : undefined,
+                    bottomId: selectedClothDetail.category === 'Bottom' ? selectedClothDetail.id : undefined,
+                    shoesId: selectedClothDetail.category === 'Shoes' ? selectedClothDetail.id : undefined,
+                  };
+
+                  // 버튼 위치 저장 (플라이 애니메이션용)
+                  let buttonPosition = null;
+                  if (e?.currentTarget) {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    buttonPosition = {
+                      x: rect.left + rect.width / 2,
+                      y: rect.top + rect.height / 2,
+                    };
+                  }
+
+                  // 모달 닫기
+                  setSelectedClothDetail(null);
+
+                  // VtoContext의 requestPartialVtoByIds 호출
+                  requestPartialVtoByIds(clothingIds, buttonPosition, 'main');
+                }}
+                disabled={isPartialVtoLoading}
+                className={`w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all ${isPartialVtoLoading
+                  ? 'bg-gold-light/50 text-charcoal cursor-wait'
+                  : 'btn-premium hover:shadow-xl'
+                  }`}
+              >
+                {isPartialVtoLoading ? (
+                  <>
+                    <span className="material-symbols-rounded text-lg animate-spin">progress_activity</span>
+                    생성 중...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-rounded text-lg">checkroom</span>
+                    하나만 입어보기
+                  </>
+                )}
+              </button>
+
               <div className="flex gap-2">
                 <button
                   onClick={() => {
