@@ -3,25 +3,20 @@ import React, { useState, useRef, useEffect } from 'react';
 const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
   const fileInputRef = useRef(null);
   const [fullBodyImage, setFullBodyImage] = useState(null);
-  const [originalFile, setOriginalFile] = useState(null);  // ✅ 추가!
   const [imagePreview, setImagePreview] = useState(null);
+  const [originalFile, setOriginalFile] = useState(null); // 원본 파일 객체 저장
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // 모달이 열릴 때마다 state 초기화
+  // 초기 이미지 로드
   useEffect(() => {
-    if (isOpen) {
-      setFullBodyImage(null);
-      setOriginalFile(null);
-      setImagePreview(initialImage || null);
-      setError('');
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+    if (isOpen && initialImage) {
+      setFullBodyImage(initialImage);
+      setImagePreview(initialImage);
     }
   }, [isOpen, initialImage]);
-
-  // 이미지 압축 함수 - 세로(height) 기준으로 리사이즈
+  
+  // 이미지 압축
   const compressImage = (file, maxHeight = 1200, quality = 0.8) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -31,70 +26,75 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-
-          // 세로 기준으로 리사이즈 (전신 사진은 세로가 더 길기 때문)
+          
           if (height > maxHeight) {
             width = (width * maxHeight) / height;
             height = maxHeight;
           }
-
+          
           canvas.width = width;
           canvas.height = height;
-
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
-
-          const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
-          resolve(compressedBase64);
+          resolve(canvas.toDataURL('image/jpeg', quality));
         };
         img.src = event.target.result;
       };
       reader.readAsDataURL(file);
     });
   };
-
-  // 파일 선택 수정
+  
+  // 파일 선택
   const handleFileSelect = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
-
+    
     if (!file.type.startsWith('image/')) {
       setError('이미지 파일만 업로드 가능합니다');
       return;
     }
-
+    
     try {
       const compressedImage = await compressImage(file, 1200, 0.8);
       setFullBodyImage(compressedImage);
       setImagePreview(compressedImage);
-      setOriginalFile(file);  // ✅ 원본 파일 저장! 
+      setOriginalFile(file); // 원본 파일 저장
       setError('');
     } catch (err) {
       setError('이미지 처리 중 오류가 발생했습니다');
     }
   };
-
-  // 저장 로직 수정
+  
+  // 이미지 삭제
+  const handleRemoveImage = () => {
+    setFullBodyImage(null);
+    setImagePreview(null);
+    setOriginalFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+  
+  // 저장
   const handleSave = async () => {
     setIsSubmitting(true);
     setError('');
-
+    
     try {
       const token = localStorage.getItem('accessToken');
       const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
-      // ✅ UserProfileSetup3와 동일하게 수정
+      // 새 파일이 있으면 FormData로 직접 업로드
       if (originalFile) {
         const formData = new FormData();
         formData.append('image', originalFile);
 
-        const response = await fetch(`${backendUrl}/user/fullbody-image`, {  // ✅ 올바른 엔드포인트
+        const response = await fetch(`${backendUrl}/user/fullbody-image`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`
-            // Content-Type은 자동으로 multipart/form-data로 설정됨
           },
-          body: formData  // ✅ FormData로 전송
+          body: formData
         });
 
         if (!response.ok) {
@@ -105,10 +105,7 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
         console.log('[FullBodyImageModal] Upload success:', result);
       }
 
-      // onSave를 await하여 데이터 리프레시가 완료될 때까지 대기
-      if (onSave) {
-        await onSave();
-      }
+    onSave && onSave();
       onClose();
     } catch (err) {
       setError(err.message || '오류가 발생했습니다');
@@ -116,19 +113,7 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
       setIsSubmitting(false);
     }
   };
-
-  // 이미지 삭제도 수정
-  const handleRemoveImage = () => {
-    setFullBodyImage(null);
-    setImagePreview(null);
-    setOriginalFile(null);  // ✅ 추가
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
   if (!isOpen) return null;
-
   return (
     <>
       {/* Backdrop */}
@@ -154,14 +139,12 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
             <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream">close</span>
           </button>
         </div>
-
         {/* Error */}
         {error && (
           <div className="mx-6 mt-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-sm">
             {error}
           </div>
         )}
-
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-6">
           {/* Hidden File Input */}
@@ -172,7 +155,6 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
             onChange={handleFileSelect}
             className="hidden"
           />
-
           {imagePreview ? (
             <div className="flex flex-col items-center">
               <div className="w-48 h-64 rounded-2xl overflow-hidden border-2 border-gold-light/30 bg-charcoal/5 dark:bg-charcoal/30 mb-4">
@@ -213,7 +195,6 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
               </div>
             </button>
           )}
-
           {/* Tips */}
           <div className="mt-6 p-4 bg-warm-white dark:bg-charcoal/30 rounded-xl">
             <p className="text-sm font-medium text-charcoal dark:text-cream mb-2">💡 좋은 전신 사진 팁</p>
@@ -224,7 +205,6 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
             </ul>
           </div>
         </div>
-
         {/* Save Button */}
         <div className="p-6 border-t border-gold-light/20">
           <button
@@ -249,5 +229,4 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
     </>
   );
 };
-
 export default FullBodyImageModal;
