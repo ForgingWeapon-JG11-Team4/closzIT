@@ -89,14 +89,7 @@ const MyPage = () => {
         setUser(userData);
         setImageCacheBuster(Date.now()); // 이미지 캐시 갱신
 
-        // 이전 blob URL 정리
-        if (imageBlobUrl) {
-          console.log('[MyPage] Revoking old blob URL:', imageBlobUrl);
-          URL.revokeObjectURL(imageBlobUrl);
-          setImageBlobUrl(null);
-        }
-
-        // Presigned URL에서 이미지 fetch하여 새 blob URL 생성
+        // Presigned URL에서 이미지 fetch하여 blob URL 생성
         if (userData.fullBodyImage) {
           try {
             const imgResponse = await fetch(userData.fullBodyImage);
@@ -104,7 +97,7 @@ const MyPage = () => {
               const blob = await imgResponse.blob();
               const blobUrl = URL.createObjectURL(blob);
               setImageBlobUrl(blobUrl);
-              console.log('[MyPage] New image blob URL created:', blobUrl);
+              console.log('[MyPage] Image blob URL created:', blobUrl);
             } else {
               console.error('[MyPage] Failed to fetch image:', imgResponse.status, imgResponse.statusText);
             }
