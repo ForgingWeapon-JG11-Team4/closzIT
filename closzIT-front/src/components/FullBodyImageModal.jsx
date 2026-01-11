@@ -2,15 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 
 const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
   const fileInputRef = useRef(null);
-  const [fullBodyImage, setFullBodyImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [originalFile, setOriginalFile] = useState(null); // 원본 파일 객체 저장
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   // 초기 이미지 로드
   useEffect(() => {
     if (isOpen && initialImage) {
-      setFullBodyImage(initialImage);
       setImagePreview(initialImage);
     }
   }, [isOpen, initialImage]);
@@ -55,8 +54,8 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
 
     try {
       const compressedImage = await compressImage(file, 1200, 0.8);
-      setFullBodyImage(compressedImage);
       setImagePreview(compressedImage);
+      setOriginalFile(file); // 원본 파일 저장
       setError('');
     } catch (err) {
       setError('이미지 처리 중 오류가 발생했습니다');
@@ -65,8 +64,8 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
 
   // 이미지 삭제
   const handleRemoveImage = () => {
-    setFullBodyImage(null);
     setImagePreview(null);
+    setOriginalFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -81,17 +80,22 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
       const token = localStorage.getItem('accessToken');
       const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
-      const response = await fetch(`${backendUrl}/user/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ fullBodyImage })
-      });
+      // 새 파일이 있으면 FormData로 직접 업로드
+      if (originalFile) {
+        const formData = new FormData();
+        formData.append('image', originalFile);
 
-      if (!response.ok) {
-        throw new Error('전신 사진 저장에 실패했습니다');
+        const response = await fetch(`${backendUrl}/user/fullbody-image`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        if (!response.ok) {
+          throw new Error('전신 사진 저장에 실패했습니다');
+        }
       }
 
       onSave && onSave();
