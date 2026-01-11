@@ -106,9 +106,10 @@ GPU_OPTIMIZATIONS_ENABLED = False
 
 # 🚀 메모리 캐시 (S3 다운로드 제거 - test.py처럼 빠르게!)
 memory_cache = {
-    "human": {},  # user_id -> {human_img, mask, mask_gray, pose_tensor}
-    "garment": {},  # clothing_id -> {garm_img, garm_tensor}
-    "text": {},  # clothing_id -> {prompt_embeds, ...}
+    "human_upper": {},      # user_id -> {human_img, mask, mask_gray, pose_tensor} for upper_body
+    "human_lower": {},      # user_id -> {human_img, mask, mask_gray, pose_tensor} for lower_body
+    "garment": {},          # clothing_id -> {garm_img, garm_tensor, category}
+    "text": {},             # clothing_id -> {prompt_embeds, ..., category}
 }
 
 # CORS 설정
@@ -135,6 +136,7 @@ class VtonGenerateRequestV2(BaseModel):
 
     user_id: str  # UUID
     clothing_id: str  # UUID
+    category: str = "upper_body"  # "upper_body" or "lower_body"
     denoise_steps: int = 10
     seed: int = 42
 
@@ -157,16 +159,17 @@ class HumanPreprocessResponse(BaseModel):
     user_id: str
     processing_time: float
     message: str
-    human_img: str  # base64
-    mask: str  # base64
-    mask_gray: str  # base64
-    pose_img_tensor: str  # base64 (pickled tensor)
+    # Upper body data
+    upper_body: dict  # {human_img, mask, mask_gray, pose_img_tensor}
+    # Lower body data
+    lower_body: dict  # {human_img, mask, mask_gray, pose_img_tensor}
 
 
 class GarmentPreprocessRequest(BaseModel):
     user_id: str  # UUID
     clothing_id: str  # UUID
     image_base64: str
+    category: str = "upper_body"  # "upper_body" or "lower_body"
 
 
 class GarmentPreprocessResponse(BaseModel):
@@ -182,6 +185,7 @@ class TextPreprocessRequest(BaseModel):
     user_id: str  # UUID
     clothing_id: str  # UUID
     garment_description: str
+    category: str = "upper_body"  # "upper_body" or "lower_body"
 
 
 class TextPreprocessResponse(BaseModel):
@@ -300,9 +304,13 @@ def download_s3_as_tensor(key: str, device_name: str = "cuda") -> torch.Tensor:
 # ============================================================================
 
 
-def preprocess_human_internal(human_img: Image.Image) -> dict:
+def preprocess_human_internal(human_img: Image.Image, category: str = "upper_body") -> dict:
     """
     사람 이미지 전처리: OpenPose + Parsing + DensePose
+
+    Args:
+        human_img: 사람 전신 이미지
+        category: "upper_body" 또는 "lower_body"
 
     Returns:
         {
@@ -312,7 +320,7 @@ def preprocess_human_internal(human_img: Image.Image) -> dict:
             'pose_img_tensor': base64 (pickled tensor)
         }
     """
-    logger.info("⏳ Preprocessing human image...")
+    logger.info(f"⏳ Preprocessing human image for {category}...")
     start = time.time()
 
     if isinstance(human_img, np.ndarray):
@@ -377,7 +385,7 @@ def preprocess_human_internal(human_img: Image.Image) -> dict:
 
     # Parsing
     model_parse, _ = parsing_model(human_img.resize((384, 512)))
-    mask, mask_gray = get_mask_location("hd", "upper_body", model_parse, keypoints)
+    mask, mask_gray = get_mask_location("hd", category, model_parse, keypoints)
     mask = mask.resize((768, 1024))
 
     # DensePose
@@ -387,7 +395,7 @@ def preprocess_human_internal(human_img: Image.Image) -> dict:
     pose_img_tensor = tensor_transfrom(pose_img).unsqueeze(0).to(device, torch.float16)
 
     elapsed = time.time() - start
-    logger.info(f"✅ Human preprocessing completed in {elapsed:.2f}s")
+    logger.info(f"✅ Human preprocessing for {category} completed in {elapsed:.2f}s")
 
     return {
         "human_img": pil_to_base64(human_img),
@@ -619,8 +627,9 @@ def health_check():
     return {
         "status": "healthy",
         "models_loaded": True,
-        "caching": "Memory + S3",
-        "cached_humans": len(memory_cache["human"]),
+        "caching": "Memory + S3 (Upper/Lower separated)",
+        "cached_humans_upper": len(memory_cache["human_upper"]),
+        "cached_humans_lower": len(memory_cache["human_lower"]),
         "cached_garments": len(memory_cache["garment"]),
         "cached_texts": len(memory_cache["text"]),
     }
@@ -629,32 +638,55 @@ def health_check():
 @app.post("/vton/preprocess-human", response_model=HumanPreprocessResponse)
 async def preprocess_human(request: HumanPreprocessRequest):
     """
-    사람 이미지 전처리: OpenPose + Parsing + DensePose
+    사람 이미지 전처리: OpenPose + Parsing + DensePose (Upper & Lower 모두 생성)
 
     NestJS가 결과를 받아서 S3에 저장:
-    - users/{user_id}/vton-cache/human_img.png
-    - users/{user_id}/vton-cache/mask.png
-    - users/{user_id}/vton-cache/mask_gray.png
-    - users/{user_id}/vton-cache/pose_tensor.pkl
+    Upper body:
+    - users/{user_id}/vton-cache/upper/human_img.png
+    - users/{user_id}/vton-cache/upper/mask.png
+    - users/{user_id}/vton-cache/upper/mask_gray.png
+    - users/{user_id}/vton-cache/upper/pose_tensor.pkl
+
+    Lower body:
+    - users/{user_id}/vton-cache/lower/human_img.png
+    - users/{user_id}/vton-cache/lower/mask.png
+    - users/{user_id}/vton-cache/lower/mask_gray.png
+    - users/{user_id}/vton-cache/lower/pose_tensor.pkl
     """
     try:
-        logger.info(f"[preprocess-human] user_id={request.user_id}")
+        logger.info(f"[preprocess-human] user_id={request.user_id} - Processing both upper and lower body")
+        start_time = time.time()
 
         # Base64 → PIL
         human_img = base64_to_pil(request.image_base64)
 
-        # 전처리
-        result = preprocess_human_internal(human_img)
+        # Upper body 전처리
+        logger.info("[preprocess-human] Processing upper body...")
+        upper_result = preprocess_human_internal(human_img, category="upper_body")
+
+        # Lower body 전처리
+        logger.info("[preprocess-human] Processing lower body...")
+        lower_result = preprocess_human_internal(human_img, category="lower_body")
+
+        total_elapsed = time.time() - start_time
 
         # NestJS가 S3에 업로드할 데이터 반환
         return HumanPreprocessResponse(
             user_id=request.user_id,
-            processing_time=result["elapsed"],
-            message="Preprocessing completed",
-            human_img=result["human_img"],
-            mask=result["mask"],
-            mask_gray=result["mask_gray"],
-            pose_img_tensor=result["pose_img_tensor"],
+            processing_time=total_elapsed,
+            message="Preprocessing completed for both upper and lower body",
+            upper_body={
+                "human_img": upper_result["human_img"],
+                "mask": upper_result["mask"],
+                "mask_gray": upper_result["mask_gray"],
+                "pose_img_tensor": upper_result["pose_img_tensor"],
+            },
+            lower_body={
+                "human_img": lower_result["human_img"],
+                "mask": lower_result["mask"],
+                "mask_gray": lower_result["mask_gray"],
+                "pose_img_tensor": lower_result["pose_img_tensor"],
+            },
         )
     except Exception as e:
         logger.error(f"[preprocess-human] Error: {e}", exc_info=True)
@@ -753,18 +785,21 @@ async def generate_tryon(request: VtonGenerateRequestV2):
 
             user_id = request.user_id
             clothing_id = request.clothing_id
+            category = request.category  # "upper_body" or "lower_body"
 
             # 🚀 메모리 캐시 확인
             cache_data = {}
             download_start = time.time()
 
-            # Human 캐시 확인
-            if user_id in memory_cache["human"]:
-                logger.info(f"✅ Human cache HIT for user {user_id}")
-                cache_data.update(memory_cache["human"][user_id])
+            # Human 캐시 확인 (category에 따라 upper 또는 lower)
+            cache_key = "human_upper" if category == "upper_body" else "human_lower"
+            if user_id in memory_cache[cache_key]:
+                logger.info(f"✅ Human {category} cache HIT for user {user_id}")
+                cache_data.update(memory_cache[cache_key][user_id])
                 human_cached = True
             else:
                 human_cached = False
+                logger.info(f"❌ Human {category} cache MISS for user {user_id}")
 
             # Garment 캐시 확인
             if clothing_id in memory_cache["garment"]:
@@ -790,25 +825,26 @@ async def generate_tryon(request: VtonGenerateRequestV2):
                 with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
                     futures = {}
 
-                    # Human 데이터 다운로드 (캐시 미스 시)
+                    # Human 데이터 다운로드 (캐시 미스 시) - category에 따라 upper/lower 선택
                     if not human_cached:
+                        category_path = "upper" if category == "upper_body" else "lower"
                         futures.update(
                             {
                                 "human_img": executor.submit(
                                     download_s3_as_pil,
-                                    f"users/{user_id}/vton-cache/human_img.png",
+                                    f"users/{user_id}/vton-cache/{category_path}/human_img.png",
                                 ),
                                 "mask": executor.submit(
                                     download_s3_as_pil,
-                                    f"users/{user_id}/vton-cache/mask.png",
+                                    f"users/{user_id}/vton-cache/{category_path}/mask.png",
                                 ),
                                 "mask_gray": executor.submit(
                                     download_s3_as_pil,
-                                    f"users/{user_id}/vton-cache/mask_gray.png",
+                                    f"users/{user_id}/vton-cache/{category_path}/mask_gray.png",
                                 ),
                                 "pose_tensor": executor.submit(
                                     download_s3_as_tensor,
-                                    f"users/{user_id}/vton-cache/pose_tensor.pkl",
+                                    f"users/{user_id}/vton-cache/{category_path}/pose_tensor.pkl",
                                     device,
                                 ),
                             }
@@ -868,15 +904,15 @@ async def generate_tryon(request: VtonGenerateRequestV2):
                     }
                     cache_data.update(downloaded_data)
 
-                    # 메모리 캐시에 저장
+                    # 메모리 캐시에 저장 (category별로 분리)
                     if not human_cached:
-                        memory_cache["human"][user_id] = {
+                        memory_cache[cache_key][user_id] = {
                             "human_img": downloaded_data["human_img"],
                             "mask": downloaded_data["mask"],
                             "mask_gray": downloaded_data["mask_gray"],
                             "pose_tensor": downloaded_data["pose_tensor"],
                         }
-                        logger.info(f"💾 Human cache saved for user {user_id}")
+                        logger.info(f"💾 Human {category} cache saved for user {user_id}")
 
                     if not garment_cached:
                         memory_cache["garment"][clothing_id] = {
