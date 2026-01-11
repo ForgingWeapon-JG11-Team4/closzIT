@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Request, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, HttpException, HttpStatus, Get } from '@nestjs/common';
 import { VtonCacheService } from './vton-cache.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
@@ -181,7 +181,7 @@ export class VtonCacheController {
       const resultImageBase64 = await this.vtonCacheService.generateTryOnV2(
         userId,
         clothingId,
-        denoiseSteps || 20,
+        denoiseSteps || 10,
         seed || 42
       );
 
@@ -232,6 +232,44 @@ export class VtonCacheController {
         },
         HttpStatus.INTERNAL_SERVER_ERROR
       );
+    }
+  }
+
+  /**
+   * 사용자 로그인 시 모든 데이터를 메모리에 미리 로드 (Warm-up)
+   * POST /vton-cache/warmup
+   */
+  @Post('warmup')
+  async warmupUserCache(@Request() req) {
+    const userId = req.user.id;
+
+    try {
+      // 사용자의 모든 옷 ID 조회
+      const clothingItems = await this.prismaService.clothing.findMany({
+        where: { userId },
+        select: { id: true },
+      });
+
+      const clothingIds = clothingItems.map(item => item.id);
+
+      console.log(`[warmupUserCache] Starting for user ${userId} with ${clothingIds.length} clothing items`);
+
+      // FastAPI warmup 호출 (백그라운드로 실행)
+      const result = await this.vtonCacheService.warmupUserCache(userId, clothingIds);
+
+      return {
+        success: true,
+        message: 'Cache warmup completed',
+        ...result,
+      };
+    } catch (error) {
+      console.error('[warmupUserCache] Failed:', error);
+      // Warmup 실패해도 사용자는 계속 사용 가능
+      return {
+        success: false,
+        message: 'Cache warmup failed but service is still available',
+        error: error.message,
+      };
     }
   }
 }

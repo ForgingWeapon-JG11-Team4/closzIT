@@ -15,8 +15,9 @@ import os
 # Windows에서 UTF-8 출력 지원
 if sys.platform == "win32":
     import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
 # IDM-VTON gradio_demo 모듈 경로 추가
 IDMVTON_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -38,6 +39,7 @@ exec(init_code, globals())
 
 # ⭐ CRITICAL: Device를 CUDA로 강제 설정
 import torch
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"=" * 80)
 print(f"🎯 Device explicitly set to: {device}")
@@ -60,6 +62,7 @@ import asyncio
 # .env 파일 로드
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
     print("✅ .env file loaded successfully")
 except ImportError:
@@ -101,6 +104,13 @@ request_queue_size = 0
 # GPU 최적화 플래그
 GPU_OPTIMIZATIONS_ENABLED = False
 
+# 🚀 메모리 캐시 (S3 다운로드 제거 - test.py처럼 빠르게!)
+memory_cache = {
+    "human": {},  # user_id -> {human_img, mask, mask_gray, pose_tensor}
+    "garment": {},  # clothing_id -> {garm_img, garm_tensor}
+    "text": {},  # clothing_id -> {prompt_embeds, ...}
+}
+
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
@@ -125,7 +135,7 @@ class VtonGenerateRequestV2(BaseModel):
 
     user_id: str  # UUID
     clothing_id: str  # UUID
-    denoise_steps: int = 15
+    denoise_steps: int = 10
     seed: int = 42
 
 
@@ -134,7 +144,7 @@ class VtonBatchGenerateRequest(BaseModel):
 
     user_id: str
     clothing_ids: list[str]  # 여러 옷 ID
-    denoise_steps: int = 15
+    denoise_steps: int = 10
     seed: int = 42
 
 
@@ -190,7 +200,7 @@ class VtonGenerateRequest(BaseModel):
     user_id: str  # UUID
     clothing_id: str  # UUID
     garment_description: str  # 캐시된 텍스트 임베딩 키
-    denoise_steps: int = 15
+    denoise_steps: int = 10
     seed: int = 42
     # NestJS가 S3에서 로드한 캐시 데이터
     human_img: str  # base64
@@ -281,7 +291,8 @@ def download_s3_as_tensor(key: str, device_name: str = "cuda") -> torch.Tensor:
 
     data = download_from_s3(key)
     tensor = pickle.loads(data)
-    return tensor.to(device_name, torch.float16)
+    # ⚡ contiguous memory layout으로 변환 (diffusion 속도 개선)
+    return tensor.to(device_name, torch.float16).contiguous()
 
 
 # ============================================================================
@@ -325,7 +336,9 @@ def preprocess_human_internal(human_img: Image.Image) -> dict:
         new_width = int(target_height * aspect_ratio)
 
     # 리사이즈 후 중앙 크롭 또는 패딩
-    human_img = human_img.convert("RGB").resize((new_width, new_height), Image.Resampling.LANCZOS)
+    human_img = human_img.convert("RGB").resize(
+        (new_width, new_height), Image.Resampling.LANCZOS
+    )
 
     # 768x1024로 중앙 크롭 또는 패딩
     if new_width < target_width or new_height < target_height:
@@ -339,7 +352,9 @@ def preprocess_human_internal(human_img: Image.Image) -> dict:
         # 크롭 필요
         left = (new_width - target_width) // 2
         top = (new_height - target_height) // 2
-        human_img = human_img.crop((left, top, left + target_width, top + target_height))
+        human_img = human_img.crop(
+            (left, top, left + target_width, top + target_height)
+        )
 
     human_img_arg = _apply_exif_orientation(human_img.resize((384, 512)))
     human_img_arg = convert_PIL_to_numpy(human_img_arg, format="BGR")
@@ -470,8 +485,9 @@ def preprocess_text_internal(garment_des: str) -> dict:
     print(f"📝 Text prompt: '{garment_des}'")
 
     with torch.no_grad():
-        pipe.to(device)
-        original_dtype = pipe.text_encoder.dtype
+        # text_encoder만 float32로 변환 (test.py와 동일)
+        original_dtype_1 = pipe.text_encoder.dtype
+        original_dtype_2 = pipe.text_encoder_2.dtype
         pipe.text_encoder.to(torch.float32)
         pipe.text_encoder_2.to(torch.float32)
 
@@ -494,9 +510,9 @@ def preprocess_text_internal(garment_des: str) -> dict:
             negative_prompt=negative_prompt,
         )
 
-        pipe.text_encoder.to(original_dtype)
-        pipe.text_encoder_2.to(original_dtype)
-        pipe.to(device)
+        # 원래 dtype으로 복원 (test.py와 동일)
+        pipe.text_encoder.to(original_dtype_1)
+        pipe.text_encoder_2.to(original_dtype_2)
 
     elapsed = time.time() - start
     logger.info(f"✅ Text encoding completed in {elapsed:.2f}s")
@@ -538,15 +554,16 @@ def generate_tryon_internal(
     Returns:
         (result_image: PIL.Image, elapsed: float)
     """
-    logger.info("⚡ Generating try-on with diffusion...")
+    logger.info(f"⚡ Generating try-on with diffusion (steps={denoise_steps})...")
+    logger.info(
+        f"🔍 Input tensor devices: pose={pose_img_tensor.device}, garm={garm_tensor.device}, prompt={prompt_embeds.device}"
+    )
+    logger.info(f"🔍 Pipeline device: unet={pipe.unet.device}, vae={pipe.vae.device}")
     start = time.time()
 
-    # Device 명시적 설정 (CUDA 사용)
-    device_str = "cuda" if torch.cuda.is_available() else "cpu"
-
-    # Gradio 스타일: autocast 사용
-    with torch.no_grad(), torch.cuda.amp.autocast():
-        generator = torch.Generator(device=device_str).manual_seed(int(seed))
+    # test.py 스타일: autocast 없이 순수하게 실행
+    with torch.no_grad():
+        generator = torch.Generator(device).manual_seed(int(seed))
 
         images = pipe(
             prompt_embeds=prompt_embeds,
@@ -565,11 +582,16 @@ def generate_tryon_internal(
             width=768,
             ip_adapter_image=garm_img,
             guidance_scale=2.0,
-        )[0]
+        )[
+            0
+        ]  # pipe() returns [[PIL.Image]], [0] gets first batch
 
     elapsed = time.time() - start
-    logger.info(f"⚡ Diffusion completed in {elapsed:.2f}s")
+    logger.info(
+        f"⚡ Diffusion completed in {elapsed:.2f}s ({elapsed/int(denoise_steps):.3f}s per step)"
+    )
 
+    # images is a list of PIL Images, get the first one
     return images[0], elapsed
 
 
@@ -594,7 +616,14 @@ def root():
 @app.get("/health")
 def health_check():
     """서버 상태 확인"""
-    return {"status": "healthy", "models_loaded": True, "caching": "S3-based"}
+    return {
+        "status": "healthy",
+        "models_loaded": True,
+        "caching": "Memory + S3",
+        "cached_humans": len(memory_cache["human"]),
+        "cached_garments": len(memory_cache["garment"]),
+        "cached_texts": len(memory_cache["text"]),
+    }
 
 
 @app.post("/vton/preprocess-human", response_model=HumanPreprocessResponse)
@@ -722,70 +751,157 @@ async def generate_tryon(request: VtonGenerateRequestV2):
             )
             start_time = time.time()
 
-            # S3에서 캐시 데이터 병렬 다운로드
-            logger.info("⚡ Downloading cache from S3...")
+            user_id = request.user_id
+            clothing_id = request.clothing_id
+
+            # 🚀 메모리 캐시 확인
+            cache_data = {}
             download_start = time.time()
 
-            import concurrent.futures
+            # Human 캐시 확인
+            if user_id in memory_cache["human"]:
+                logger.info(f"✅ Human cache HIT for user {user_id}")
+                cache_data.update(memory_cache["human"][user_id])
+                human_cached = True
+            else:
+                human_cached = False
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
-                # S3 Key 생성
-                user_id = request.user_id
-                clothing_id = request.clothing_id
+            # Garment 캐시 확인
+            if clothing_id in memory_cache["garment"]:
+                logger.info(f"✅ Garment cache HIT for clothing {clothing_id}")
+                cache_data.update(memory_cache["garment"][clothing_id])
+                garment_cached = True
+            else:
+                garment_cached = False
 
-                futures = {
-                    "human_img": executor.submit(
-                        download_s3_as_pil, f"users/{user_id}/vton-cache/human_img.png"
-                    ),
-                    "mask": executor.submit(
-                        download_s3_as_pil, f"users/{user_id}/vton-cache/mask.png"
-                    ),
-                    "mask_gray": executor.submit(
-                        download_s3_as_pil, f"users/{user_id}/vton-cache/mask_gray.png"
-                    ),
-                    "pose_tensor": executor.submit(
-                        download_s3_as_tensor,
-                        f"users/{user_id}/vton-cache/pose_tensor.pkl",
-                        device,
-                    ),
-                    "garm_img": executor.submit(
-                        download_s3_as_pil,
-                        f"users/{user_id}/vton-cache/garments/{clothing_id}_img.png",
-                    ),
-                    "garm_tensor": executor.submit(
-                        download_s3_as_tensor,
-                        f"users/{user_id}/vton-cache/garments/{clothing_id}_tensor.pkl",
-                        device,
-                    ),
-                    "prompt_embeds": executor.submit(
-                        download_s3_as_tensor,
-                        f"users/{user_id}/vton-cache/text/{clothing_id}_prompt_embeds.pkl",
-                        device,
-                    ),
-                    "negative_prompt_embeds": executor.submit(
-                        download_s3_as_tensor,
-                        f"users/{user_id}/vton-cache/text/{clothing_id}_negative_prompt_embeds.pkl",
-                        device,
-                    ),
-                    "pooled_prompt_embeds": executor.submit(
-                        download_s3_as_tensor,
-                        f"users/{user_id}/vton-cache/text/{clothing_id}_pooled_prompt_embeds.pkl",
-                        device,
-                    ),
-                    "negative_pooled_prompt_embeds": executor.submit(
-                        download_s3_as_tensor,
-                        f"users/{user_id}/vton-cache/text/{clothing_id}_negative_pooled_prompt_embeds.pkl",
-                        device,
-                    ),
-                    "prompt_embeds_c": executor.submit(
-                        download_s3_as_tensor,
-                        f"users/{user_id}/vton-cache/text/{clothing_id}_prompt_embeds_c.pkl",
-                        device,
-                    ),
-                }
+            # Text 캐시 확인
+            if clothing_id in memory_cache["text"]:
+                logger.info(f"✅ Text cache HIT for clothing {clothing_id}")
+                cache_data.update(memory_cache["text"][clothing_id])
+                text_cached = True
+            else:
+                text_cached = False
 
-                # 결과 수집
-                cache_data = {key: future.result() for key, future in futures.items()}
+            # S3에서 누락된 데이터만 다운로드
+            if not (human_cached and garment_cached and text_cached):
+                logger.info("⚡ Downloading missing cache from S3...")
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
+                    futures = {}
+
+                    # Human 데이터 다운로드 (캐시 미스 시)
+                    if not human_cached:
+                        futures.update(
+                            {
+                                "human_img": executor.submit(
+                                    download_s3_as_pil,
+                                    f"users/{user_id}/vton-cache/human_img.png",
+                                ),
+                                "mask": executor.submit(
+                                    download_s3_as_pil,
+                                    f"users/{user_id}/vton-cache/mask.png",
+                                ),
+                                "mask_gray": executor.submit(
+                                    download_s3_as_pil,
+                                    f"users/{user_id}/vton-cache/mask_gray.png",
+                                ),
+                                "pose_tensor": executor.submit(
+                                    download_s3_as_tensor,
+                                    f"users/{user_id}/vton-cache/pose_tensor.pkl",
+                                    device,
+                                ),
+                            }
+                        )
+
+                    # Garment 데이터 다운로드 (캐시 미스 시)
+                    if not garment_cached:
+                        futures.update(
+                            {
+                                "garm_img": executor.submit(
+                                    download_s3_as_pil,
+                                    f"users/{user_id}/vton-cache/garments/{clothing_id}_img.png",
+                                ),
+                                "garm_tensor": executor.submit(
+                                    download_s3_as_tensor,
+                                    f"users/{user_id}/vton-cache/garments/{clothing_id}_tensor.pkl",
+                                    device,
+                                ),
+                            }
+                        )
+
+                    # Text 데이터 다운로드 (캐시 미스 시)
+                    if not text_cached:
+                        futures.update(
+                            {
+                                "prompt_embeds": executor.submit(
+                                    download_s3_as_tensor,
+                                    f"users/{user_id}/vton-cache/text/{clothing_id}_prompt_embeds.pkl",
+                                    device,
+                                ),
+                                "negative_prompt_embeds": executor.submit(
+                                    download_s3_as_tensor,
+                                    f"users/{user_id}/vton-cache/text/{clothing_id}_negative_prompt_embeds.pkl",
+                                    device,
+                                ),
+                                "pooled_prompt_embeds": executor.submit(
+                                    download_s3_as_tensor,
+                                    f"users/{user_id}/vton-cache/text/{clothing_id}_pooled_prompt_embeds.pkl",
+                                    device,
+                                ),
+                                "negative_pooled_prompt_embeds": executor.submit(
+                                    download_s3_as_tensor,
+                                    f"users/{user_id}/vton-cache/text/{clothing_id}_negative_pooled_prompt_embeds.pkl",
+                                    device,
+                                ),
+                                "prompt_embeds_c": executor.submit(
+                                    download_s3_as_tensor,
+                                    f"users/{user_id}/vton-cache/text/{clothing_id}_prompt_embeds_c.pkl",
+                                    device,
+                                ),
+                            }
+                        )
+
+                    # 결과 수집 및 캐시 저장
+                    downloaded_data = {
+                        key: future.result() for key, future in futures.items()
+                    }
+                    cache_data.update(downloaded_data)
+
+                    # 메모리 캐시에 저장
+                    if not human_cached:
+                        memory_cache["human"][user_id] = {
+                            "human_img": downloaded_data["human_img"],
+                            "mask": downloaded_data["mask"],
+                            "mask_gray": downloaded_data["mask_gray"],
+                            "pose_tensor": downloaded_data["pose_tensor"],
+                        }
+                        logger.info(f"💾 Human cache saved for user {user_id}")
+
+                    if not garment_cached:
+                        memory_cache["garment"][clothing_id] = {
+                            "garm_img": downloaded_data["garm_img"],
+                            "garm_tensor": downloaded_data["garm_tensor"],
+                        }
+                        logger.info(
+                            f"💾 Garment cache saved for clothing {clothing_id}"
+                        )
+
+                    if not text_cached:
+                        memory_cache["text"][clothing_id] = {
+                            "prompt_embeds": downloaded_data["prompt_embeds"],
+                            "negative_prompt_embeds": downloaded_data[
+                                "negative_prompt_embeds"
+                            ],
+                            "pooled_prompt_embeds": downloaded_data[
+                                "pooled_prompt_embeds"
+                            ],
+                            "negative_pooled_prompt_embeds": downloaded_data[
+                                "negative_pooled_prompt_embeds"
+                            ],
+                            "prompt_embeds_c": downloaded_data["prompt_embeds_c"],
+                        }
+                        logger.info(f"💾 Text cache saved for clothing {clothing_id}")
 
             download_elapsed = time.time() - download_start
             logger.info(f"✅ S3 download completed in {download_elapsed:.2f}s")
@@ -801,7 +917,9 @@ async def generate_tryon(request: VtonGenerateRequestV2):
                 prompt_embeds=cache_data["prompt_embeds"],
                 negative_prompt_embeds=cache_data["negative_prompt_embeds"],
                 pooled_prompt_embeds=cache_data["pooled_prompt_embeds"],
-                negative_pooled_prompt_embeds=cache_data["negative_pooled_prompt_embeds"],
+                negative_pooled_prompt_embeds=cache_data[
+                    "negative_pooled_prompt_embeds"
+                ],
                 prompt_embeds_c=cache_data["prompt_embeds_c"],
                 denoise_steps=request.denoise_steps,
                 seed=request.seed,
@@ -813,7 +931,8 @@ async def generate_tryon(request: VtonGenerateRequestV2):
             )
 
             return VtonGenerateResponse(
-                result_image_base64=pil_to_base64(result_img), processing_time=total_elapsed
+                result_image_base64=pil_to_base64(result_img),
+                processing_time=total_elapsed,
             )
 
     except Exception as e:
@@ -941,6 +1060,209 @@ async def generate_batch(request: VtonBatchGenerateRequest):
 
 
 # ============================================================================
+# 캐시 관리 엔드포인트
+# ============================================================================
+
+
+@app.post("/cache/warmup")
+async def warmup_user_cache(request: dict):
+    """
+    사용자 로그인 시 모든 데이터를 메모리에 미리 로드 (Warm-up)
+
+    Request body:
+    {
+        "user_id": "uuid",
+        "clothing_ids": ["uuid1", "uuid2", ...]
+    }
+    """
+    user_id = request.get("user_id")
+    clothing_ids = request.get("clothing_ids", [])
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+
+    logger.info(f"🔥 Warming up cache for user {user_id} with {len(clothing_ids)} clothing items")
+    start_time = time.time()
+
+    import concurrent.futures
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+            futures = {}
+
+            # 1. Human 데이터 로드 (아직 캐시에 없으면)
+            if user_id not in memory_cache["human"]:
+                logger.info(f"📥 Loading human data for user {user_id}")
+                futures.update({
+                    "human_img": executor.submit(
+                        download_s3_as_pil, f"users/{user_id}/vton-cache/human_img.png"
+                    ),
+                    "mask": executor.submit(
+                        download_s3_as_pil, f"users/{user_id}/vton-cache/mask.png"
+                    ),
+                    "mask_gray": executor.submit(
+                        download_s3_as_pil, f"users/{user_id}/vton-cache/mask_gray.png"
+                    ),
+                    "pose_tensor": executor.submit(
+                        download_s3_as_tensor,
+                        f"users/{user_id}/vton-cache/pose_tensor.pkl",
+                        device,
+                    ),
+                })
+
+            # 2. 모든 Garment & Text 데이터 로드
+            for clothing_id in clothing_ids:
+                # Garment 데이터
+                if clothing_id not in memory_cache["garment"]:
+                    futures[f"garm_img_{clothing_id}"] = executor.submit(
+                        download_s3_as_pil,
+                        f"users/{user_id}/vton-cache/garments/{clothing_id}_img.png",
+                    )
+                    futures[f"garm_tensor_{clothing_id}"] = executor.submit(
+                        download_s3_as_tensor,
+                        f"users/{user_id}/vton-cache/garments/{clothing_id}_tensor.pkl",
+                        device,
+                    )
+
+                # Text 데이터
+                if clothing_id not in memory_cache["text"]:
+                    futures[f"prompt_embeds_{clothing_id}"] = executor.submit(
+                        download_s3_as_tensor,
+                        f"users/{user_id}/vton-cache/text/{clothing_id}_prompt_embeds.pkl",
+                        device,
+                    )
+                    futures[f"negative_prompt_embeds_{clothing_id}"] = executor.submit(
+                        download_s3_as_tensor,
+                        f"users/{user_id}/vton-cache/text/{clothing_id}_negative_prompt_embeds.pkl",
+                        device,
+                    )
+                    futures[f"pooled_prompt_embeds_{clothing_id}"] = executor.submit(
+                        download_s3_as_tensor,
+                        f"users/{user_id}/vton-cache/text/{clothing_id}_pooled_prompt_embeds.pkl",
+                        device,
+                    )
+                    futures[f"negative_pooled_prompt_embeds_{clothing_id}"] = executor.submit(
+                        download_s3_as_tensor,
+                        f"users/{user_id}/vton-cache/text/{clothing_id}_negative_pooled_prompt_embeds.pkl",
+                        device,
+                    )
+                    futures[f"prompt_embeds_c_{clothing_id}"] = executor.submit(
+                        download_s3_as_tensor,
+                        f"users/{user_id}/vton-cache/text/{clothing_id}_prompt_embeds_c.pkl",
+                        device,
+                    )
+
+            # 모든 다운로드 완료 대기
+            downloaded_data = {}
+            failed_items = []
+
+            for key, future in futures.items():
+                try:
+                    downloaded_data[key] = future.result()
+                except Exception as e:
+                    logger.warning(f"⚠️  Failed to load {key}: {e}")
+                    failed_items.append(key)
+
+            # 3. 메모리 캐시에 저장
+            # Human 캐시
+            if "human_img" in downloaded_data:
+                memory_cache["human"][user_id] = {
+                    "human_img": downloaded_data["human_img"],
+                    "mask": downloaded_data["mask"],
+                    "mask_gray": downloaded_data["mask_gray"],
+                    "pose_tensor": downloaded_data["pose_tensor"],
+                }
+                logger.info(f"✅ Human cache saved for user {user_id}")
+
+            # Garment & Text 캐시
+            for clothing_id in clothing_ids:
+                # Garment
+                garm_img_key = f"garm_img_{clothing_id}"
+                garm_tensor_key = f"garm_tensor_{clothing_id}"
+
+                if garm_img_key in downloaded_data and garm_tensor_key in downloaded_data:
+                    memory_cache["garment"][clothing_id] = {
+                        "garm_img": downloaded_data[garm_img_key],
+                        "garm_tensor": downloaded_data[garm_tensor_key],
+                    }
+                    logger.info(f"✅ Garment cache saved for clothing {clothing_id}")
+
+                # Text
+                text_keys = [
+                    f"prompt_embeds_{clothing_id}",
+                    f"negative_prompt_embeds_{clothing_id}",
+                    f"pooled_prompt_embeds_{clothing_id}",
+                    f"negative_pooled_prompt_embeds_{clothing_id}",
+                    f"prompt_embeds_c_{clothing_id}",
+                ]
+
+                if all(key in downloaded_data for key in text_keys):
+                    memory_cache["text"][clothing_id] = {
+                        "prompt_embeds": downloaded_data[f"prompt_embeds_{clothing_id}"],
+                        "negative_prompt_embeds": downloaded_data[f"negative_prompt_embeds_{clothing_id}"],
+                        "pooled_prompt_embeds": downloaded_data[f"pooled_prompt_embeds_{clothing_id}"],
+                        "negative_pooled_prompt_embeds": downloaded_data[f"negative_pooled_prompt_embeds_{clothing_id}"],
+                        "prompt_embeds_c": downloaded_data[f"prompt_embeds_c_{clothing_id}"],
+                    }
+                    logger.info(f"✅ Text cache saved for clothing {clothing_id}")
+
+        elapsed = time.time() - start_time
+
+        return {
+            "success": True,
+            "message": "Cache warmed up successfully",
+            "user_id": user_id,
+            "loaded_clothing_count": len(clothing_ids),
+            "failed_items": failed_items,
+            "elapsed_seconds": round(elapsed, 2),
+            "cached_humans": len(memory_cache["human"]),
+            "cached_garments": len(memory_cache["garment"]),
+            "cached_texts": len(memory_cache["text"]),
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Warmup failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/cache/human/{user_id}")
+def clear_human_cache(user_id: str):
+    """특정 사용자의 human 캐시 삭제"""
+    if user_id in memory_cache["human"]:
+        del memory_cache["human"][user_id]
+        return {"success": True, "message": f"Human cache cleared for {user_id}"}
+    return {"success": False, "message": "Cache not found"}
+
+
+@app.delete("/cache/garment/{clothing_id}")
+def clear_garment_cache(clothing_id: str):
+    """특정 옷의 garment 캐시 삭제"""
+    if clothing_id in memory_cache["garment"]:
+        del memory_cache["garment"][clothing_id]
+    if clothing_id in memory_cache["text"]:
+        del memory_cache["text"][clothing_id]
+    return {
+        "success": True,
+        "message": f"Garment & text cache cleared for {clothing_id}",
+    }
+
+
+@app.delete("/cache/all")
+def clear_all_cache():
+    """모든 캐시 삭제"""
+    memory_cache["human"].clear()
+    memory_cache["garment"].clear()
+    memory_cache["text"].clear()
+    return {
+        "success": True,
+        "message": "All cache cleared",
+        "cached_humans": 0,
+        "cached_garments": 0,
+        "cached_texts": 0,
+    }
+
+
+# ============================================================================
 # GPU 최적화 적용
 # ============================================================================
 
@@ -948,7 +1270,7 @@ async def generate_batch(request: VtonBatchGenerateRequest):
 def apply_gpu_optimizations():
     """GPU 최적화 적용"""
     global GPU_OPTIMIZATIONS_ENABLED, device
-
+    global torch
     # Device 명시적 설정
     device_str = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info(f"📍 Using device: {device_str}")
@@ -958,16 +1280,56 @@ def apply_gpu_optimizations():
     logger.info("=" * 80)
 
     try:
-        # Gradio 스타일: 최소한의 최적화만 사용
         # 0. 파이프라인을 GPU로 이동 (float16 사용)
         logger.info("0️⃣ Moving pipeline to GPU (float16)...")
         pipe.to(device)
         logger.info(f"✅ Pipeline moved to {device}")
 
-        # 모든 최적화 비활성화 - 순수 Gradio 스타일
-        logger.info("📝 Pure Gradio style: NO optimizations")
-        logger.info("   Skipping: xFormers, torch.compile, cuDNN benchmark, TF32")
-        logger.info("   Using only: float16 + autocast")
+        # 1. Enable cuDNN benchmark for faster convolutions
+        if torch.cuda.is_available():
+            torch.backends.cudnn.benchmark = True
+            logger.info("✅ cuDNN benchmark enabled")
+
+        # 2. Enable TF32 for faster matmul on Ampere GPUs
+        if torch.cuda.is_available():
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
+            logger.info("✅ TF32 enabled")
+
+        # 3. Attention slicing - 비활성화 (성능 저하 가능성)
+        # try:
+        #     pipe.enable_attention_slicing(1)
+        #     logger.info("✅ Attention slicing enabled")
+        # except Exception as e:
+        #     logger.warning(f"⚠️  Attention slicing not available: {e}")
+        logger.info("⚠️  Attention slicing disabled (may slow down inference)")
+
+        # 4. VAE slicing - 유지 (디코딩 속도 개선)
+        try:
+            pipe.vae.enable_slicing()
+            logger.info("✅ VAE slicing enabled")
+        except Exception as e:
+            logger.warning(f"⚠️  VAE slicing not available: {e}")
+
+        # 5. channels_last - 비활성화 (호환성 문제 가능성)
+        # try:
+        #     pipe.unet.to(memory_format=torch.channels_last)
+        #     logger.info("✅ UNet channels_last memory format enabled")
+        # except Exception as e:
+        #     logger.warning(f"⚠️  channels_last not available: {e}")
+        logger.info("⚠️  UNet channels_last disabled (compatibility issues)")
+
+        # 6. torch.compile 비활성화 - 첫 실행이 너무 느림 (30초~1분)
+        # try:
+        #     import torch._dynamo
+        #     torch._dynamo.config.suppress_errors = True
+        #     pipe.unet = torch.compile(
+        #         pipe.unet, mode="reduce-overhead", fullgraph=False
+        #     )
+        #     logger.info("✅ UNet compiled with torch.compile")
+        # except Exception as e:
+        #     logger.warning(f"⚠️  torch.compile not available: {e}")
+        logger.info("⚠️  torch.compile disabled (too slow on first run)")
 
         GPU_OPTIMIZATIONS_ENABLED = True
         logger.info("=" * 80)

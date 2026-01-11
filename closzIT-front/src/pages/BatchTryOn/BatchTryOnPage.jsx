@@ -70,7 +70,7 @@ const BatchTryOnPage = () => {
         },
         body: JSON.stringify({
           clothingIds: selectedClothingIds,
-          denoiseSteps: 20,
+          denoiseSteps: 10,
           seed: 42,
         }),
       });
