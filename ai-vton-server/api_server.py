@@ -470,8 +470,9 @@ def preprocess_text_internal(garment_des: str) -> dict:
     print(f"📝 Text prompt: '{garment_des}'")
 
     with torch.no_grad():
-        pipe.to(device)
-        original_dtype = pipe.text_encoder.dtype
+        # text_encoder만 float32로 변환 (test.py와 동일)
+        original_dtype_1 = pipe.text_encoder.dtype
+        original_dtype_2 = pipe.text_encoder_2.dtype
         pipe.text_encoder.to(torch.float32)
         pipe.text_encoder_2.to(torch.float32)
 
@@ -494,9 +495,9 @@ def preprocess_text_internal(garment_des: str) -> dict:
             negative_prompt=negative_prompt,
         )
 
-        pipe.text_encoder.to(original_dtype)
-        pipe.text_encoder_2.to(original_dtype)
-        pipe.to(device)
+        # 원래 dtype으로 복원 (test.py와 동일)
+        pipe.text_encoder.to(original_dtype_1)
+        pipe.text_encoder_2.to(original_dtype_2)
 
     elapsed = time.time() - start
     logger.info(f"✅ Text encoding completed in {elapsed:.2f}s")
