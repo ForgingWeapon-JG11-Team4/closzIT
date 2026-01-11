@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 
 const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
   const fileInputRef = useRef(null);
+  const [fullBodyImage, setFullBodyImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [originalFile, setOriginalFile] = useState(null); // 원본 파일 객체 저장
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -10,6 +11,7 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
   // 초기 이미지 로드
   useEffect(() => {
     if (isOpen && initialImage) {
+      setFullBodyImage(initialImage);
       setImagePreview(initialImage);
     }
   }, [isOpen, initialImage]);
@@ -54,6 +56,7 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
 
     try {
       const compressedImage = await compressImage(file, 1200, 0.8);
+      setFullBodyImage(compressedImage);
       setImagePreview(compressedImage);
       setOriginalFile(file); // 원본 파일 저장
       setError('');
@@ -64,6 +67,7 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
 
   // 이미지 삭제
   const handleRemoveImage = () => {
+    setFullBodyImage(null);
     setImagePreview(null);
     setOriginalFile(null);
     if (fileInputRef.current) {
