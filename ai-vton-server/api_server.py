@@ -542,12 +542,9 @@ def generate_tryon_internal(
     logger.info("⚡ Generating try-on with diffusion...")
     start = time.time()
 
-    # Device 명시적 설정 (CUDA 사용)
-    device_str = "cuda" if torch.cuda.is_available() else "cpu"
-
-    # Gradio 스타일: autocast 사용
-    with torch.no_grad(), torch.cuda.amp.autocast():
-        generator = torch.Generator(device=device_str).manual_seed(int(seed))
+    # test.py 스타일: autocast 없이 순수하게 실행
+    with torch.no_grad():
+        generator = torch.Generator(device).manual_seed(int(seed))
 
         images = pipe(
             prompt_embeds=prompt_embeds,
@@ -965,10 +962,10 @@ def apply_gpu_optimizations():
         pipe.to(device)
         logger.info(f"✅ Pipeline moved to {device}")
 
-        # 모든 최적화 비활성화 - 순수 Gradio 스타일
-        logger.info("📝 Pure Gradio style: NO optimizations")
-        logger.info("   Skipping: xFormers, torch.compile, cuDNN benchmark, TF32")
-        logger.info("   Using only: float16 + autocast")
+        # 모든 최적화 비활성화 - 순수 test.py 스타일
+        logger.info("📝 Pure test.py style: NO optimizations")
+        logger.info("   Skipping: xFormers, torch.compile, cuDNN benchmark, TF32, autocast")
+        logger.info("   Using only: float16 (no autocast)")
 
         GPU_OPTIMIZATIONS_ENABLED = True
         logger.info("=" * 80)
