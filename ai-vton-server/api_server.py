@@ -1263,10 +1263,29 @@ async def warmup_user_cache(request: dict):
 
 @app.delete("/cache/human/{user_id}")
 def clear_human_cache(user_id: str):
-    """특정 사용자의 human 캐시 삭제"""
-    if user_id in memory_cache["human"]:
+    """특정 사용자의 human 캐시 삭제 (upper & lower)"""
+    cleared = False
+
+    # upper_body 캐시 삭제
+    if user_id in memory_cache["human_upper"]:
+        del memory_cache["human_upper"][user_id]
+        logger.info(f"✅ Cleared human_upper cache for {user_id}")
+        cleared = True
+
+    # lower_body 캐시 삭제
+    if user_id in memory_cache["human_lower"]:
+        del memory_cache["human_lower"][user_id]
+        logger.info(f"✅ Cleared human_lower cache for {user_id}")
+        cleared = True
+
+    # 구버전 캐시도 확인 (있다면 삭제)
+    if user_id in memory_cache.get("human", {}):
         del memory_cache["human"][user_id]
-        return {"success": True, "message": f"Human cache cleared for {user_id}"}
+        logger.info(f"✅ Cleared legacy human cache for {user_id}")
+        cleared = True
+
+    if cleared:
+        return {"success": True, "message": f"Human cache (upper & lower) cleared for {user_id}"}
     return {"success": False, "message": "Cache not found"}
 
 
@@ -1286,13 +1305,18 @@ def clear_garment_cache(clothing_id: str):
 @app.delete("/cache/all")
 def clear_all_cache():
     """모든 캐시 삭제"""
-    memory_cache["human"].clear()
+    memory_cache["human_upper"].clear()
+    memory_cache["human_lower"].clear()
     memory_cache["garment"].clear()
     memory_cache["text"].clear()
+    # 구버전 캐시도 삭제
+    if "human" in memory_cache:
+        memory_cache["human"].clear()
     return {
         "success": True,
-        "message": "All cache cleared",
-        "cached_humans": 0,
+        "message": "All cache cleared (upper, lower, garment, text)",
+        "cached_humans_upper": 0,
+        "cached_humans_lower": 0,
         "cached_garments": 0,
         "cached_texts": 0,
     }

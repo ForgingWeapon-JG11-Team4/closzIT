@@ -58,7 +58,24 @@ export class VtonCacheService {
         })
       );
 
-      const { upper_body, lower_body } = response.data;
+      // 응답 구조 확인을 위한 로깅
+      this.logger.log(`[preprocessHuman] Response keys: ${JSON.stringify(Object.keys(response.data))}`);
+
+      // 새 버전 응답 (upper_body, lower_body) 또는 구 버전 응답 (human_img, mask, ...) 모두 지원
+      let upper_body, lower_body;
+
+      if (response.data.upper_body && response.data.lower_body) {
+        // 새 버전 응답
+        this.logger.log(`[preprocessHuman] Using new response format (upper_body, lower_body)`);
+        upper_body = response.data.upper_body;
+        lower_body = response.data.lower_body;
+      } else {
+        // 구 버전 응답 - 기존 데이터를 upper로 사용하고, lower도 동일하게 복사
+        this.logger.log(`[preprocessHuman] Using legacy response format - duplicating to upper/lower`);
+        const { human_img, mask, mask_gray, pose_img_tensor } = response.data;
+        upper_body = { human_img, mask, mask_gray, pose_img_tensor };
+        lower_body = { human_img, mask, mask_gray, pose_img_tensor };
+      }
 
       // S3에 병렬 업로드 (Upper & Lower 분리)
       const [
@@ -253,8 +270,14 @@ export class VtonCacheService {
    */
   async checkHumanCacheExists(userId: string): Promise<boolean> {
     try {
-      const key = `users/${userId}/vton-cache/human_img.png`;
-      return await this.s3Service.checkObjectExists(key);
+      // upper와 lower 모두 존재하는지 확인
+      const upperKey = `users/${userId}/vton-cache/upper/human_img.png`;
+      const lowerKey = `users/${userId}/vton-cache/lower/human_img.png`;
+      const [upperExists, lowerExists] = await Promise.all([
+        this.s3Service.checkObjectExists(upperKey),
+        this.s3Service.checkObjectExists(lowerKey),
+      ]);
+      return upperExists && lowerExists;
     } catch {
       return false;
     }
