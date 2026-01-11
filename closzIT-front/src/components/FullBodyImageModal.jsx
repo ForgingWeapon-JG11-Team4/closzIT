@@ -76,37 +76,6 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
     }
   };
 
-  // 저장
-  const handleSave = async () => {
-    setIsSubmitting(true);
-    setError('');
-
-    try {
-      const token = localStorage.getItem('accessToken');
-      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-
-      const response = await fetch(`${backendUrl}/user/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ fullBodyImage })
-      });
-
-      if (!response.ok) {
-        throw new Error('전신 사진 저장에 실패했습니다');
-      }
-
-      onSave && onSave();
-      onClose();
-    } catch (err) {
-      setError(err.message || '오류가 발생했습니다');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   if (!isOpen) return null;
 
   return (
