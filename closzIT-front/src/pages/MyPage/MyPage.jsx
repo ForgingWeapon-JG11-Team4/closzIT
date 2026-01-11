@@ -9,6 +9,17 @@ const MyPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [imageCacheBuster, setImageCacheBuster] = useState(Date.now());
+  const [imageBlobUrl, setImageBlobUrl] = useState(null);
+
+  // Cleanup blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (imageBlobUrl) {
+        URL.revokeObjectURL(imageBlobUrl);
+      }
+    };
+  }, [imageBlobUrl]);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -28,7 +39,26 @@ const MyPage = () => {
 
         if (response.ok) {
           const userData = await response.json();
+          console.log('[MyPage] Initial user data loaded:', userData);
+          console.log('[MyPage] Initial fullBodyImage URL:', userData.fullBodyImage);
           setUser(userData);
+
+          // Presigned URL에서 이미지 fetch하여 blob URL 생성
+          if (userData.fullBodyImage) {
+            try {
+              const imgResponse = await fetch(userData.fullBodyImage);
+              if (imgResponse.ok) {
+                const blob = await imgResponse.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                setImageBlobUrl(blobUrl);
+                console.log('[MyPage] Initial image blob URL created:', blobUrl);
+              } else {
+                console.error('[MyPage] Failed to fetch initial image:', imgResponse.status, imgResponse.statusText);
+              }
+            } catch (imgError) {
+              console.error('[MyPage] Error fetching initial image:', imgError);
+            }
+          }
         } else if (response.status === 401) {
           localStorage.removeItem('accessToken');
           navigate('/login');
@@ -46,7 +76,7 @@ const MyPage = () => {
   const refreshUserData = async () => {
     const token = localStorage.getItem('accessToken');
     if (!token) return;
-    
+
     try {
       const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
       const response = await fetch(`${backendUrl}/user/me`, {
@@ -54,7 +84,27 @@ const MyPage = () => {
       });
       if (response.ok) {
         const userData = await response.json();
+        console.log('[MyPage] User data loaded:', userData);
+        console.log('[MyPage] fullBodyImage URL:', userData.fullBodyImage);
         setUser(userData);
+        setImageCacheBuster(Date.now()); // 이미지 캐시 갱신
+
+        // Presigned URL에서 이미지 fetch하여 blob URL 생성
+        if (userData.fullBodyImage) {
+          try {
+            const imgResponse = await fetch(userData.fullBodyImage);
+            if (imgResponse.ok) {
+              const blob = await imgResponse.blob();
+              const blobUrl = URL.createObjectURL(blob);
+              setImageBlobUrl(blobUrl);
+              console.log('[MyPage] Image blob URL created:', blobUrl);
+            } else {
+              console.error('[MyPage] Failed to fetch image:', imgResponse.status, imgResponse.statusText);
+            }
+          } catch (imgError) {
+            console.error('[MyPage] Error fetching image:', imgError);
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to refresh user data:', error);
@@ -189,11 +239,22 @@ const MyPage = () => {
               {user?.fullBodyImage ? (
                 <div className="flex items-center gap-4">
                   <div className="w-24 h-32 rounded-xl overflow-hidden border-2 border-gold-light/30 bg-charcoal/5 dark:bg-charcoal/30">
-                    <img 
-                      src={user.fullBodyImage} 
-                      alt="전신 사진" 
-                      className="w-full h-full object-contain"
-                    />
+                    {imageBlobUrl ? (
+                      <img
+                        src={imageBlobUrl}
+                        alt="전신 사진"
+                        className="w-full h-full object-contain"
+                        onLoad={() => console.log('[MyPage] Blob image loaded successfully')}
+                        onError={(e) => {
+                          console.error('[MyPage] Blob image load error');
+                          console.error('[MyPage] Error details:', e);
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold"></div>
+                      </div>
+                    )}
                   </div>
                   <button
                     onClick={() => setShowImageModal(true)}

@@ -3,10 +3,55 @@ import React, { useState, useRef, useEffect } from 'react';
 const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
   const fileInputRef = useRef(null);
   const [fullBodyImage, setFullBodyImage] = useState(null);
-  const [originalFile, setOriginalFile] = useState(null);  // ✅ 추가! 
+  const [originalFile, setOriginalFile] = useState(null);  // ✅ 추가!
   const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // 모달이 열릴 때마다 state 초기화
+  useEffect(() => {
+    if (isOpen) {
+      setFullBodyImage(null);
+      setOriginalFile(null);
+      setImagePreview(initialImage || null);
+      setError('');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }, [isOpen, initialImage]);
+
+  // 이미지 압축 함수 - 세로(height) 기준으로 리사이즈
+  const compressImage = (file, maxHeight = 1200, quality = 0.8) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // 세로 기준으로 리사이즈 (전신 사진은 세로가 더 길기 때문)
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height;
+            height = maxHeight;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+          resolve(compressedBase64);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
 
   // 파일 선택 수정
   const handleFileSelect = async (event) => {
@@ -55,9 +100,15 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
         if (!response.ok) {
           throw new Error('전신 사진 저장에 실패했습니다');
         }
+
+        const result = await response.json();
+        console.log('[FullBodyImageModal] Upload success:', result);
       }
 
-      onSave && onSave();
+      // onSave를 await하여 데이터 리프레시가 완료될 때까지 대기
+      if (onSave) {
+        await onSave();
+      }
       onClose();
     } catch (err) {
       setError(err. message || '오류가 발생했습니다');
@@ -73,37 +124,6 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
     setOriginalFile(null);  // ✅ 추가
     if (fileInputRef.current) {
       fileInputRef. current.value = '';
-    }
-  };
-
-  // 저장
-  const handleSave = async () => {
-    setIsSubmitting(true);
-    setError('');
-
-    try {
-      const token = localStorage.getItem('accessToken');
-      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-
-      const response = await fetch(`${backendUrl}/user/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ fullBodyImage })
-      });
-
-      if (!response.ok) {
-        throw new Error('전신 사진 저장에 실패했습니다');
-      }
-
-      onSave && onSave();
-      onClose();
-    } catch (err) {
-      setError(err.message || '오류가 발생했습니다');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 

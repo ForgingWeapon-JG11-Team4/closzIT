@@ -407,7 +407,7 @@ export class FittingController {
       'bottoms': 'lower_body',
       'shoes': 'lower_body',
     };
-    const vtonCategory = categoryMap[clothing?.category?.toLowerCase()] || 'upper_body';
+    const vtonCategory = categoryMap[clothing?.category?.toLowerCase() ?? ''] || 'upper_body';
 
     const resultImageBase64 = await this.vtonCacheService.generateTryOnV2(
       userId,
