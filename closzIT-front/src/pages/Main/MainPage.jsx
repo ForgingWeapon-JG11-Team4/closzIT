@@ -23,6 +23,7 @@ const MainPage = () => {
   const [userName, setUserName] = useState('');
   const [userCredit, setUserCredit] = useState(0);
   const [userFullBodyImage, setUserFullBodyImage] = useState(null);
+  const [vtoResultImage, setVtoResultImage] = useState(null); // VTO 결과 이미지
   const [userClothes, setUserClothes] = useState({
     outerwear: [],
     tops: [],
@@ -877,59 +878,67 @@ const MainPage = () => {
               )}
             </div>
 
-            {/* Modal Footer - 수정/삭제 버튼 */}
+            {/* Modal Footer - 하나만 입어보기 / 수정/삭제 버튼 */}
             <div className="p-4 border-t border-gold-light/20 space-y-2">
-              {/* 하나만 입어보기 버튼 */}
+              {/* 하나만 입어보기 버튼 (IDM-VTON) */}
               <button
-                onClick={(e) => {
-                  // 선택한 옷만으로 피팅 요청
-                  const categoryMap = {
-                    'Outer': 'outerwear',
-                    'Top': 'tops',
-                    'Bottom': 'bottoms',
-                    'Shoes': 'shoes'
-                  };
-
-                  const clothingIds = {
-                    outerId: selectedClothDetail.category === 'Outer' ? selectedClothDetail.id : undefined,
-                    topId: selectedClothDetail.category === 'Top' ? selectedClothDetail.id : undefined,
-                    bottomId: selectedClothDetail.category === 'Bottom' ? selectedClothDetail.id : undefined,
-                    shoesId: selectedClothDetail.category === 'Shoes' ? selectedClothDetail.id : undefined,
-                  };
-
-                  // 버튼 위치 저장 (플라이 애니메이션용)
-                  let buttonPosition = null;
-                  if (e?.currentTarget) {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    buttonPosition = {
-                      x: rect.left + rect.width / 2,
-                      y: rect.top + rect.height / 2,
-                    };
+                onClick={async () => {
+                  if (!userFullBodyImage) {
+                    const confirm = window.confirm(
+                      '피팅 모델 이미지가 없어서 착장서비스 이용이 불가합니다. 등록하시겠습니까?'
+                    );
+                    if (confirm) {
+                      navigate('/setup3?edit=true');
+                    }
+                    return;
                   }
 
-                  // 모달 닫기
-                  setSelectedClothDetail(null);
+                  try {
+                    setSelectedClothDetail(null); // 모달 닫기
 
-                  // VtoContext의 requestPartialVtoByIds 호출
-                  requestPartialVtoByIds(clothingIds, buttonPosition, 'main');
+                    const token = localStorage.getItem('accessToken');
+                    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+
+                    // 로딩 표시
+                    alert('단일 옷 가상 피팅을 생성 중입니다... (약 4-5초 소요)');
+
+                    const response = await fetch(`${backendUrl}/api/fitting/single-item-tryon`, {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        clothingId: selectedClothDetail.id,
+                        denoiseSteps: 20,
+                        seed: Math.floor(Math.random() * 1000000),
+                      }),
+                    });
+
+                    if (!response.ok) {
+                      const errorData = await response.json();
+                      throw new Error(errorData.message || '가상 피팅 실패');
+                    }
+
+                    const result = await response.json();
+
+                    // 결과 이미지 표시 (모달로)
+                    if (result.success && result.imageUrl) {
+                      // 팝업 차단 문제 방지: 모달로 표시
+                      setSelectedClothDetail(null); // 기존 모달 닫기
+                      setVtoResultImage(result.imageUrl); // 결과 이미지 표시
+                    } else {
+                      throw new Error('결과 이미지를 받지 못했습니다.');
+                    }
+                  } catch (error) {
+                    console.error('Single item try-on error:', error);
+                    alert(`가상 피팅 실패: ${error.message}`);
+                  }
                 }}
-                disabled={isPartialVtoLoading}
-                className={`w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all ${isPartialVtoLoading
-                  ? 'bg-gold-light/50 text-charcoal cursor-wait'
-                  : 'btn-premium hover:shadow-xl'
-                  }`}
+                className="w-full py-3.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl font-bold hover:from-purple-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
               >
-                {isPartialVtoLoading ? (
-                  <>
-                    <span className="material-symbols-rounded text-lg animate-spin">progress_activity</span>
-                    생성 중...
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-rounded text-lg">checkroom</span>
-                    하나만 입어보기
-                  </>
-                )}
+                <span className="material-symbols-rounded text-lg">auto_awesome</span>
+                하나만 입어보기 (AI)
               </button>
 
               <div className="flex gap-2">
@@ -981,6 +990,58 @@ const MainPage = () => {
               >
                 닫기
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      
+      {/* VTO 결과 모달 */}
+      {vtoResultImage && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
+          onClick={() => setVtoResultImage(null)}
+        >
+          <div
+            className="bg-warm-white dark:bg-charcoal rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-charcoal dark:text-cream flex items-center gap-2">
+                  <span className="material-symbols-rounded text-2xl text-gold">auto_awesome</span>
+                  가상 피팅 결과
+                </h2>
+                <button
+                  onClick={() => setVtoResultImage(null)}
+                  className="p-2 hover:bg-charcoal/10 dark:hover:bg-cream/10 rounded-lg transition-colors"
+                >
+                  <span className="material-symbols-rounded text-charcoal dark:text-cream">close</span>
+                </button>
+              </div>
+
+              <img
+                src={vtoResultImage}
+                alt="Virtual Try-On Result"
+                className="w-full rounded-xl shadow-lg"
+              />
+
+              <div className="mt-4 flex gap-2">
+                <a
+                  href={vtoResultImage}
+                  download="virtual-tryon-result.png"
+                  className="flex-1 py-3 bg-gold text-charcoal rounded-xl font-semibold hover:bg-gold-dark transition-colors flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-rounded text-lg">download</span>
+                  다운로드
+                </a>
+                <button
+                  onClick={() => setVtoResultImage(null)}
+                  className="flex-1 py-3 bg-charcoal/10 dark:bg-cream/10 text-charcoal dark:text-cream rounded-xl font-semibold hover:bg-charcoal/20 dark:hover:bg-cream/20 transition-colors"
+                >
+                  닫기
+                </button>
+              </div>
             </div>
           </div>
         </div>
