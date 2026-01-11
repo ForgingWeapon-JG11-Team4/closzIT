@@ -79,6 +79,22 @@ const MainPage = () => {
         if (itemsResponse.ok) {
           const itemsData = await itemsResponse.json();
           setUserClothes(itemsData);
+
+          // 🔥 백그라운드로 캐시 Warm-up 실행 (로그인 후 첫 요청부터 빠르게!)
+          fetch(`${backendUrl}/vton-cache/warmup`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+          .then(res => res.json())
+          .then(data => {
+            console.log('✅ Cache warmup completed:', data);
+          })
+          .catch(err => {
+            console.warn('⚠️ Cache warmup failed (non-critical):', err);
+          });
         }
 
       } catch (error) {

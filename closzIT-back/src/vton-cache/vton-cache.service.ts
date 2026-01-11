@@ -331,4 +331,35 @@ export class VtonCacheService {
       throw error;
     }
   }
+
+  /**
+   * 사용자 로그인 시 모든 캐시를 메모리에 미리 로드 (Warm-up)
+   * @param userId - 사용자 UUID
+   * @param clothingIds - 사용자의 모든 옷 ID 목록
+   */
+  async warmupUserCache(userId: string, clothingIds: string[]): Promise<any> {
+    this.logger.log(`🔥 [warmupUserCache] Starting for userId: ${userId} with ${clothingIds.length} clothing items`);
+    const startTime = Date.now();
+
+    try {
+      // FastAPI warmup 엔드포인트 호출
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.vtonApiUrl}/cache/warmup`, {
+          user_id: userId,
+          clothing_ids: clothingIds,
+        }, {
+          timeout: 60000, // 60초 타임아웃 (많은 데이터 로드 시 시간 필요)
+        })
+      );
+
+      const elapsed = (Date.now() - startTime) / 1000;
+      this.logger.log(`✅ [warmupUserCache] Completed in ${elapsed.toFixed(2)}s - ${response.data.loaded_clothing_count} items cached`);
+
+      return response.data;
+    } catch (error) {
+      this.logger.error(`❌ [warmupUserCache] Failed for userId: ${userId}`, error);
+      // Warmup 실패해도 서비스는 계속 동작하도록 에러를 throw하지 않음
+      return { success: false, error: error.message };
+    }
+  }
 }
