@@ -982,38 +982,40 @@ def apply_gpu_optimizations():
             torch.backends.cudnn.allow_tf32 = True
             logger.info("✅ TF32 enabled")
 
-        # 3. Enable attention slicing to reduce memory and potentially improve speed
-        try:
-            pipe.enable_attention_slicing(1)
-            logger.info("✅ Attention slicing enabled")
-        except Exception as e:
-            logger.warning(f"⚠️  Attention slicing not available: {e}")
+        # 3. Attention slicing - 비활성화 (성능 저하 가능성)
+        # try:
+        #     pipe.enable_attention_slicing(1)
+        #     logger.info("✅ Attention slicing enabled")
+        # except Exception as e:
+        #     logger.warning(f"⚠️  Attention slicing not available: {e}")
+        logger.info("⚠️  Attention slicing disabled (may slow down inference)")
 
-        # 4. Enable VAE slicing for faster decoding
+        # 4. VAE slicing - 유지 (디코딩 속도 개선)
         try:
             pipe.vae.enable_slicing()
             logger.info("✅ VAE slicing enabled")
         except Exception as e:
             logger.warning(f"⚠️  VAE slicing not available: {e}")
 
-        # 5. Set UNet to use channels_last memory format for faster inference
-        try:
-            pipe.unet.to(memory_format=torch.channels_last)
-            logger.info("✅ UNet channels_last memory format enabled")
-        except Exception as e:
-            logger.warning(f"⚠️  channels_last not available: {e}")
+        # 5. channels_last - 비활성화 (호환성 문제 가능성)
+        # try:
+        #     pipe.unet.to(memory_format=torch.channels_last)
+        #     logger.info("✅ UNet channels_last memory format enabled")
+        # except Exception as e:
+        #     logger.warning(f"⚠️  channels_last not available: {e}")
+        logger.info("⚠️  UNet channels_last disabled (compatibility issues)")
 
-        # 6. Try torch.compile for faster inference (PyTorch 2.0+)
-        try:
-            import torch._dynamo
-
-            torch._dynamo.config.suppress_errors = True
-            pipe.unet = torch.compile(
-                pipe.unet, mode="reduce-overhead", fullgraph=False
-            )
-            logger.info("✅ UNet compiled with torch.compile")
-        except Exception as e:
-            logger.warning(f"⚠️  torch.compile not available: {e}")
+        # 6. torch.compile 비활성화 - 첫 실행이 너무 느림 (30초~1분)
+        # try:
+        #     import torch._dynamo
+        #     torch._dynamo.config.suppress_errors = True
+        #     pipe.unet = torch.compile(
+        #         pipe.unet, mode="reduce-overhead", fullgraph=False
+        #     )
+        #     logger.info("✅ UNet compiled with torch.compile")
+        # except Exception as e:
+        #     logger.warning(f"⚠️  torch.compile not available: {e}")
+        logger.info("⚠️  torch.compile disabled (too slow on first run)")
 
         GPU_OPTIMIZATIONS_ENABLED = True
         logger.info("=" * 80)
