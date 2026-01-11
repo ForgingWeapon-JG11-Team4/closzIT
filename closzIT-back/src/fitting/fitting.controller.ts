@@ -311,9 +311,9 @@ export class FittingController {
    */
   @Post('single-item-tryon')
   @UseGuards(JwtAuthGuard)
-  async singleItemTryOn(@Request() req, @Body() body: { clothingId: string; denoiseSteps?: number; seed?: number }) {
+  async singleItemTryOn(@Request() req, @Body() body: { clothingId: string; category?: string; denoiseSteps?: number; seed?: number }) {
     const userId = req.user.id;
-    console.log('[singleItemTryOn] Starting - userId:', userId, 'clothingId:', body.clothingId);
+    console.log('[singleItemTryOn] Starting - userId:', userId, 'clothingId:', body.clothingId, 'category:', body.category);
 
     if (!body.clothingId) {
       throw new BadRequestException({
@@ -396,10 +396,18 @@ export class FittingController {
 
     // 3. V2 API 호출 (FastAPI가 S3 직접 다운로드)
     // category 매핑: "tops", "outerwear" → "upper_body", "bottoms", "shoes" → "lower_body"
-    const clothing = await this.prisma.clothing.findUnique({
-      where: { id: body.clothingId, userId },
-      select: { category: true },
-    });
+
+    // Frontend에서 category를 보내면 그것을 사용, 아니면 DB에서 조회
+    let clothingCategory = body.category;
+    if (!clothingCategory) {
+      const clothing = await this.prisma.clothing.findUnique({
+        where: { id: body.clothingId, userId },
+        select: { category: true },
+      });
+      clothingCategory = clothing?.category;
+    }
+
+    console.log(`[singleItemTryOn] Clothing category: ${clothingCategory}`);
 
     const categoryMap = {
       'tops': 'upper_body',
@@ -407,7 +415,9 @@ export class FittingController {
       'bottoms': 'lower_body',
       'shoes': 'lower_body',
     };
-    const vtonCategory = categoryMap[clothing?.category?.toLowerCase() ?? ''] || 'upper_body';
+    const vtonCategory = categoryMap[clothingCategory?.toLowerCase() ?? ''] || 'upper_body';
+
+    console.log(`[singleItemTryOn] Mapped VTON category: ${vtonCategory}`);
 
     const resultImageBase64 = await this.vtonCacheService.generateTryOnV2(
       userId,

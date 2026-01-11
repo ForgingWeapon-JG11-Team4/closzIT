@@ -928,6 +928,7 @@ const MainPage = () => {
                       },
                       body: JSON.stringify({
                         clothingId: selectedClothDetail.id,
+                        category: selectedClothDetail.category, // 옷 카테고리 전달 (tops, bottoms, outerwear, shoes)
                         denoiseSteps: 10,
                         seed: 42,
                       }),
