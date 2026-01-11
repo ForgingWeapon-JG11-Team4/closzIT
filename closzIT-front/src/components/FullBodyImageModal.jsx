@@ -81,7 +81,7 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const backendUrl = process. env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
       // ✅ UserProfileSetup3와 동일하게 수정
       if (originalFile) {
@@ -111,7 +111,7 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
       }
       onClose();
     } catch (err) {
-      setError(err. message || '오류가 발생했습니다');
+      setError(err.message || '오류가 발생했습니다');
     } finally {
       setIsSubmitting(false);
     }
@@ -123,7 +123,7 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
     setImagePreview(null);
     setOriginalFile(null);  // ✅ 추가
     if (fileInputRef.current) {
-      fileInputRef. current.value = '';
+      fileInputRef.current.value = '';
     }
   };
 
