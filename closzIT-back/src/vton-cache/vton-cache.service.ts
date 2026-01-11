@@ -268,7 +268,7 @@ export class VtonCacheService {
   async generateTryOnV2(
     userId: string,
     clothingId: string,
-    denoiseSteps: number = 20,
+    denoiseSteps: number = 10,
     seed: number = 42
   ): Promise<string> {
     this.logger.log(`[generateTryOnV2] Starting for userId: ${userId}, clothingId: ${clothingId}`);
@@ -303,7 +303,7 @@ export class VtonCacheService {
   async generateBatchTryOn(
     userId: string,
     clothingIds: string[],
-    denoiseSteps: number = 20,
+    denoiseSteps: number = 10,
     seed: number = 42
   ): Promise<any[]> {
     this.logger.log(`[generateBatchTryOn] Starting for userId: ${userId}, ${clothingIds.length} items`);

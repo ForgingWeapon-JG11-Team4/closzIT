@@ -398,7 +398,7 @@ export class FittingController {
     const resultImageBase64 = await this.vtonCacheService.generateTryOnV2(
       userId,
       body.clothingId,
-      body.denoiseSteps ?? 15,  // ⚡ 기본값 15 (null/undefined만 체크)
+      body.denoiseSteps ?? 10,  // ⚡ 기본값 15 (null/undefined만 체크)
       body.seed ?? 42,
     );
 
@@ -423,7 +423,7 @@ export class FittingController {
     const results = await this.vtonCacheService.generateBatchTryOn(
       userId,
       body.clothingIds,
-      body.denoiseSteps || 20,
+      body.denoiseSteps || 10,
       body.seed || 42,
     );
 

@@ -181,7 +181,7 @@ export class VtonCacheController {
       const resultImageBase64 = await this.vtonCacheService.generateTryOnV2(
         userId,
         clothingId,
-        denoiseSteps || 20,
+        denoiseSteps || 10,
         seed || 42
       );
 

@@ -910,8 +910,8 @@ const MainPage = () => {
                       },
                       body: JSON.stringify({
                         clothingId: selectedClothDetail.id,
-                        denoiseSteps: 15,
-                        seed: Math.floor(Math.random() * 1000000),
+                        denoiseSteps: 10,
+                        seed: 42,
                       }),
                     });
 
