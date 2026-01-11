@@ -58,24 +58,40 @@ export class VtonCacheService {
         })
       );
 
-      const { human_img, mask, mask_gray, pose_img_tensor } = response.data;
+      const { upper_body, lower_body } = response.data;
 
-      // S3에 병렬 업로드
-      const [human_img_url, mask_url, mask_gray_url, pose_img_tensor_url] = await Promise.all([
-        this.s3Service.uploadBase64Image(human_img, `users/${userId}/vton-cache/human_img.png`),
-        this.s3Service.uploadBase64Image(mask, `users/${userId}/vton-cache/mask.png`),
-        this.s3Service.uploadBase64Image(mask_gray, `users/${userId}/vton-cache/mask_gray.png`),
-        this.uploadBinaryToS3(pose_img_tensor, `users/${userId}/vton-cache/pose_tensor.pkl`),
+      // S3에 병렬 업로드 (Upper & Lower 분리)
+      const [
+        upper_human_img_url,
+        upper_mask_url,
+        upper_mask_gray_url,
+        upper_pose_tensor_url,
+        lower_human_img_url,
+        lower_mask_url,
+        lower_mask_gray_url,
+        lower_pose_tensor_url,
+      ] = await Promise.all([
+        // Upper body
+        this.s3Service.uploadBase64Image(upper_body.human_img, `users/${userId}/vton-cache/upper/human_img.png`),
+        this.s3Service.uploadBase64Image(upper_body.mask, `users/${userId}/vton-cache/upper/mask.png`),
+        this.s3Service.uploadBase64Image(upper_body.mask_gray, `users/${userId}/vton-cache/upper/mask_gray.png`),
+        this.uploadBinaryToS3(upper_body.pose_img_tensor, `users/${userId}/vton-cache/upper/pose_tensor.pkl`),
+        // Lower body
+        this.s3Service.uploadBase64Image(lower_body.human_img, `users/${userId}/vton-cache/lower/human_img.png`),
+        this.s3Service.uploadBase64Image(lower_body.mask, `users/${userId}/vton-cache/lower/mask.png`),
+        this.s3Service.uploadBase64Image(lower_body.mask_gray, `users/${userId}/vton-cache/lower/mask_gray.png`),
+        this.uploadBinaryToS3(lower_body.pose_img_tensor, `users/${userId}/vton-cache/lower/pose_tensor.pkl`),
       ]);
 
       const elapsed = (Date.now() - startTime) / 1000;
-      this.logger.log(`[preprocessHuman] Completed in ${elapsed.toFixed(2)}s for userId: ${userId}`);
+      this.logger.log(`[preprocessHuman] Completed in ${elapsed.toFixed(2)}s for userId: ${userId} (upper & lower)`);
 
+      // 기존 인터페이스 호환성을 위해 upper body URL 반환 (실제로는 upper/lower 모두 S3에 저장됨)
       return {
-        human_img_url,
-        mask_url,
-        mask_gray_url,
-        pose_img_tensor_url,
+        human_img_url: upper_human_img_url,
+        mask_url: upper_mask_url,
+        mask_gray_url: upper_mask_gray_url,
+        pose_img_tensor_url: upper_pose_tensor_url,
       };
     } catch (error) {
       this.logger.error(`[preprocessHuman] Failed for userId: ${userId}`, error);
@@ -268,6 +284,7 @@ export class VtonCacheService {
   async generateTryOnV2(
     userId: string,
     clothingId: string,
+    category: string = 'upper_body',  // "upper_body" or "lower_body"
     denoiseSteps: number = 10,
     seed: number = 42
   ): Promise<string> {
@@ -280,6 +297,7 @@ export class VtonCacheService {
         this.httpService.post(`${this.vtonApiUrl}/vton/generate-tryon`, {
           user_id: userId,
           clothing_id: clothingId,
+          category: category,
           denoise_steps: denoiseSteps,
           seed: seed,
         })

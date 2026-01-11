@@ -395,10 +395,25 @@ export class FittingController {
     }
 
     // 3. V2 API 호출 (FastAPI가 S3 직접 다운로드)
+    // category 매핑: "tops", "outerwear" → "upper_body", "bottoms", "shoes" → "lower_body"
+    const clothing = await this.prisma.clothing.findUnique({
+      where: { id: body.clothingId, userId },
+      select: { category: true },
+    });
+
+    const categoryMap = {
+      'tops': 'upper_body',
+      'outerwear': 'upper_body',
+      'bottoms': 'lower_body',
+      'shoes': 'lower_body',
+    };
+    const vtonCategory = categoryMap[clothing?.category?.toLowerCase()] || 'upper_body';
+
     const resultImageBase64 = await this.vtonCacheService.generateTryOnV2(
       userId,
       body.clothingId,
-      body.denoiseSteps ?? 10,  // ⚡ 기본값 15 (null/undefined만 체크)
+      vtonCategory,  // ⚡ category 전달
+      body.denoiseSteps ?? 15,
       body.seed ?? 42,
     );
 

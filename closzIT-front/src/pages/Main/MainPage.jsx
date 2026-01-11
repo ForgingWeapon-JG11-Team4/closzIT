@@ -915,6 +915,8 @@ const MainPage = () => {
                     const token = localStorage.getItem('accessToken');
                     const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
+                    console.log(`[VTO] Starting try-on for clothing: ${selectedClothDetail.id}, category: ${selectedClothDetail.category}`);
+
                     // 로딩 표시
                     alert('단일 옷 가상 피팅을 생성 중입니다... (약 4-5초 소요)');
 
