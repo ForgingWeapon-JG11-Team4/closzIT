@@ -15,8 +15,9 @@ import os
 # Windows에서 UTF-8 출력 지원
 if sys.platform == "win32":
     import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
 # IDM-VTON gradio_demo 모듈 경로 추가
 IDMVTON_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -38,6 +39,7 @@ exec(init_code, globals())
 
 # ⭐ CRITICAL: Device를 CUDA로 강제 설정
 import torch
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"=" * 80)
 print(f"🎯 Device explicitly set to: {device}")
@@ -60,6 +62,7 @@ import asyncio
 # .env 파일 로드
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
     print("✅ .env file loaded successfully")
 except ImportError:
@@ -325,7 +328,9 @@ def preprocess_human_internal(human_img: Image.Image) -> dict:
         new_width = int(target_height * aspect_ratio)
 
     # 리사이즈 후 중앙 크롭 또는 패딩
-    human_img = human_img.convert("RGB").resize((new_width, new_height), Image.Resampling.LANCZOS)
+    human_img = human_img.convert("RGB").resize(
+        (new_width, new_height), Image.Resampling.LANCZOS
+    )
 
     # 768x1024로 중앙 크롭 또는 패딩
     if new_width < target_width or new_height < target_height:
@@ -339,7 +344,9 @@ def preprocess_human_internal(human_img: Image.Image) -> dict:
         # 크롭 필요
         left = (new_width - target_width) // 2
         top = (new_height - target_height) // 2
-        human_img = human_img.crop((left, top, left + target_width, top + target_height))
+        human_img = human_img.crop(
+            (left, top, left + target_width, top + target_height)
+        )
 
     human_img_arg = _apply_exif_orientation(human_img.resize((384, 512)))
     human_img_arg = convert_PIL_to_numpy(human_img_arg, format="BGR")
@@ -799,7 +806,9 @@ async def generate_tryon(request: VtonGenerateRequestV2):
                 prompt_embeds=cache_data["prompt_embeds"],
                 negative_prompt_embeds=cache_data["negative_prompt_embeds"],
                 pooled_prompt_embeds=cache_data["pooled_prompt_embeds"],
-                negative_pooled_prompt_embeds=cache_data["negative_pooled_prompt_embeds"],
+                negative_pooled_prompt_embeds=cache_data[
+                    "negative_pooled_prompt_embeds"
+                ],
                 prompt_embeds_c=cache_data["prompt_embeds_c"],
                 denoise_steps=request.denoise_steps,
                 seed=request.seed,
@@ -811,7 +820,8 @@ async def generate_tryon(request: VtonGenerateRequestV2):
             )
 
             return VtonGenerateResponse(
-                result_image_base64=pil_to_base64(result_img), processing_time=total_elapsed
+                result_image_base64=pil_to_base64(result_img),
+                processing_time=total_elapsed,
             )
 
     except Exception as e:
@@ -946,7 +956,7 @@ async def generate_batch(request: VtonBatchGenerateRequest):
 def apply_gpu_optimizations():
     """GPU 최적화 적용"""
     global GPU_OPTIMIZATIONS_ENABLED, device
-
+    global torch
     # Device 명시적 설정
     device_str = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info(f"📍 Using device: {device_str}")
@@ -996,8 +1006,11 @@ def apply_gpu_optimizations():
         # 6. Try torch.compile for faster inference (PyTorch 2.0+)
         try:
             import torch._dynamo
+
             torch._dynamo.config.suppress_errors = True
-            pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=False)
+            pipe.unet = torch.compile(
+                pipe.unet, mode="reduce-overhead", fullgraph=False
+            )
             logger.info("✅ UNet compiled with torch.compile")
         except Exception as e:
             logger.warning(f"⚠️  torch.compile not available: {e}")
