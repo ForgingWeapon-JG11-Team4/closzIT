@@ -956,16 +956,51 @@ def apply_gpu_optimizations():
     logger.info("=" * 80)
 
     try:
-        # Gradio 스타일: 최소한의 최적화만 사용
         # 0. 파이프라인을 GPU로 이동 (float16 사용)
         logger.info("0️⃣ Moving pipeline to GPU (float16)...")
         pipe.to(device)
         logger.info(f"✅ Pipeline moved to {device}")
 
-        # 모든 최적화 비활성화 - 순수 test.py 스타일
-        logger.info("📝 Pure test.py style: NO optimizations")
-        logger.info("   Skipping: xFormers, torch.compile, cuDNN benchmark, TF32, autocast")
-        logger.info("   Using only: float16 (no autocast)")
+        # 1. Enable cuDNN benchmark for faster convolutions
+        if torch.cuda.is_available():
+            torch.backends.cudnn.benchmark = True
+            logger.info("✅ cuDNN benchmark enabled")
+
+        # 2. Enable TF32 for faster matmul on Ampere GPUs
+        if torch.cuda.is_available():
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
+            logger.info("✅ TF32 enabled")
+
+        # 3. Enable attention slicing to reduce memory and potentially improve speed
+        try:
+            pipe.enable_attention_slicing(1)
+            logger.info("✅ Attention slicing enabled")
+        except Exception as e:
+            logger.warning(f"⚠️  Attention slicing not available: {e}")
+
+        # 4. Enable VAE slicing for faster decoding
+        try:
+            pipe.vae.enable_slicing()
+            logger.info("✅ VAE slicing enabled")
+        except Exception as e:
+            logger.warning(f"⚠️  VAE slicing not available: {e}")
+
+        # 5. Set UNet to use channels_last memory format for faster inference
+        try:
+            pipe.unet.to(memory_format=torch.channels_last)
+            logger.info("✅ UNet channels_last memory format enabled")
+        except Exception as e:
+            logger.warning(f"⚠️  channels_last not available: {e}")
+
+        # 6. Try torch.compile for faster inference (PyTorch 2.0+)
+        try:
+            import torch._dynamo
+            torch._dynamo.config.suppress_errors = True
+            pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=False)
+            logger.info("✅ UNet compiled with torch.compile")
+        except Exception as e:
+            logger.warning(f"⚠️  torch.compile not available: {e}")
 
         GPU_OPTIMIZATIONS_ENABLED = True
         logger.info("=" * 80)
