@@ -237,12 +237,12 @@ export class CreditService {
   }
 
   /**
-   * 회원가입 시 초기 크레딧 지급 (100 크레딧)
+   * 회원가입 시 초기 크레딧 지급 (10 크레딧)
    */
   async grantSignupCredit(userId: string, idempotencyKey?: string) {
     return this.addCredit(
       userId,
-      100,
+      10,
       CreditTransactionType.SIGNUP,
       '회원가입 축하 크레딧',
       idempotencyKey ?? `signup-${userId}`,
@@ -250,12 +250,12 @@ export class CreditService {
   }
 
   /**
-   * 옷 등록 시 크레딧 지급 (10 크레딧)
+   * 옷 등록 시 크레딧 지급 (1 크레딧)
    */
   async grantClothingAddedCredit(userId: string, clothingId: string) {
     return this.addCredit(
       userId,
-      10,
+      1,
       CreditTransactionType.CLOTHING_ADDED,
       '의류 등록 보상',
       `clothing-added-${clothingId}`,

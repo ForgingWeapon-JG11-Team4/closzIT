@@ -241,7 +241,7 @@ export class AnalysisService {
                     const clothingId = results[i].id;
                     await this.creditService.grantClothingAddedCredit(userId, clothingId);
                 }
-                this.logger.log(`[saveItems] Granted ${results.length * 10} credits for clothing registration`);
+                this.logger.log(`[saveItems] Granted ${results.length * 1} credits for clothing registration`);
             } catch (creditError) {
                 this.logger.error('[saveItems] Failed to grant credits', creditError);
             }
