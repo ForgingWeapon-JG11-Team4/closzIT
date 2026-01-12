@@ -400,6 +400,14 @@ const FeedPage = () => {
         )}
       </div>
 
+      {/* Floating Action Button - 게시물 작성 */}
+      <button
+        onClick={() => navigate('/create-post')}
+        className="fixed bottom-20 right-4 w-14 h-14 btn-premium rounded-full shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all z-50 flex items-center justify-center"
+      >
+        <span className="material-symbols-rounded text-2xl">add</span>
+      </button>
+
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 h-16 glass-warm border-t border-gold-light/20 flex items-center justify-around px-4 z-50 safe-area-pb">
         <button
@@ -409,15 +417,6 @@ const FeedPage = () => {
           <span className="material-symbols-rounded text-[22px]">checkroom</span>
           <span className="text-[10px] font-semibold">내 옷장</span>
         </button>
-
-        <button
-          onClick={() => navigate('/create-post')}
-          className="flex items-center gap-2 px-5 py-2.5 btn-premium rounded-full"
-        >
-          <span className="material-symbols-rounded text-lg">add</span>
-          <span className="text-sm font-semibold">게시물 작성</span>
-        </button>
-
         <button className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] text-gold">
           <span className="material-symbols-rounded text-[22px]">grid_view</span>
           <span className="text-[10px] font-semibold">SNS</span>

@@ -500,30 +500,20 @@ const FittingPage = () => {
       </main>
 
       {/* Bottom Navigation */}
-      <div className="h-20 glass-warm border-t border-gold-light/20 flex items-center justify-around pb-2 z-50 safe-area-pb">
+      <div className="fixed bottom-0 left-0 right-0 h-16 glass-warm border-t border-gold-light/20 flex items-center justify-around px-4 z-50 safe-area-pb">
         <button
           onClick={() => navigate('/main')}
-          className="flex flex-col items-center justify-center w-16 h-full text-charcoal-light dark:text-cream-dark hover:text-gold transition-colors gap-1"
+          className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] text-charcoal-light dark:text-cream-dark hover:text-gold transition-colors"
         >
-          <span className="material-symbols-rounded text-2xl">home</span>
-          <span className="text-[10px] font-medium">홈</span>
+          <span className="material-symbols-rounded text-[22px]">checkroom</span>
+          <span className="text-[10px] font-semibold">내 옷장</span>
         </button>
-
-        <div className="relative -top-5">
-          <button
-            onClick={() => navigate('/register')}
-            className="w-16 h-16 bg-gradient-to-br from-gold to-gold-dark text-warm-white rounded-full flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform border-4 border-cream dark:border-[#1A1918]"
-          >
-            <span className="material-symbols-rounded text-4xl">add</span>
-          </button>
-        </div>
-
         <button
           onClick={() => navigate('/feed')}
-          className="flex flex-col items-center justify-center w-16 h-full text-charcoal-light dark:text-cream-dark hover:text-gold transition-colors gap-1"
+          className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] text-charcoal-light dark:text-cream-dark hover:text-gold transition-colors"
         >
-          <span className="material-symbols-rounded text-2xl">grid_view</span>
-          <span className="text-[10px] font-medium">SNS</span>
+          <span className="material-symbols-rounded text-[22px]">grid_view</span>
+          <span className="text-[10px] font-semibold">SNS</span>
         </button>
       </div>
     </div>

@@ -86,7 +86,7 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange, searchText
   };
 
   return (
-    <div className="animate-slideDown">
+    <div className="animate-slideDown pb-24">
 
       {/* Calendar Section */}
       <div className="mb-6 mt-4">
@@ -174,9 +174,9 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange, searchText
         </div>
       </div>
 
-      {/* Generate Button */}
+      {/* Generate Button - Fixed at bottom above navigator */}
       {(selectedEvent || searchText || selectedKeywords.length > 0) && (
-        <div className="mb-4 animate-fadeIn">
+        <div className="fixed bottom-20 left-0 right-0 px-4 z-40 animate-fadeIn">
           <button
             onClick={handleGenerate}
             className="w-full py-4 bg-gold text-cream rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-gold-dark active:scale-[0.98] transition-all"

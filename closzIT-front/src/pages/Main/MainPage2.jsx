@@ -734,102 +734,7 @@ const MainPage2 = () => {
           `}
         </style>
 
-        {/* 4. 자주 입는 옷 TOP 3 */}
-        <div 
-          className="rounded-3xl p-4 shadow-soft border border-gold-light/20"
-          style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(250,248,245,0.98) 100%)' }}
-        >
-          <h3 className="text-base font-bold text-charcoal dark:text-cream mb-3 flex items-center gap-2">
-            <span className="material-symbols-rounded text-gold text-lg">favorite</span>
-            나의 최애템 TOP 3
-          </h3>
-          <div className="flex gap-3 overflow-x-auto pb-1">
-            {dummyData.topWornItems.map((item, idx) => (
-              <div key={item.id} className="flex-shrink-0 w-20">
-                <div className="relative">
-                  <div 
-                    className="w-20 h-20 rounded-xl border border-gold-light/30 flex items-center justify-center"
-                    style={{ backgroundColor: item.color }}
-                  >
-                    <span className="material-symbols-rounded text-white text-2xl">checkroom</span>
-                  </div>
-                  <span className="absolute -top-1 -left-1 w-5 h-5 bg-gold text-warm-white text-xs font-bold rounded-full flex items-center justify-center">
-                    {idx + 1}
-                  </span>
-                </div>
-                <p className="text-[10px] text-center text-charcoal-light dark:text-cream-dark mt-1">
-                  {item.wearCount}회 착용
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
 
-        {/* 5. 오래 안 입은 옷 */}
-        <div 
-          className="rounded-3xl p-4 shadow-soft border border-gold-light/20"
-          style={{ background: 'linear-gradient(135deg, rgba(255,200,100,0.08) 0%, rgba(250,248,245,0.98) 100%)' }}
-        >
-          <h3 className="text-base font-bold text-charcoal dark:text-cream mb-3 flex items-center gap-2">
-            <span className="material-symbols-rounded text-amber-500 text-lg">schedule</span>
-            오래 안 입은 옷
-          </h3>
-          <div className="flex gap-3 overflow-x-auto pb-1">
-            {dummyData.rarelyWornItems.map((item) => (
-              <div key={item.id} className="flex-shrink-0 w-20">
-                <div 
-                  className="w-20 h-20 rounded-xl border border-amber-200 flex items-center justify-center"
-                  style={{ backgroundColor: item.color }}
-                >
-                  <span className="material-symbols-rounded text-white text-2xl">checkroom</span>
-                </div>
-                <p className="text-[10px] text-center text-charcoal-light dark:text-cream-dark mt-1 truncate">
-                  오늘 입어볼까요?
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 6. 최근 등록한 옷 */}
-        <div 
-          className="rounded-3xl p-4 shadow-soft border border-gold-light/20"
-          style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(250,248,245,0.98) 100%)' }}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-base font-bold text-charcoal dark:text-cream flex items-center gap-2">
-              <span className="material-symbols-rounded text-gold text-lg">new_releases</span>
-              최근 등록
-            </h3>
-            <button 
-              onClick={() => navigate('/main')}
-              className="text-xs text-gold font-medium"
-            >
-              전체보기
-            </button>
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-1">
-            {dummyData.recentItems.map((item) => (
-              <div key={item.id} className="flex-shrink-0">
-                <div 
-                  className="w-16 h-16 rounded-xl border border-gold-light/30 flex items-center justify-center"
-                  style={{ backgroundColor: item.color }}
-                >
-                  <span className="material-symbols-rounded text-white text-xl">checkroom</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 7. CTA - 옷장 열기 */}
-        <button 
-          onClick={() => navigate('/main')}
-          className="w-full py-4 rounded-2xl btn-premium text-warm-white font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
-        >
-          <span className="material-symbols-rounded text-xl">checkroom</span>
-          옷장 열기
-        </button>
 
        </main>
         )}
@@ -840,7 +745,7 @@ const MainPage2 = () => {
         onClick={() => navigate('/register')}
         className="fixed bottom-20 right-4 w-14 h-14 btn-premium rounded-full shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all z-50 flex items-center justify-center"
       >
-        <span className="material-symbols-rounded text-2xl">apparel+</span>
+        <span className="material-symbols-rounded text-2xl">apparel</span>
       </button>
 
       {/* Bottom Navigation */}
