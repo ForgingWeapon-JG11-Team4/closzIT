@@ -24,6 +24,16 @@ export interface UpcomingEvent {
   isToday: boolean;
 }
 
+export interface CreateEventDto {
+  title: string;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  province?: string;
+  city?: string;
+  description?: string;
+}
+
 interface GoogleCalendarEvent {
   id: string;
   summary?: string;
@@ -53,9 +63,7 @@ export class CalendarService {
     private readonly weatherService: WeatherService,
   ) {}
 
-  // 하루 가져오기
   async getEvents(userId: string, targetDate: Date): Promise<CalendarEvent[]> {
-    // 1. DB에서 Access Token과 Refresh Token을 함께 조회
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { googleAccessToken: true, googleRefreshToken: true },
@@ -71,7 +79,6 @@ export class CalendarService {
     const endOfDay = new Date(targetDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // 구글 API 호출을 위한 내부 헬퍼 함수
     const fetchFromGoogle = async (token: string) => {
       return await firstValueFrom(
         this.httpService.get<GoogleCalendarResponse>(
@@ -90,11 +97,9 @@ export class CalendarService {
     };
 
     try {
-      // 2. 일차적으로 현재 토큰으로 요청 시도
       const response = await fetchFromGoogle(user.googleAccessToken);
       return this.mapGoogleEventsToCalendarEvents(response.data.items);
     } catch (error) {
-      // 3. 401 Unauthorized 에러 발생 시 토큰 갱신 로직 진입
       if (error.response?.status === 401 && user.googleRefreshToken) {
         console.log('[Calendar] 토큰 만료 감지, 갱신 시도 중...');
         
@@ -102,7 +107,6 @@ export class CalendarService {
         
         if (newToken) {
           try {
-            // 4. 새 토큰으로 재시도
             console.log('[Calendar] 갱신된 토큰으로 재요청합니다.');
             const retryResponse = await fetchFromGoogle(newToken);
             return this.mapGoogleEventsToCalendarEvents(retryResponse.data.items);
@@ -117,7 +121,6 @@ export class CalendarService {
     }
   }
 
-  // 오늘, 내일 일정 가져오기
   async getUpcomingEvents(userId: string): Promise<UpcomingEvent[]> {
     const today = new Date();
     const tomorrow = new Date(today);
@@ -156,31 +159,6 @@ export class CalendarService {
     return combined;
   }
 
-  // 프론트엔드 제공용 포맷팅
-  private formatEventForFrontend(event: CalendarEvent, isToday: boolean): UpcomingEvent {
-    const startDate = new Date(event.start);
-    
-    const month = startDate.getMonth() + 1;
-    const day = startDate.getDate();
-    const date = `${month}/${day}`;
-
-    let time: string;
-    if (event.start.includes('T')) {
-      const hours = startDate.getHours().toString().padStart(2, '0');
-      const minutes = startDate.getMinutes().toString().padStart(2, '0');
-      time = `${hours}:${minutes}`;
-    } else {
-      time = '';
-    }
-
-    return {
-      date,
-      time,
-      title: event.summary,
-      isToday,
-    };
-  }
-
   async createEvent(userId: string, dto: CreateEventDto): Promise<{ success: boolean; event?: CalendarEvent; error?: string }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -191,10 +169,8 @@ export class CalendarService {
       return { success: false, error: 'Google 계정 연동이 필요합니다.' };
     }
 
-    // 요청 바디 구성
     const eventBody = this.buildEventBody(dto);
 
-    // API 호출 헬퍼
     const postToGoogle = async (token: string) => {
       return await firstValueFrom(
         this.httpService.post(
@@ -209,10 +185,9 @@ export class CalendarService {
       const response = await postToGoogle(user.googleAccessToken);
       return {
         success: true,
-        event: this.mapGoogleEventToCalendarEvent(response.data),
+        event: this.toCalendarEvent(response.data),
       };
     } catch (error) {
-      // 토큰 만료 시 갱신 후 재시도
       if (error.response?.status === 401 && user.googleRefreshToken) {
         console.log('[Calendar] 토큰 만료 감지, 갱신 시도 중...');
         
@@ -223,7 +198,7 @@ export class CalendarService {
             const retryResponse = await postToGoogle(newToken);
             return {
               success: true,
-              event: this.toCalendarEvent(response.data),
+              event: this.toCalendarEvent(retryResponse.data),
             };
           } catch (retryError) {
             console.error('[Calendar] 토큰 갱신 후에도 요청 실패:', retryError.message);
@@ -242,7 +217,7 @@ export class CalendarService {
       summary: dto.title,
     };
 
-    // location: 시/도 + 시/군/구 (날씨 조회용)
+    // location: 시/도 + 시/군/구
     if (dto.province || dto.city) {
       eventBody.location = [dto.province, dto.city].filter(Boolean).join(' ');
     }
@@ -280,7 +255,30 @@ export class CalendarService {
     return `${newHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   }
 
-  // 구글 토큰 재발행
+  private formatEventForFrontend(event: CalendarEvent, isToday: boolean): UpcomingEvent {
+    const startDate = new Date(event.start);
+    
+    const month = startDate.getMonth() + 1;
+    const day = startDate.getDate();
+    const date = `${month}/${day}`;
+
+    let time: string;
+    if (event.start.includes('T')) {
+      const hours = startDate.getHours().toString().padStart(2, '0');
+      const minutes = startDate.getMinutes().toString().padStart(2, '0');
+      time = `${hours}:${minutes}`;
+    } else {
+      time = '';
+    }
+
+    return {
+      date,
+      time,
+      title: event.summary,
+      isToday,
+    };
+  }
+
   private async refreshGoogleToken(userId: string, refreshToken: string): Promise<string | null> {
     try {
       const response = await firstValueFrom(
@@ -306,10 +304,6 @@ export class CalendarService {
     }
   }
 
-  private mapGoogleEventsToCalendarEvents(items: GoogleCalendarEvent[]): CalendarEvent[] {
-    return (items || []).map(event => this.toCalendarEvent(event));
-  }
-
   private toCalendarEvent(event: GoogleCalendarEvent): CalendarEvent {
     return {
       id: event.id,
@@ -319,6 +313,10 @@ export class CalendarService {
       start: event.start?.dateTime || event.start?.date || '',
       end: event.end?.dateTime || event.end?.date || '',
     };
+  }
+
+  private mapGoogleEventsToCalendarEvents(items: GoogleCalendarEvent[]): CalendarEvent[] {
+    return (items || []).map(event => this.toCalendarEvent(event));
   }
 
   async extractTPOFromEvent(event: CalendarEvent): Promise<string> {
@@ -367,7 +365,6 @@ export class CalendarService {
   private extractAddress(location?: string): string | null {
     if (!location) return null;
     
-    // 시/도 + 시/군/구 패턴 추출
     const match = location.match(/([가-힣]+(?:시|도))\s*([가-힣]+(?:시|군|구))/);
     if (match) {
       return `${match[1]} ${match[2]}`;

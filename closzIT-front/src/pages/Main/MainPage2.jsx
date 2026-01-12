@@ -1,8 +1,9 @@
+// src/pages/main/MainPage2.jsx
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SharedHeader from '../../components/SharedHeader';
 import OutfitRecommender from './OutfitRecommender';
-
 
 // 요일 목록
 const weekDays = ['월', '화', '수', '목', '금', '토', '일'];
@@ -15,7 +16,7 @@ const categoryMap = {
   shoes: { name: '신발', icon: 'steps', color: '#DAA520' },
 };
 
-// 키워드 필터 옵션 (백엔드 필드명과 일치: tpos, styleMoods, seasons, colors)
+// 키워드 필터 옵션
 const keywordGroups = [
   {
     title: 'TPO',
@@ -61,32 +62,28 @@ const keywordGroups = [
   }
 ];
 
-// 더미 데이터 (날씨 제외)
-const dummyData = {
-  // userName removed, will fetch
-  userCredit: 100,
-  userLocation: '서울',
-  streakDays: 3,
-  totalClothes: 29,
-  upcomingEvents: [
-    { date: '1/8', time: '14:00', title: '친구 약속', isToday: false },
-    { date: '1/9', time: '10:00', title: '미팅', isToday: false },
-  ],
-  topWornItems: [
-    { id: 1, color: '#D4AF37', wearCount: 15 },
-    { id: 2, color: '#B8860B', wearCount: 12 },
-    { id: 3, color: '#CD853F', wearCount: 10 },
-  ],
-  rarelyWornItems: [
-    { id: 4, color: '#DAA520' },
-    { id: 5, color: '#D4AF37' },
-  ],
-  recentItems: [
-    { id: 6, color: '#B8860B' },
-    { id: 7, color: '#CD853F' },
-    { id: 8, color: '#DAA520' },
-  ],
+// 지역 데이터
+const locationData = {
+  '서울특별시': ['강남구', '강동구', '강북구', '강서구', '관악구', '광진구', '구로구', '금천구', '노원구', '도봉구', '동대문구', '동작구', '마포구', '서대문구', '서초구', '성동구', '성북구', '송파구', '양천구', '영등포구', '용산구', '은평구', '종로구', '중구', '중랑구'],
+  '부산광역시': ['강서구', '금정구', '기장군', '남구', '동구', '동래구', '부산진구', '북구', '사상구', '사하구', '서구', '수영구', '연제구', '영도구', '중구', '해운대구'],
+  '대구광역시': ['남구', '달서구', '달성군', '동구', '북구', '서구', '수성구', '중구'],
+  '인천광역시': ['강화군', '계양구', '남동구', '동구', '미추홀구', '부평구', '서구', '연수구', '옹진군', '중구'],
+  '광주광역시': ['광산구', '남구', '동구', '북구', '서구'],
+  '대전광역시': ['대덕구', '동구', '서구', '유성구', '중구'],
+  '울산광역시': ['남구', '동구', '북구', '울주군', '중구'],
+  '세종특별자치시': ['세종시'],
+  '경기도': ['가평군', '고양시', '과천시', '광명시', '광주시', '구리시', '군포시', '김포시', '남양주시', '동두천시', '부천시', '성남시', '수원시', '시흥시', '안산시', '안성시', '안양시', '양주시', '양평군', '여주시', '연천군', '오산시', '용인시', '의왕시', '의정부시', '이천시', '파주시', '평택시', '포천시', '하남시', '화성시'],
+  '강원도': ['강릉시', '고성군', '동해시', '삼척시', '속초시', '양구군', '양양군', '영월군', '원주시', '인제군', '정선군', '철원군', '춘천시', '태백시', '평창군', '홍천군', '화천군', '횡성군'],
+  '충청북도': ['괴산군', '단양군', '보은군', '영동군', '옥천군', '음성군', '제천시', '증평군', '진천군', '청주시', '충주시'],
+  '충청남도': ['계룡시', '공주시', '금산군', '논산시', '당진시', '보령시', '부여군', '서산시', '서천군', '아산시', '예산군', '천안시', '청양군', '태안군', '홍성군'],
+  '전라북도': ['고창군', '군산시', '김제시', '남원시', '무주군', '부안군', '순창군', '완주군', '익산시', '임실군', '장수군', '전주시', '정읍시', '진안군'],
+  '전라남도': ['강진군', '고흥군', '곡성군', '광양시', '구례군', '나주시', '담양군', '목포시', '무안군', '보성군', '순천시', '신안군', '여수시', '영광군', '영암군', '완도군', '장성군', '장흥군', '진도군', '함평군', '해남군', '화순군'],
+  '경상북도': ['경산시', '경주시', '고령군', '구미시', '군위군', '김천시', '문경시', '봉화군', '상주시', '성주군', '안동시', '영덕군', '영양군', '영주시', '영천시', '예천군', '울릉군', '울진군', '의성군', '청도군', '청송군', '칠곡군', '포항시'],
+  '경상남도': ['거제시', '거창군', '고성군', '김해시', '남해군', '밀양시', '사천시', '산청군', '양산시', '의령군', '진주시', '창녕군', '창원시', '통영시', '하동군', '함안군', '함양군', '합천군'],
+  '제주특별자치도': ['서귀포시', '제주시'],
 };
+
+const provinces = Object.keys(locationData);
 
 const MainPage2 = () => {
   const navigate = useNavigate();
@@ -94,13 +91,13 @@ const MainPage2 = () => {
   // 검색 및 추천기 상태
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [selectedKeywords, setSelectedKeywords] = useState([]);
-  const [searchText, setSearchText] = useState(''); // 자연어 검색어 상태
+  const [searchText, setSearchText] = useState('');
   const [userName, setUserName] = useState('');
   const [showGreeting, setShowGreeting] = useState(true);
-  const [selectedClothDetail, setSelectedClothDetail] = useState(null); // 의류 상세정보 모달 상태
-  const [isVtoLoading, setIsVtoLoading] = useState(false); // VTO 로딩 상태
-  const [userFullBodyImage, setUserFullBodyImage] = useState(null); // 사용자 전신 사진
-  const [beforeAfterImage, setBeforeAfterImage] = useState(null); // Before & After 이미지 (After)
+  const [selectedClothDetail, setSelectedClothDetail] = useState(null);
+  const [isVtoLoading, setIsVtoLoading] = useState(false);
+  const [userFullBodyImage, setUserFullBodyImage] = useState(null);
+  const [beforeAfterImage, setBeforeAfterImage] = useState(null);
 
   // 날씨 API 상태
   const [weather, setWeather] = useState({ temperature: null, condition: '로딩중...' });
@@ -118,8 +115,96 @@ const MainPage2 = () => {
     total: 0,
   });
 
+  // 사용자 위치 정보 상태 추가
+  const [userProvince, setUserProvince] = useState('');
+  const [userCity, setUserCity] = useState('');
+
+  // 일정 추가 모달 상태
+  const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
+  const [newEvent, setNewEvent] = useState({
+    title: '',
+    date: new Date().toISOString().split('T')[0],
+    isAllDay: true,
+    startTime: '',
+    endTime: '',
+    province: '',
+    city: '',
+    description: '',
+  });
+
+  const [isAddingEvent, setIsAddingEvent] = useState(false);
+
+  // 일정 추가 함수
+  const handleAddEvent = async () => {
+    if (!newEvent.title.trim()) {
+      alert('제목을 입력해주세요.');
+      return;
+    }
+
+    setIsAddingEvent(true);
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+
+      const response = await fetch(`${backendUrl}/calendar/events`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: newEvent.title,
+          date: newEvent.date,
+          // 종일이면 시간 전송 안 함
+          startTime: newEvent.isAllDay ? undefined : newEvent.startTime,
+          endTime: newEvent.isAllDay ? undefined : newEvent.endTime,
+          province: newEvent.province || undefined,
+          city: newEvent.city || undefined,
+          description: newEvent.description || undefined,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // 일정 목록 새로고침
+        const upcomingResponse = await fetch(`${backendUrl}/calendar/upcoming`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+
+        if (upcomingResponse.ok) {
+          const data = await upcomingResponse.json();
+          const events = data.events || [];
+          setUpcomingEvents(events.slice(0, 2));
+        }
+
+        // 모달 닫고 초기화
+        setIsAddEventModalOpen(false);
+        setNewEvent({
+          title: '',
+          date: new Date().toISOString().split('T')[0],
+          isAllDay: true,
+          startTime: '',
+          endTime: '',
+          province: '',
+          city: '',
+          description: '',
+        });
+
+        alert('일정이 추가되었습니다!');
+      } else {
+        alert(result.error || '일정 추가에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Add event error:', error);
+      alert('일정 추가 중 오류가 발생했습니다.');
+    } finally {
+      setIsAddingEvent(false);
+    }
+  };
+
   useEffect(() => {
-    // 사용자 정보 가져오기
     const fetchUser = async () => {
       try {
         const token = localStorage.getItem('accessToken');
@@ -131,7 +216,11 @@ const MainPage2 = () => {
         if (response.ok) {
           const data = await response.json();
           setUserName(data.name || '');
-          setUserFullBodyImage(data.fullBodyImage || null); // 전신 사진 저장
+          setUserFullBodyImage(data.fullBodyImage || null);
+          
+          // 사용자 위치 정보 저장
+          if (data.province) setUserProvince(data.province);
+          if (data.city) setUserCity(data.city);
         }
       } catch (e) {
         console.error(e);
@@ -146,6 +235,21 @@ const MainPage2 = () => {
       return () => clearTimeout(timer);
     }
   }, [userName, showGreeting]);
+  
+  // 모달 열 때 사용자 위치를 기본값으로 설정
+  const openAddEventModal = () => {
+    setNewEvent({
+      title: '',
+      date: new Date().toISOString().split('T')[0],
+      isAllDay: true,
+      startTime: '',
+      endTime: '',
+      province: userProvince,  // 사용자 시/도
+      city: userCity,          // 사용자 시/군/구
+      description: '',
+    });
+    setIsAddEventModalOpen(true);
+  };
 
   // 확장된 카테고리 상태
   const [expandedCategory, setExpandedCategory] = useState(null);
@@ -167,7 +271,6 @@ const MainPage2 = () => {
 
   // 필터링된 옷 목록 계산
   const filteredClothes = React.useMemo(() => {
-    // 활성화된 필터가 없으면 전체 반환
     const hasActiveFilters = Object.values(filterState).some(arr => arr.length > 0);
     if (!hasActiveFilters) return userClothes;
 
@@ -175,16 +278,10 @@ const MainPage2 = () => {
     Object.keys(result).forEach(category => {
       if (!result[category]) return;
       result[category] = result[category].filter(item => {
-        // 각 활성 필터 그룹에 대해, 아이템이 해당 그룹의 선택된 값 중 하나라도 포함해야 함 (AND 조건)
         return Object.entries(filterState).every(([key, selectedValues]) => {
           if (selectedValues.length === 0) return true;
-
-          // 백엔드에서 반환하는 필드명: tpos, styleMoods, seasons, colors
-          // item 객체에서 직접 접근
           const itemValue = item[key];
-
-          if (!itemValue) return false; // 해당 속성이 없으면 탈락
-
+          if (!itemValue) return false;
           const valuesArray = Array.isArray(itemValue) ? itemValue : [itemValue];
           return selectedValues.some(v => valuesArray.includes(v));
         });
@@ -210,27 +307,19 @@ const MainPage2 = () => {
   const [isScrolling, setIsScrolling] = useState(false);
   const [scrollRotation, setScrollRotation] = useState(0);
   const [hasScrolled, setHasScrolled] = useState(false);
-  const [shouldAnimate, setShouldAnimate] = useState(false); // 애니메이션 실행 여부 (처음 열릴 때만 true)
+  const [shouldAnimate, setShouldAnimate] = useState(false);
   const lastScrollLeftRef = useRef(0);
   const scrollTimeoutRef = useRef(null);
 
   const handleClothesScroll = (e) => {
     if (!hasScrolled) setHasScrolled(true);
     const currentScrollLeft = e.target.scrollLeft;
-
     const deltaX = currentScrollLeft - lastScrollLeftRef.current;
-
-    // 물리적 관성 효과: 오른쪽 스크롤(delta > 0) -> 왼쪽으로 기울임(rotation > 0)
-    // 옷걸이 기준이므로 오른쪽으로 가면 옷이 뒤처지면서 왼쪽(반대)으로 기울어지는게 맞음
-    // deltaX * 0.5 정도로 각도 제한
     const rotation = Math.max(Math.min(deltaX * 0.8, 30), -30);
-
     setScrollRotation(rotation);
     setIsScrolling(true);
-
     lastScrollLeftRef.current = currentScrollLeft;
 
-    // 스크롤 멈추면 흔들림 정지 및 복귀
     if (scrollTimeoutRef.current) {
       clearTimeout(scrollTimeoutRef.current);
     }
@@ -296,14 +385,11 @@ const MainPage2 = () => {
         if (response.ok) {
           const data = await response.json();
           const events = data.events || [];
-
-          // 백엔드에서 이미 { date, time, title, isToday } 형태로 반환
           const upcoming = events.slice(0, 2).map(event => ({
             date: event.date,
             title: event.title,
             isToday: event.isToday,
           }));
-
           setUpcomingEvents(upcoming);
         }
       } catch (error) {
@@ -328,8 +414,6 @@ const MainPage2 = () => {
 
         if (response.ok) {
           const data = await response.json();
-
-          // 카테고리별 카운트
           const stats = {
             outerwear: data.outerwear?.length || 0,
             tops: data.tops?.length || 0,
@@ -338,7 +422,6 @@ const MainPage2 = () => {
             total: (data.outerwear?.length || 0) + (data.tops?.length || 0) +
               (data.bottoms?.length || 0) + (data.shoes?.length || 0),
           };
-
           setWardrobeStats(stats);
           setUserClothes({
             outerwear: data.outerwear || [],
@@ -375,7 +458,7 @@ const MainPage2 = () => {
     <div className="min-h-screen bg-cream dark:bg-[#1A1918] font-sans pb-24">
       <SharedHeader />
 
-      {/* Search Block - Visible ONLY when expanded (Active State) */}
+      {/* Search Block - Visible ONLY when expanded */}
       {isSearchExpanded && (
         <div className="px-4 py-3 bg-cream dark:bg-[#1A1918]">
           <button
@@ -386,7 +469,6 @@ const MainPage2 = () => {
           </button>
 
           <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gold/10 border-2 border-gold shadow-glow-gold min-h-[44px]">
-            {/* 선택된 키워드 칩 */}{/* Expanded State UI */}
             {selectedKeywords.length > 0 ? (
               <div className="flex flex-wrap gap-1.5 flex-1">
                 {selectedKeywords.map((keyword) => (
@@ -491,11 +573,11 @@ const MainPage2 = () => {
                 <div className="relative flex justify-center -mb-2 shrink-0">
                   <style>
                     {`
-                  @keyframes dongleFloat {
-                    0%, 100% { transform: translateY(0px) rotate(-1deg); }
-                    50% { transform: translateY(-5px) rotate(1deg); }
-                  }
-                `}
+                      @keyframes dongleFloat {
+                        0%, 100% { transform: translateY(0px) rotate(-1deg); }
+                        50% { transform: translateY(-5px) rotate(1deg); }
+                      }
+                    `}
                   </style>
                   <img
                     src="/dongle.png"
@@ -510,8 +592,16 @@ const MainPage2 = () => {
 
                 {/* Right: Schedule */}
                 <div className="flex-1 flex flex-col items-end">
-                  <div className="w-12 h-12 rounded-2xl bg-white/60 backdrop-blur-md border border-gold-light/10 shadow-sm flex items-center justify-center mb-2">
-                    <span className="material-symbols-rounded text-2xl text-gold">event</span>
+                  <div className="flex items-center gap-1 mb-2">
+                    <div className="w-12 h-12 rounded-2xl bg-white/60 backdrop-blur-md border border-gold-light/10 shadow-sm flex items-center justify-center">
+                      <span className="material-symbols-rounded text-2xl text-gold">event</span>
+                    </div>
+                    <button
+                      onClick={openAddEventModal}
+                      className="w-8 h-8 rounded-xl bg-gold/20 hover:bg-gold/30 border border-gold/30 flex items-center justify-center transition-all hover:scale-105"
+                    >
+                      <span className="material-symbols-rounded text-gold text-lg">add</span>
+                    </button>
                   </div>
                   <div className="text-right w-full">
                     <span className="block text-[10px] text-charcoal-light dark:text-cream-dark leading-none mb-0.5">다가오는 일정</span>
@@ -521,14 +611,14 @@ const MainPage2 = () => {
                   </div>
                   {upcomingEvents.length > 0 && (
                     <p className="text-[10px] text-gold dark:text-gold-light mt-1 text-right font-medium">
-                      {upcomingEvents[0].date} {upcomingEvents[0].time}
+                      {upcomingEvents[0].date}
                     </p>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* 3. 카테고리별 현황 */}
+            {/* 카테고리별 현황 */}
             <div
               className="rounded-3xl p-4 shadow-soft border border-gold-light/20"
               style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(250,248,245,0.98) 100%)' }}
@@ -594,10 +684,7 @@ const MainPage2 = () => {
                 className={`overflow-hidden transition-all duration-500 ease-out ${expandedCategory ? 'max-h-[300px] opacity-100 mt-4' : 'max-h-0 opacity-0 mt-0'
                   }`}
               >
-                {/* 옷봉 레일 + 옷 카드들 */}
                 <div className="relative pt-2">
-
-                  {/* 옷봉 레일 (절대 위치) - 신발 카테고리는 제외, 닫혀있을 때도 제외 */}
                   {expandedCategory && expandedCategory !== 'shoes' && (
                     <div
                       className="absolute top-6 left-0 right-0 h-[14px] z-10 backdrop-blur-sm"
@@ -610,7 +697,6 @@ const MainPage2 = () => {
                     />
                   )}
 
-                  {/* 신발장 선반 (신발 카테고리일 때만) */}
                   {expandedCategory === 'shoes' && (
                     <div
                       className="absolute bottom-0 left-0 right-0 h-[8px] z-10"
@@ -623,7 +709,6 @@ const MainPage2 = () => {
                     />
                   )}
 
-                  {/* 옷 카드들 */}
                   <div
                     ref={clothesScrollRef}
                     onScroll={handleClothesScroll}
@@ -634,18 +719,15 @@ const MainPage2 = () => {
                         key={cloth.id}
                         className="flex-shrink-0 cursor-pointer group/card"
                         style={{
-                          willChange: 'transform', // GPU 가속 힌트
-                          backfaceVisibility: 'hidden', // 뒷면 렌더링 방지
-                          // 신발 카테고리는 흔들림 효과 제외
+                          willChange: 'transform',
+                          backfaceVisibility: 'hidden',
                           ...(expandedCategory === 'shoes' ? {
                             animation: shouldAnimate ? `slideInSimpleRight 1.0s cubic-bezier(0.22, 1, 0.36, 1) 0.55s backwards` : 'none',
-                            transform: 'translate3d(0,0,0)', // 하드웨어 가속 트리거
+                            transform: 'translate3d(0,0,0)',
                           } : {
-                            // 스크롤 중일 때는 계산된 rotation 적용, 아닐 때는 animation 적용
                             transform: isScrolling
                               ? `rotate(${scrollRotation}deg) translate3d(0,0,0)`
                               : 'translate3d(0,0,0)',
-                            // 중력 효과: 스크롤 멈추면 초고속 복귀 (0.2s)
                             transition: isScrolling ? 'transform 0.1s linear' : 'transform 0.2s cubic-bezier(0.25, 1.5, 0.5, 1)',
                             animation: isScrolling
                               ? 'none'
@@ -653,12 +735,11 @@ const MainPage2 = () => {
                                 ? 'none'
                                 : (shouldAnimate
                                   ? `appearSwingFromRight 1.0s cubic-bezier(0.22, 1, 0.36, 1) 0.55s backwards`
-                                  : 'none')), // 처음 열릴 때만 애니메이션 적용
+                                  : 'none')),
                             transformOrigin: 'top center',
                           })
                         }}
                       >
-                        {/* 옷걸이 - 신발 카테고리는 제외 */}
                         {expandedCategory !== 'shoes' && (
                           <div className="flex justify-center">
                             <img
@@ -668,7 +749,6 @@ const MainPage2 = () => {
                             />
                           </div>
                         )}
-                        {/* 옷 카드 - 신발일 경우 마진 제거 */}
                         <div
                           className={`w-20 h-24 rounded-xl overflow-hidden relative backdrop-blur-sm ${expandedCategory !== 'shoes' ? '-mt-4' : 'mt-2'}`}
                           style={{
@@ -682,7 +762,6 @@ const MainPage2 = () => {
                             className="w-full h-full object-cover"
                             src={cloth.image || cloth.imageUrl}
                           />
-                          {/* Hover Overlay with Detail Icon Button */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -696,7 +775,6 @@ const MainPage2 = () => {
                       </div>
                     ))}
 
-                    {/* 빈 상태 */}
                     {expandedCategory && (!filteredClothes[expandedCategory] || filteredClothes[expandedCategory].length === 0) && (
                       <div className="flex-1 flex items-center justify-center py-6">
                         <p className="text-sm text-charcoal-light dark:text-cream-dark">이 카테고리에 옷이 없어요</p>
@@ -717,7 +795,6 @@ const MainPage2 = () => {
                 Before & After
               </h3>
               <div className="grid grid-cols-2 gap-4">
-                {/* Before */}
                 <div className="relative">
                   <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-cream-dark/30 dark:bg-charcoal-light/20 border border-gold-light/20">
                     {userFullBodyImage ? (
@@ -737,7 +814,6 @@ const MainPage2 = () => {
                   </div>
                 </div>
 
-                {/* After */}
                 <div className="relative">
                   <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-cream-dark/30 dark:bg-charcoal-light/20 border border-gold-light/20">
                     {beforeAfterImage ? (
@@ -770,40 +846,39 @@ const MainPage2 = () => {
               </div>
             </div>
 
-            {/* 슬라이드 인 + 흔들흔들 애니메이션 */}
             <style>
               {`
-            @keyframes appearSwingFromRight {
-              0% { opacity: 0; transform: translateX(100vw) rotate(5deg); } /* 화면 너비만큼 이동 */
-              50% { opacity: 1; transform: translateX(0) rotate(-3deg); }
-              70% { transform: rotate(2deg); }
-              85% { transform: rotate(-1deg); }
-              100% { transform: rotate(0); }
-            }
-            
-            @keyframes slideInRail {
-              0% { opacity: 0; transform: translateX(100%); }
-              100% { opacity: 1; transform: translateX(0); }
-            }
-            
-            @keyframes slideInSimpleRight {
-              0% { opacity: 0; transform: translateX(100vw); } /* 화면 너비만큼 이동 */
-              100% { opacity: 1; transform: translateX(0); }
-            }
-            
-            @keyframes idleSwing {
-              0%, 100% { transform: rotate(0deg); }
-              25% { transform: rotate(2.5deg); }
-              75% { transform: rotate(-2.5deg); }
-            }
-          `}
+                @keyframes appearSwingFromRight {
+                  0% { opacity: 0; transform: translateX(100vw) rotate(5deg); }
+                  50% { opacity: 1; transform: translateX(0) rotate(-3deg); }
+                  70% { transform: rotate(2deg); }
+                  85% { transform: rotate(-1deg); }
+                  100% { transform: rotate(0); }
+                }
+                
+                @keyframes slideInRail {
+                  0% { opacity: 0; transform: translateX(100%); }
+                  100% { opacity: 1; transform: translateX(0); }
+                }
+                
+                @keyframes slideInSimpleRight {
+                  0% { opacity: 0; transform: translateX(100vw); }
+                  100% { opacity: 1; transform: translateX(0); }
+                }
+                
+                @keyframes idleSwing {
+                  0%, 100% { transform: rotate(0deg); }
+                  25% { transform: rotate(2.5deg); }
+                  75% { transform: rotate(-2.5deg); }
+                }
+              `}
             </style>
-            
+
           </main>
         )}
       </div>
 
-      {/* Floating Action Button - 의류 등록 */}
+      {/* Floating Action Button */}
       <button
         onClick={() => navigate('/register')}
         className="fixed bottom-20 right-4 w-14 h-14 btn-premium rounded-full shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all z-50 flex items-center justify-center"
@@ -836,7 +911,6 @@ const MainPage2 = () => {
             className="bg-warm-white dark:bg-charcoal rounded-3xl shadow-2xl max-w-sm w-full max-h-[80vh] overflow-hidden animate-slideDown"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
             <div className="relative">
               <img
                 src={selectedClothDetail.image || selectedClothDetail.imageUrl}
@@ -855,9 +929,7 @@ const MainPage2 = () => {
               </div>
             </div>
 
-            {/* Modal Content - Labeling Info */}
             <div className="p-5 space-y-4 max-h-[40vh] overflow-y-auto">
-              {/* Category */}
               <div className="bg-cream-dark dark:bg-charcoal-light/20 rounded-xl p-3">
                 <p className="text-[10px] text-charcoal-light dark:text-cream-dark uppercase font-semibold mb-1">카테고리</p>
                 <p className="text-sm font-medium text-charcoal dark:text-cream">
@@ -869,9 +941,6 @@ const MainPage2 = () => {
                 </p>
               </div>
 
-              {/* Seasons, Colors, etc can be added here if available in data */}
-
-              {/* Wear Count */}
               {selectedClothDetail.wearCount !== undefined && (
                 <div className="bg-cream-dark dark:bg-charcoal-light/20 rounded-xl p-3">
                   <p className="text-[10px] text-charcoal-light dark:text-cream-dark uppercase font-semibold mb-1">착용 횟수</p>
@@ -880,21 +949,14 @@ const MainPage2 = () => {
               )}
             </div>
 
-            {/* Modal Footer - 수정/삭제 버튼 */}
-            {/* 하나만 입어보기 버튼 (IDM-VTON) */}
             <button
               onClick={async () => {
                 try {
                   const token = localStorage.getItem('accessToken');
                   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-
-                  // 필요한 정보 먼저 저장
                   const clothingId = selectedClothDetail.id;
                   const category = selectedClothDetail.category;
 
-                  console.log(`[VTO] Starting try-on for clothing: ${clothingId}, category: ${category}`);
-
-                  // 모달 닫고 로딩 시작
                   setSelectedClothDetail(null);
                   setIsVtoLoading(true);
 
@@ -919,9 +981,8 @@ const MainPage2 = () => {
 
                   const result = await response.json();
 
-                  // 결과 이미지 표시 (Before & After만 업데이트)
                   if (result.success && result.imageUrl) {
-                    setBeforeAfterImage(result.imageUrl); // Before & After의 After 업데이트
+                    setBeforeAfterImage(result.imageUrl);
                   } else {
                     throw new Error('결과 이미지를 받지 못했습니다.');
                   }
@@ -929,7 +990,7 @@ const MainPage2 = () => {
                   console.error('Single item try-on error:', error);
                   alert(`가상 피팅 실패: ${error.message}`);
                 } finally {
-                  setIsVtoLoading(false); // 로딩 종료
+                  setIsVtoLoading(false);
                 }
               }}
               className="w-64 mx-auto py-3.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl font-bold hover:from-purple-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
@@ -957,10 +1018,9 @@ const MainPage2 = () => {
                           headers: { 'Authorization': `Bearer ${token}` }
                         });
                         if (response.ok) {
-                          // 성공 시 목록에서 제거
                           setUserClothes((prev) => {
                             const newClothes = { ...prev };
-                            const category = selectedClothDetail.category; // category is required for this
+                            const category = selectedClothDetail.category;
                             if (newClothes[category]) {
                               newClothes[category] = newClothes[category].filter(item => item.id !== selectedClothDetail.id);
                             }
@@ -994,7 +1054,6 @@ const MainPage2 = () => {
             className="bg-warm-white dark:bg-charcoal w-full max-w-sm sm:rounded-3xl rounded-t-3xl shadow-2xl overflow-hidden animate-slideUp sm:animate-slideDown max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
             <div className="px-6 py-4 border-b border-gold-light/20 flex items-center justify-between bg-white/50 backdrop-blur-sm relative z-10">
               <h3 className="text-lg font-bold text-charcoal dark:text-cream">키워드로 옷 찾기</h3>
               <button
@@ -1007,7 +1066,6 @@ const MainPage2 = () => {
               </button>
             </div>
 
-            {/* Content */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {keywordGroups.map((group) => (
                 <div key={group.key}>
@@ -1044,13 +1102,11 @@ const MainPage2 = () => {
               ))}
             </div>
 
-            {/* Footer */}
             <div className="p-4 border-t border-gold-light/20 bg-white/50 backdrop-blur-sm safe-area-pb">
               <button
                 onClick={() => setIsKeywordModalOpen(false)}
                 className="w-full py-3.5 bg-gradient-to-r from-gold to-gold-dark text-white rounded-xl font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
               >
-                {/* 필터 적용된 총 개수 계산 */}
                 {(() => {
                   const total = Object.values(filteredClothes).reduce((acc, list) => acc + list.length, 0);
                   return `${total}벌의 옷 결과 보기`;
@@ -1061,6 +1117,181 @@ const MainPage2 = () => {
         </div>
       )}
 
+      {/* ========== Add Event Modal ========== */}
+      {isAddEventModalOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fadeIn"
+          onClick={() => setIsAddEventModalOpen(false)}
+        >
+          <div
+            className="bg-warm-white dark:bg-charcoal rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-slideDown"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gold-light/20 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-charcoal dark:text-cream">일정 추가</h3>
+              <button
+                onClick={() => setIsAddEventModalOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gold/10 transition-colors"
+              >
+                <span className="material-symbols-rounded text-charcoal-light dark:text-cream-dark">close</span>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+              {/* 제목 */}
+              <div>
+                <label className="block text-xs font-semibold text-charcoal-light dark:text-cream-dark mb-1.5">
+                  제목 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newEvent.title}
+                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                  placeholder="일정 제목"
+                  className="w-full px-4 py-3 rounded-xl border border-gold-light/30 bg-white dark:bg-charcoal-light/20 text-charcoal dark:text-cream placeholder-charcoal-light/50 focus:border-gold focus:outline-none transition-colors"
+                />
+              </div>
+
+              {/* 날짜 */}
+              <div>
+                <label className="block text-xs font-semibold text-charcoal-light dark:text-cream-dark mb-1.5">
+                  날짜 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={newEvent.date}
+                  onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gold-light/30 bg-white dark:bg-charcoal-light/20 text-charcoal dark:text-cream focus:border-gold focus:outline-none transition-colors"
+                />
+              </div>
+
+              {/* 종일 체크박스 + 시간 */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-xs font-semibold text-charcoal-light dark:text-cream-dark">
+                    시간
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newEvent.isAllDay}
+                      onChange={(e) => setNewEvent({ 
+                        ...newEvent, 
+                        isAllDay: e.target.checked,
+                        startTime: e.target.checked ? '' : newEvent.startTime,
+                        endTime: e.target.checked ? '' : newEvent.endTime,
+                      })}
+                      className="w-4 h-4 rounded border-gold-light/30 text-gold focus:ring-gold"
+                    />
+                    <span className="text-xs text-charcoal dark:text-cream">종일</span>
+                  </label>
+                </div>
+                
+                {!newEvent.isAllDay && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] text-charcoal-light dark:text-cream-dark mb-1">
+                        시작 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="time"
+                        value={newEvent.startTime}
+                        onChange={(e) => setNewEvent({ ...newEvent, startTime: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl border border-gold-light/30 bg-white dark:bg-charcoal-light/20 text-charcoal dark:text-cream focus:border-gold focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-charcoal-light dark:text-cream-dark mb-1">
+                        종료 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="time"
+                        value={newEvent.endTime}
+                        onChange={(e) => setNewEvent({ ...newEvent, endTime: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl border border-gold-light/30 bg-white dark:bg-charcoal-light/20 text-charcoal dark:text-cream focus:border-gold focus:outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 위치 */}
+              <div>
+                <label className="block text-xs font-semibold text-charcoal-light dark:text-cream-dark mb-1.5">
+                  위치
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <select
+                    value={newEvent.province}
+                    onChange={(e) => setNewEvent({ ...newEvent, province: e.target.value, city: '' })}
+                    className="w-full px-4 py-3 rounded-xl border border-gold-light/30 bg-white dark:bg-charcoal-light/20 text-charcoal dark:text-cream focus:border-gold focus:outline-none transition-colors"
+                  >
+                    <option value="">시/도 선택</option>
+                    {provinces.map((province) => (
+                      <option key={province} value={province}>{province}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={newEvent.city}
+                    onChange={(e) => setNewEvent({ ...newEvent, city: e.target.value })}
+                    disabled={!newEvent.province}
+                    className="w-full px-4 py-3 rounded-xl border border-gold-light/30 bg-white dark:bg-charcoal-light/20 text-charcoal dark:text-cream focus:border-gold focus:outline-none transition-colors disabled:opacity-50"
+                  >
+                    <option value="">시/군/구 선택</option>
+                    {newEvent.province && locationData[newEvent.province]?.map((city) => (
+                      <option key={city} value={city}>{city}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* 설명 */}
+              <div>
+                <label className="block text-xs font-semibold text-charcoal-light dark:text-cream-dark mb-1.5">
+                  설명
+                </label>
+                <textarea
+                  value={newEvent.description}
+                  onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                  placeholder="상세 정보"
+                  rows={2}
+                  className="w-full px-4 py-3 rounded-xl border border-gold-light/30 bg-white dark:bg-charcoal-light/20 text-charcoal dark:text-cream placeholder-charcoal-light/50 focus:border-gold focus:outline-none transition-colors resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-gold-light/20 flex gap-3">
+              <button
+                onClick={() => setIsAddEventModalOpen(false)}
+                className="flex-1 py-3 rounded-xl border border-gold-light/30 text-charcoal-light dark:text-cream-dark font-semibold hover:bg-gold/10 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleAddEvent}
+                  disabled={
+                    isAddingEvent || 
+                    !newEvent.title.trim() ||
+                    (!newEvent.isAllDay && (!newEvent.startTime || !newEvent.endTime))
+                  }
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-gold to-gold-dark text-white font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isAddingEvent ? (
+                    <>
+                      <span className="material-symbols-rounded animate-spin text-lg">progress_activity</span>
+                      추가 중...
+                    </>
+                  ) : (
+                    '추가하기'
+                  )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
