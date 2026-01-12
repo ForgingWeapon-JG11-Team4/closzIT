@@ -1267,19 +1267,19 @@ def clear_human_cache(user_id: str):
     cleared = False
 
     # upper_body 캐시 삭제
-    if user_id in memory_cache["human_upper"]:
+    if "human_upper" in memory_cache and user_id in memory_cache["human_upper"]:
         del memory_cache["human_upper"][user_id]
         logger.info(f"✅ Cleared human_upper cache for {user_id}")
         cleared = True
 
     # lower_body 캐시 삭제
-    if user_id in memory_cache["human_lower"]:
+    if "human_lower" in memory_cache and user_id in memory_cache["human_lower"]:
         del memory_cache["human_lower"][user_id]
         logger.info(f"✅ Cleared human_lower cache for {user_id}")
         cleared = True
 
     # 구버전 캐시도 확인 (있다면 삭제)
-    if user_id in memory_cache.get("human", {}):
+    if "human" in memory_cache and user_id in memory_cache["human"]:
         del memory_cache["human"][user_id]
         logger.info(f"✅ Cleared legacy human cache for {user_id}")
         cleared = True
