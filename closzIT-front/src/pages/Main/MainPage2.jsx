@@ -14,6 +14,52 @@ const categoryMap = {
   shoes: { name: '신발', icon: 'steps', color: '#DAA520' },
 };
 
+// 키워드 필터 옵션 (백엔드 필드명과 일치: tpos, styleMoods, seasons, colors)
+const keywordGroups = [
+  {
+    title: 'TPO',
+    key: 'tpos',
+    options: [
+      { label: '데일리', value: 'Daily' }, { label: '출근', value: 'Commute' },
+      { label: '데이트', value: 'Date' }, { label: '운동', value: 'Sports' },
+      { label: '여행', value: 'Travel' }, { label: '파티', value: 'Party' },
+      { label: '학교', value: 'School' }, { label: '집', value: 'Home' }
+    ]
+  },
+  {
+    title: '스타일',
+    key: 'styleMoods',
+    options: [
+      { label: '캐주얼', value: 'Casual' }, { label: '스트릿', value: 'Street' },
+      { label: '미니멀', value: 'Minimal' }, { label: '포멀', value: 'Formal' },
+      { label: '스포티', value: 'Sporty' }, { label: '빈티지', value: 'Vintage' },
+      { label: '고프코어', value: 'Gorpcore' }
+    ]
+  },
+  {
+    title: '계절',
+    key: 'seasons',
+    options: [
+      { label: '봄', value: 'Spring' }, { label: '여름', value: 'Summer' },
+      { label: '가을', value: 'Autumn' }, { label: '겨울', value: 'Winter' }
+    ]
+  },
+  {
+    title: '색상',
+    key: 'colors',
+    options: [
+      { label: '블랙', value: 'Black' }, { label: '화이트', value: 'White' },
+      { label: '그레이', value: 'Gray' }, { label: '베이지', value: 'Beige' },
+      { label: '브라운', value: 'Brown' }, { label: '네이비', value: 'Navy' },
+      { label: '블루', value: 'Blue' }, { label: '하늘색', value: 'Sky-blue' },
+      { label: '레드', value: 'Red' }, { label: '핑크', value: 'Pink' },
+      { label: '오렌지', value: 'Orange' }, { label: '옐로우', value: 'Yellow' },
+      { label: '그린', value: 'Green' }, { label: '민트', value: 'Mint' },
+      { label: '퍼플', value: 'Purple' }, { label: '카키', value: 'Khaki' }
+    ]
+  }
+];
+
 // 더미 데이터 (날씨 제외)
 const dummyData = {
   // userName removed, will fetch
@@ -104,6 +150,55 @@ const MainPage2 = () => {
     bottoms: [],
     shoes: [],
   });
+
+  // 키워드 필터 상태 (백엔드 필드명과 일치)
+  const [isKeywordModalOpen, setIsKeywordModalOpen] = useState(false);
+  const [filterState, setFilterState] = useState({
+    tpos: [],
+    styleMoods: [],
+    seasons: [],
+    colors: [],
+  });
+
+  // 필터링된 옷 목록 계산
+  const filteredClothes = React.useMemo(() => {
+    // 활성화된 필터가 없으면 전체 반환
+    const hasActiveFilters = Object.values(filterState).some(arr => arr.length > 0);
+    if (!hasActiveFilters) return userClothes;
+
+    const result = { ...userClothes };
+    Object.keys(result).forEach(category => {
+      if (!result[category]) return;
+      result[category] = result[category].filter(item => {
+        // 각 활성 필터 그룹에 대해, 아이템이 해당 그룹의 선택된 값 중 하나라도 포함해야 함 (AND 조건)
+        return Object.entries(filterState).every(([key, selectedValues]) => {
+          if (selectedValues.length === 0) return true;
+          
+          // 백엔드에서 반환하는 필드명: tpos, styleMoods, seasons, colors
+          // item 객체에서 직접 접근
+          const itemValue = item[key];
+          
+          if (!itemValue) return false; // 해당 속성이 없으면 탈락
+          
+          const valuesArray = Array.isArray(itemValue) ? itemValue : [itemValue];
+          return selectedValues.some(v => valuesArray.includes(v));
+        });
+      });
+    });
+    return result;
+  }, [userClothes, filterState]);
+
+  // 필터링된 통계 계산
+  const filteredStats = React.useMemo(() => {
+    return {
+      outerwear: filteredClothes.outerwear?.length || 0,
+      tops: filteredClothes.tops?.length || 0,
+      bottoms: filteredClothes.bottoms?.length || 0,
+      shoes: filteredClothes.shoes?.length || 0,
+      total: (filteredClothes.outerwear?.length || 0) + (filteredClothes.tops?.length || 0) + 
+             (filteredClothes.bottoms?.length || 0) + (filteredClothes.shoes?.length || 0),
+    };
+  }, [filteredClothes]);
   
   // 스크롤 상태 감지
   const clothesScrollRef = useRef(null);
@@ -335,99 +430,94 @@ const MainPage2 = () => {
         ) : (
           <main className="py-5 space-y-4 animate-fadeIn">
         
-        {/* 1. Streak Card + 동글 캐릭터 (가로 배치) */}
-        <div className="flex gap-3 items-stretch">
-          {/* 동글 캐릭터 (가운데) */}
-          <div 
-            className="w-full h-56 rounded-3xl relative flex items-center justify-center shadow-soft border border-gold-light/20 pt-10"
-            style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(250,248,245,0.98) 100%)' }}
+        {/* Unified Dashboard Card */}
+        <div 
+          className="rounded-[32px] p-5 relative overflow-hidden shadow-soft border border-gold-light/20"
+          style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(250,248,245,0.98) 100%)' }}
+        >
+          {/* Top: Search Trigger Button */}
+          <div
+            onClick={() => setIsSearchExpanded(true)}
+            className="w-full h-12 rounded-2xl border border-gold/30 flex items-center px-4 cursor-pointer hover:border-gold/50 transition-all z-10 relative bg-white/40 backdrop-blur-sm mb-4"
+            style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.08) 0%, rgba(255,250,240,0.8) 100%)' }}
           >
-             {/* Floating Search Trigger (Merged into component) */}
-            <div
-              onClick={() => setIsSearchExpanded(true)}
-              className="absolute top-4 left-4 right-4 h-12 bg-white/50 backdrop-blur-sm rounded-2xl border border-gold-light/20 flex items-center px-4 cursor-pointer hover:bg-white/80 transition-all z-10"
-            >
-              <div className="relative flex-1 h-5 overflow-hidden">
-                <span
-                  className={`absolute inset-0 text-sm text-charcoal-light dark:text-cream-dark transition-all duration-500 ease-in-out ${showGreeting && userName
-                    ? 'translate-y-0 opacity-100'
-                    : '-translate-y-full opacity-0'
-                    }`}
-                >
-                  반가워요, <span className="text-gold font-semibold">{userName}</span>님!
-                </span>
-                <span
-                  className={`absolute inset-0 text-sm transition-all duration-500 ease-in-out ${showGreeting && userName
-                    ? 'translate-y-full opacity-0'
-                    : 'translate-y-0 opacity-100'
-                    } text-charcoal-light dark:text-cream-dark`}
-                >
-                  오늘 뭐 입지? <span className="text-gold font-semibold">AI에게 추천받기</span>
-                </span>
-              </div>
-              <span className="material-symbols-rounded text-gold">search</span>
+            <div className="relative flex-1 h-5 overflow-hidden flex items-center justify-center">
+               <span
+                className={`absolute inset-0 flex items-center justify-center text-sm text-charcoal-light dark:text-cream-dark transition-all duration-500 ease-in-out ${showGreeting && userName
+                  ? 'translate-y-0 opacity-100'
+                  : '-translate-y-full opacity-0'
+                  }`}
+              >
+                반가워요, <span className="text-gold font-semibold ml-1">{userName}</span>님!
+              </span>
+              <span
+                className={`absolute inset-0 flex items-center justify-center text-sm transition-all duration-500 ease-in-out ${showGreeting && userName
+                  ? 'translate-y-full opacity-0'
+                  : 'translate-y-0 opacity-100'
+                  } text-charcoal-light dark:text-cream-dark gap-1`}
+              >
+                오늘 뭐 입지? <span className="text-gold font-semibold">AI에게 추천받기</span>
+              </span>
             </div>
-            
-            <style>
-              {`
-                @keyframes dongleFloat {
-                  0%, 100% { transform: rotate(-2deg); }
-                  50% { transform: rotate(2deg); }
-                }
-              `}
-            </style>
-            <img 
-              src="/dongle.png" 
-              alt="동글쿤" 
-              className="w-36 h-auto mt-4"
-              style={{ 
-                animation: 'dongleFloat 2s linear infinite',
-                transformOrigin: 'bottom center'
-              }} 
-            />
+            <span className="material-symbols-rounded text-gold absolute right-4">search</span>
           </div>
-        </div>
 
-        {/* 2. 날씨 + 다가오는 일정 (가로 배치) */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* 날씨 (API 연동) */}
-          <div 
-            className="rounded-2xl p-4 border border-gold-light/20"
-            style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.08) 0%, rgba(250,248,245,0.9) 100%)' }}
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center">
-                <span className="material-symbols-rounded text-xl text-gold">{getWeatherIcon()}</span>
+          {/* Bottom Row: Weather - Character - Schedule */}
+          <div className="flex items-end justify-between relative z-10 px-1">
+            {/* Left: Weather */}
+            <div className="flex-1 flex flex-col items-start min-w-0">
+              <div className="w-12 h-12 rounded-2xl bg-white/60 backdrop-blur-md border border-gold-light/10 shadow-sm flex items-center justify-center mb-2">
+                <span className="material-symbols-rounded text-2xl text-gold">{getWeatherIcon()}</span>
               </div>
-              <div>
-                <p className="text-sm font-semibold text-charcoal dark:text-cream">
-                  {userLocation} {weather.temperature !== null ? `${weather.temperature}°C` : ''}
+              <div className="text-left">
+                <div className="flex items-center gap-1.5">
+                  <span className="block text-sm font-bold text-charcoal dark:text-cream">
+                    {weather.temperature !== null ? `${weather.temperature}°C` : ''}
+                  </span>
+                  <span className="block text-[10px] text-charcoal-light dark:text-cream-dark leading-none mt-0.5">{weather.condition}</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-gold dark:text-gold-light mt-1 text-left font-medium leading-tight break-keep w-full">
+                {getWeatherTip()}
+              </p>
+            </div>
+
+            {/* Center: Character */}
+            <div className="relative flex justify-center -mb-2 shrink-0">
+              <style>
+                {`
+                  @keyframes dongleFloat {
+                    0%, 100% { transform: translateY(0px) rotate(-1deg); }
+                    50% { transform: translateY(-5px) rotate(1deg); }
+                  }
+                `}
+              </style>
+              <img 
+                src="/dongle.png" 
+                alt="동글쿤" 
+                className="w-32 h-auto object-contain drop-shadow-xl"
+                style={{ 
+                  animation: 'dongleFloat 3s ease-in-out infinite',
+                  transformOrigin: 'bottom center'
+                }} 
+              />
+            </div>
+
+            {/* Right: Schedule */}
+            <div className="flex-1 flex flex-col items-end">
+              <div className="w-12 h-12 rounded-2xl bg-white/60 backdrop-blur-md border border-gold-light/10 shadow-sm flex items-center justify-center mb-2">
+                <span className="material-symbols-rounded text-2xl text-gold">event</span>
+              </div>
+              <div className="text-right w-full">
+                <span className="block text-[10px] text-charcoal-light dark:text-cream-dark leading-none mb-0.5">다가오는 일정</span>
+                <span className="block text-xs font-bold text-charcoal dark:text-cream truncate w-full pl-4">
+                  {upcomingEvents.length > 0 ? upcomingEvents[0].title : '없음'}
+                </span>
+              </div>
+              {upcomingEvents.length > 0 && (
+                <p className="text-[10px] text-gold dark:text-gold-light mt-1 text-right font-medium">
+                  {upcomingEvents[0].date} {upcomingEvents[0].time}
                 </p>
-                <p className="text-[10px] text-charcoal-light dark:text-cream-dark">{weather.condition}</p>
-              </div>
-            </div>
-            <p className="text-xs text-charcoal-light dark:text-cream-dark">{getWeatherTip()}</p>
-          </div>
-
-          {/* 다가오는 일정 */}
-          <div 
-            className="rounded-2xl p-4 border border-gold-light/20"
-            style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(250,248,245,0.98) 100%)' }}
-          >
-            <h3 className="text-sm font-bold text-charcoal dark:text-cream mb-2 flex items-center gap-1">
-              <span className="material-symbols-rounded text-gold text-base">event</span>
-              다가오는 일정
-            </h3>
-            <div className="space-y-1">
-              {upcomingEvents.length > 0 ? (
-                upcomingEvents.map((event, idx) => (
-                  <div key={idx} className="flex items-center gap-2 text-xs">
-                    <span className="text-gold font-medium">{event.date}</span>
-                    <span className="text-charcoal dark:text-cream truncate">{event.title}</span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-charcoal-light dark:text-cream-dark">등록된 일정이 없어요</p>
               )}
             </div>
           </div>
@@ -443,16 +533,34 @@ const MainPage2 = () => {
               <span className="material-symbols-rounded text-gold text-lg">inventory_2</span>
               내 옷장 현황
             </h3>
-            <span className="text-xs text-charcoal-light dark:text-cream-dark">총 {wardrobeStats.total}벌</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsKeywordModalOpen(true)}
+                className={`px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-all text-xs font-medium ${
+                  Object.values(filterState).some(a => a.length > 0)
+                    ? 'bg-gold text-white shadow-md'
+                    : 'bg-white text-charcoal-light border border-gold-light/20 hover:bg-gold/10'
+                }`}
+              >
+                <span className="material-symbols-rounded text-sm">search</span>
+                키워드 검색
+              </button>
+              {Object.values(filterState).some(a => a.length > 0) && (
+                <button
+                  onClick={() => setFilterState({ tpos: [], styleMoods: [], seasons: [], colors: [] })}
+                  className="text-xs text-gold underline font-medium hover:text-gold-dark transition-colors"
+                >
+                  초기화
+                </button>
+              )}
+              <span className="text-xs text-charcoal-light dark:text-cream-dark">총 {filteredStats.total}벌</span>
+            </div>
           </div>
           <div className="grid grid-cols-4 gap-2">
             {Object.entries(categoryMap).map(([key, { name, icon, color }]) => (
               <button 
                 key={key}
                 onClick={() => {
-                  // 현재 닫혀있는 상태에서 누르면 -> 열림 (애니메이션 O)
-                  // 이미 열려있는 상태에서 다른거 누르면 -> 변경 (애니메이션 X)
-                  // 같은거 누르면 -> 닫힘 (상관없음)
                   if (!expandedCategory) { 
                     setShouldAnimate(true); 
                   } else if (expandedCategory !== key) {
@@ -472,7 +580,7 @@ const MainPage2 = () => {
                 >
                   <span className="material-symbols-rounded text-lg" style={{ color }}>{icon}</span>
                 </div>
-                <span className="text-lg font-bold text-charcoal dark:text-cream">{wardrobeStats[key] || 0}</span>
+                <span className="text-lg font-bold text-charcoal dark:text-cream">{filteredStats[key] || 0}</span>
                 <span className="text-[10px] text-charcoal-light dark:text-cream-dark">{name}</span>
               </button>
             ))}
@@ -490,11 +598,25 @@ const MainPage2 = () => {
               {/* 옷봉 레일 (절대 위치) - 신발 카테고리는 제외, 닫혀있을 때도 제외 */}
               {expandedCategory && expandedCategory !== 'shoes' && (
                 <div 
-                  className="absolute top-8 left-0 right-0 h-[6px] rounded-full z-10"
+                  className="absolute top-6 left-0 right-0 h-[14px] z-10 backdrop-blur-sm"
                   style={{
-                    background: 'linear-gradient(180deg, #997B4D 0%, #E6C88B 30%, #FBF4DF 50%, #C9A962 70%, #8A6E42 100%)', // 금속 원통 질감 (위->아래)
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.15), inset 0 1px 1px rgba(255,255,255,0.4)', // 입체감 그림자
-                    animation: shouldAnimate ? 'slideInRail 1.0s cubic-bezier(0.22, 1, 0.36, 1) 0.4s backwards' : 'none', // 처음 열릴 때만 애니메이션
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(245,236,215,0.7) 50%, rgba(212,175,55,0.2) 100%)',
+                    borderTop: '2px solid #D4AF37',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1), inset 0 1px 2px rgba(255,255,255,0.8), inset 0 -1px 2px rgba(212,175,55,0.3)',
+                    animation: shouldAnimate ? 'slideInRail 1.0s cubic-bezier(0.22, 1, 0.36, 1) 0.4s backwards' : 'none',
+                  }}
+                />
+              )}
+
+              {/* 신발장 선반 (신발 카테고리일 때만) */}
+              {expandedCategory === 'shoes' && (
+                <div 
+                  className="absolute bottom-0 left-0 right-0 h-[8px] z-10"
+                  style={{
+                    background: 'linear-gradient(to bottom, #8B5E3C, #5D3A1A)',
+                    borderTop: '2px solid #D4AF37',
+                    boxShadow: '0 -2px 4px rgba(0,0,0,0.15)',
+                    animation: shouldAnimate ? 'slideInRail 1.0s cubic-bezier(0.22, 1, 0.36, 1) 0.4s backwards' : 'none',
                   }}
                 />
               )}
@@ -505,18 +627,22 @@ const MainPage2 = () => {
                 onScroll={handleClothesScroll}
                 className="flex gap-3 overflow-x-auto pb-3 hide-scrollbar relative z-10"
               >
-                {expandedCategory && userClothes[expandedCategory]?.map((cloth, idx) => (
+                {expandedCategory && filteredClothes[expandedCategory]?.map((cloth, idx) => (
                   <div 
                     key={cloth.id}
-                    className="flex-shrink-0 cursor-pointer transition-all duration-300 hover:scale-105 group/card"
+                    className="flex-shrink-0 cursor-pointer group/card"
                     style={{ 
+                      willChange: 'transform', // GPU 가속 힌트
+                      backfaceVisibility: 'hidden', // 뒷면 렌더링 방지
                       // 신발 카테고리는 흔들림 효과 제외
                       ...(expandedCategory === 'shoes' ? {
                         animation: shouldAnimate ? `slideInSimpleRight 1.0s cubic-bezier(0.22, 1, 0.36, 1) 0.55s backwards` : 'none',
-                        transform: undefined,
+                        transform: 'translate3d(0,0,0)', // 하드웨어 가속 트리거
                       } : {
                         // 스크롤 중일 때는 계산된 rotation 적용, 아닐 때는 animation 적용
-                        transform: isScrolling ? `rotate(${scrollRotation}deg)` : undefined,
+                        transform: isScrolling 
+                          ? `rotate(${scrollRotation}deg) translate3d(0,0,0)` 
+                          : 'translate3d(0,0,0)',
                         // 중력 효과: 스크롤 멈추면 초고속 복귀 (0.2s)
                         transition: isScrolling ? 'transform 0.1s linear' : 'transform 0.2s cubic-bezier(0.25, 1.5, 0.5, 1)', 
                         animation: isScrolling 
@@ -541,7 +667,14 @@ const MainPage2 = () => {
                       </div>
                     )}
                     {/* 옷 카드 - 신발일 경우 마진 제거 */}
-                    <div className={`w-20 h-24 bg-warm-white dark:bg-charcoal rounded-xl overflow-hidden border-2 border-gold-light/30 shadow-soft relative ${expandedCategory !== 'shoes' ? '-mt-4' : 'mt-2'}`}>
+                    <div 
+                      className={`w-20 h-24 rounded-xl overflow-hidden relative backdrop-blur-sm ${expandedCategory !== 'shoes' ? '-mt-4' : 'mt-2'}`}
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.6) 100%)',
+                        border: '1.5px solid rgba(212,175,55,0.4)',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(255,255,255,0.5) inset, 0 2px 4px rgba(212,175,55,0.15)',
+                      }}
+                    >
                       <img
                         alt={cloth.name || '옷'}
                         className="w-full h-full object-cover"
@@ -562,7 +695,7 @@ const MainPage2 = () => {
                 ))}
                 
                 {/* 빈 상태 */}
-                {expandedCategory && (!userClothes[expandedCategory] || userClothes[expandedCategory].length === 0) && (
+                {expandedCategory && (!filteredClothes[expandedCategory] || filteredClothes[expandedCategory].length === 0) && (
                   <div className="flex-1 flex items-center justify-center py-6">
                     <p className="text-sm text-charcoal-light dark:text-cream-dark">이 카테고리에 옷이 없어요</p>
                   </div>
@@ -702,18 +835,19 @@ const MainPage2 = () => {
         )}
       </div>
 
+      {/* Floating Action Button - 의류 등록 */}
+      <button
+        onClick={() => navigate('/register')}
+        className="fixed bottom-20 right-4 w-14 h-14 btn-premium rounded-full shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all z-50 flex items-center justify-center"
+      >
+        <span className="material-symbols-rounded text-2xl">apparel+</span>
+      </button>
+
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 h-16 glass-warm border-t border-gold-light/20 flex items-center justify-around px-4 z-50 safe-area-pb">
         <button className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] text-gold">
           <span className="material-symbols-rounded text-[22px]">checkroom</span>
           <span className="text-[10px] font-semibold">내 옷장</span>
-        </button>
-        <button
-          onClick={() => navigate('/register')}
-          className="flex items-center gap-2 px-5 py-2.5 btn-premium rounded-full"
-        >
-          <span className="material-symbols-rounded text-lg">add</span>
-          <span className="text-sm font-semibold">의류 등록</span>
         </button>
         <button
           onClick={() => navigate('/feed')}
@@ -798,25 +932,106 @@ const MainPage2 = () => {
                           headers: { 'Authorization': `Bearer ${token}` }
                         });
                         if (response.ok) {
-                          alert('옷이 삭제되었습니다.');
+                          // 성공 시 목록에서 제거
+                          setUserClothes((prev) => {
+                            const newClothes = { ...prev };
+                            const category = selectedClothDetail.category; // category is required for this
+                            if (newClothes[category]) {
+                              newClothes[category] = newClothes[category].filter(item => item.id !== selectedClothDetail.id);
+                            }
+                            return newClothes;
+                          });
                           setSelectedClothDetail(null);
-                          // 간단히 새로고침 (실제로는 state update 권장)
-                          window.location.reload();
-                        } else {
-                          alert('삭제 실패');
                         }
                       } catch (e) {
                         console.error(e);
-                        alert('오류 발생');
+                        alert('삭제 실패');
                       }
                     }
                   }}
-                  className="flex-1 py-3 bg-red-500/20 text-red-500 rounded-xl font-semibold hover:bg-red-500/30 transition-colors flex items-center justify-center gap-2"
+                  className="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center hover:bg-red-100 transition-colors"
                 >
-                  <span className="material-symbols-rounded text-lg">delete</span>
-                  삭제
+                  <span className="material-symbols-rounded">delete</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== Keyword Filter Modal ========== */}
+      {isKeywordModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center animate-fadeIn"
+          onClick={() => setIsKeywordModalOpen(false)}
+        >
+          <div 
+            className="bg-warm-white dark:bg-charcoal w-full max-w-sm sm:rounded-3xl rounded-t-3xl shadow-2xl overflow-hidden animate-slideUp sm:animate-slideDown max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gold-light/20 flex items-center justify-between bg-white/50 backdrop-blur-sm relative z-10">
+              <h3 className="text-lg font-bold text-charcoal dark:text-cream">키워드로 옷 찾기</h3>
+              <button 
+                onClick={() => {
+                   setFilterState({ tpos: [], styleMoods: [], seasons: [], colors: [] });
+                }}
+                className="text-xs text-gold underline font-medium"
+              >
+                초기화
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {keywordGroups.map((group) => (
+                <div key={group.key}>
+                  <h4 className="text-sm font-bold text-charcoal dark:text-cream mb-3 flex items-center gap-2">
+                    <span className="w-1 h-4 bg-gold rounded-full"></span>
+                    {group.title}
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {group.options.map((option) => {
+                      const isSelected = filterState[group.key].includes(option.value);
+                      return (
+                        <button
+                          key={option.value}
+                          onClick={() => {
+                            setFilterState(prev => {
+                              const current = prev[group.key];
+                              const updated = current.includes(option.value)
+                                ? current.filter(v => v !== option.value)
+                                : [...current, option.value];
+                              return { ...prev, [group.key]: updated };
+                            });
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+                            isSelected
+                              ? 'bg-gold text-white border-gold shadow-md transform scale-105'
+                              : 'bg-white dark:bg-charcoal-light border-gold-light/20 text-charcoal-light dark:text-cream-dark hover:border-gold/50'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-gold-light/20 bg-white/50 backdrop-blur-sm safe-area-pb">
+              <button
+                onClick={() => setIsKeywordModalOpen(false)}
+                className="w-full py-3.5 bg-gradient-to-r from-gold to-gold-dark text-white rounded-xl font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+              >
+                {/* 필터 적용된 총 개수 계산 */}
+                {(() => {
+                  const total = Object.values(filteredClothes).reduce((acc, list) => acc + list.length, 0);
+                  return `${total}벌의 옷 결과 보기`;
+                })()}
+              </button>
             </div>
           </div>
         </div>
