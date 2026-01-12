@@ -100,6 +100,9 @@ const FullBodyImageModal = ({ isOpen, onClose, onSave, initialImage }) => {
         if (!response.ok) {
           throw new Error('전신 사진 저장에 실패했습니다');
         }
+
+        const result = await response.json();
+        console.log('[FullBodyImageModal] Upload success:', result);
       }
 
     onSave && onSave();

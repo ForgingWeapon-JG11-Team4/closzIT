@@ -54,12 +54,64 @@ export class UserController {
       return { success: false, message: 'Image file is required' };
     }
 
-    // S3에 직접 업로드
-    const s3Key = `users/${userId}/fullbody.${file.mimetype.split('/')[1] || 'jpg'}`;
+    // 기존 fullbody 이미지 삭제
+    console.log(`[FullBodyImage] Deleting old fullbody images for userId: ${userId}`);
+    try {
+      // users/{userId}/ 폴더 아래 fullbody로 시작하는 모든 파일 삭제
+      await this.s3Service.deleteFolder(`users/${userId}/fullbody`);
+      console.log(`[FullBodyImage] ✅ Old fullbody images deleted`);
+    } catch (deleteError) {
+      console.log(`[FullBodyImage] ⚠️ Failed to delete old fullbody images:`, deleteError.message);
+    }
+
+    // 기존 VTON 캐시 삭제 (전신 사진이 바뀌면 캐시도 무효화)
+    console.log(`[FullBodyImage] Deleting existing VTON cache for userId: ${userId}`);
+    try {
+      await Promise.all([
+        // 기존 경로 (upper/lower 구분)
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/upper/human_img.png`),
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/upper/mask.png`),
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/upper/mask_gray.png`),
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/upper/pose_tensor.pkl`),
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/lower/human_img.png`),
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/lower/mask.png`),
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/lower/mask_gray.png`),
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/lower/pose_tensor.pkl`),
+        // 새 경로 (upper/lower 구분 없음)
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/human_img.png`),
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/mask.png`),
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/mask_gray.png`),
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/pose_tensor.pkl`),
+      ]);
+      console.log(`[FullBodyImage] ✅ Old VTON cache deleted`);
+    } catch (deleteError) {
+      console.log(`[FullBodyImage] ⚠️ Failed to delete old cache (might not exist):`, deleteError.message);
+    }
+
+    // S3에 직접 업로드 (타임스탬프 추가하여 브라우저 캐시 방지)
+    const timestamp = Date.now();
+    const s3Key = `users/${userId}/fullbody_${timestamp}.${file.mimetype.split('/')[1] || 'jpg'}`;
+    console.log(`[FullBodyImage] Uploading to S3 key: ${s3Key}`);
     const imageUrl = await this.s3Service.uploadBuffer(file.buffer, s3Key, file.mimetype);
+    console.log(`[FullBodyImage] S3 upload complete. URL: ${imageUrl}`);
+
+    // S3에 실제로 업로드되었는지 확인
+    const exists = await this.s3Service.checkObjectExists(s3Key);
+    console.log(`[FullBodyImage] S3 object exists check: ${exists}`);
 
     // DB 업데이트
     await this.userService.updateProfile(userId, { fullBodyImage: imageUrl });
+    console.log(`[FullBodyImage] DB updated with imageUrl: ${imageUrl}`);
+
+    // FastAPI 메모리 캐시도 삭제 (있다면)
+    console.log(`[FullBodyImage] Clearing FastAPI memory cache for userId: ${userId}`);
+    try {
+      const vtonApiUrl = process.env.VTON_API_URL || 'http://localhost:55554';
+      await fetch(`${vtonApiUrl}/cache/human/${userId}`, { method: 'DELETE' });
+      console.log(`[FullBodyImage] ✅ FastAPI memory cache cleared`);
+    } catch (cacheError) {
+      console.log(`[FullBodyImage] ⚠️ Failed to clear FastAPI cache:`, cacheError.message);
+    }
 
     // VTON 사람 캐시 생성 (OpenPose + Parsing + DensePose)
     console.log(`[FullBodyImage] Creating human cache for userId: ${userId}`);

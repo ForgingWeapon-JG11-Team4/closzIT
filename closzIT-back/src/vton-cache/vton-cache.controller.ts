@@ -177,10 +177,27 @@ export class VtonCacheController {
         );
       }
 
+      // category 가져오기 (옷 정보에서)
+      const clothing = await this.prismaService.clothing.findUnique({
+        where: { id: clothingId },
+        select: { category: true },
+      });
+
+      const categoryMap: { [key: string]: string } = {
+        'tops': 'upper_body',
+        'outerwear': 'upper_body',
+        'bottoms': 'lower_body',
+        'bottom': 'lower_body',
+        'shoes': 'lower_body',
+      };
+      const clothingCategory = clothing?.category?.toLowerCase() || 'tops';
+      const vtonCategory = categoryMap[clothingCategory] || 'upper_body';
+
       // Diffusion 생성 (V2 - FastAPI가 S3 직접 다운로드)
       const resultImageBase64 = await this.vtonCacheService.generateTryOnV2(
         userId,
         clothingId,
+        vtonCategory,  // ⚡ category 전달
         denoiseSteps || 10,
         seed || 42
       );

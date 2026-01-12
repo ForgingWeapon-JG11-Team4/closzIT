@@ -13,6 +13,7 @@ import { FittingService } from './fitting.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { VtonCacheService } from '../vton-cache/vton-cache.service';
+import { S3Service } from '../s3/s3.service';
 
 @Controller('api/fitting')
 @UseGuards(JwtAuthGuard)
@@ -21,6 +22,7 @@ export class FittingController {
     private readonly fittingService: FittingService,
     private readonly prisma: PrismaService,
     private readonly vtonCacheService: VtonCacheService,
+    private readonly s3Service: S3Service,
   ) {}
 
   @Post('virtual-try-on')
@@ -213,12 +215,19 @@ export class FittingController {
   @Post('sns-virtual-try-on')
   async snsVirtualTryOn(
     @Request() req,
-    @Body() body: { postId: string },
+    @Body() body: { postId: string; clothingId: string },
   ) {
     const userId = req.user.id;
-    console.log('SNS VTO Request - userId:', userId, 'postId:', body.postId);
+    console.log('[sns-virtual-try-on] Starting - userId:', userId, 'postId:', body.postId, 'clothingId:', body.clothingId);
 
-    // 사용자의 전신 이미지 조회
+    if (!body.clothingId) {
+      throw new BadRequestException({
+        success: false,
+        message: 'clothingId is required',
+      });
+    }
+
+    // 사용자의 전신 이미지 확인
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { fullBodyImage: true },
@@ -232,71 +241,110 @@ export class FittingController {
       });
     }
 
-    // 게시글의 태그된 의상 조회
-    const post = await this.prisma.post.findUnique({
-      where: { id: body.postId },
+    // 게시글의 태그된 의상인지 확인
+    const postClothing = await this.prisma.postClothing.findFirst({
+      where: {
+        postId: body.postId,
+        clothingId: body.clothingId,
+      },
       include: {
-        postClothes: {
-          include: {
-            clothing: {
-              select: {
-                id: true,
-                imageUrl: true,
-                category: true,
-              },
-            },
+        clothing: {
+          select: {
+            id: true,
+            userId: true, // 옷 주인 ID
+            imageUrl: true,
+            flattenImageUrl: true,
+            category: true,
+            subCategory: true,
+            colors: true,
+            patterns: true,
+            details: true,
           },
         },
       },
     });
 
-    if (!post) {
+    if (!postClothing) {
       throw new BadRequestException({
         success: false,
-        message: '게시글을 찾을 수 없습니다.',
+        message: '해당 게시글에 태그된 의상이 아닙니다.',
       });
     }
 
-    if (!post.postClothes || post.postClothes.length === 0) {
-      throw new BadRequestException({
-        success: false,
-        message: '태그된 의상이 없습니다.',
-      });
+    const clothing = postClothing.clothing;
+    const clothingOwnerId = clothing.userId; // 옷 주인 ID
+
+    console.log(`[sns-virtual-try-on] Clothing owner: ${clothingOwnerId}, Current user: ${userId}`);
+
+    // 1. Human 캐시 생성 (필요시)
+    const humanCacheExists = await this.vtonCacheService.checkHumanCacheExists(userId);
+    if (!humanCacheExists) {
+      const imageBase64 = await this.fetchImageAsBase64(user.fullBodyImage);
+      await this.vtonCacheService.preprocessAndCacheHuman(userId, imageBase64);
+      console.log('[Cache] Human cache created');
     }
 
-    // 카테고리별 의상 URL 매핑
-    const clothingUrls: {
-      outer?: string;
-      top?: string;
-      bottom?: string;
-      shoes?: string;
-    } = {};
+    // 2. Garment 캐시 생성 (필요시) - 옷 주인의 캐시 사용
+    const garmentCacheExists = await this.vtonCacheService.checkGarmentCacheExists(clothingOwnerId, body.clothingId);
+    if (!garmentCacheExists) {
+      let imageUrl = clothing.flattenImageUrl || clothing.imageUrl;
 
-    for (const pc of post.postClothes) {
-      const category = pc.clothing.category.toLowerCase();
-      if (category === 'outer') {
-        clothingUrls.outer = pc.clothing.imageUrl;
-      } else if (category === 'top') {
-        clothingUrls.top = pc.clothing.imageUrl;
-      } else if (category === 'bottom') {
-        clothingUrls.bottom = pc.clothing.imageUrl;
-      } else if (category === 'shoes') {
-        clothingUrls.shoes = pc.clothing.imageUrl;
+      // S3 URL을 Pre-signed URL로 변환
+      if (this.s3Service.isS3Url(imageUrl)) {
+        const presignedUrl = await this.s3Service.convertToPresignedUrl(imageUrl);
+        if (presignedUrl) {
+          imageUrl = presignedUrl;
+        }
       }
+
+      const imageBase64 = await this.fetchImageAsBase64(imageUrl);
+      await this.vtonCacheService.preprocessAndCacheGarment(clothingOwnerId, body.clothingId, imageBase64);
+      console.log(`[Cache] Garment cache created for owner: ${clothingOwnerId}`);
     }
 
-    console.log('Clothing categories found:', Object.keys(clothingUrls));
+    // 3. Text 캐시 생성 (필요시) - 옷 주인의 캐시 사용
+    const textCacheExists = await this.vtonCacheService.checkTextCacheExists(clothingOwnerId, body.clothingId);
+    if (!textCacheExists) {
+      const description = [
+        clothing.category || '',
+        clothing.subCategory || '',
+        ...(clothing.colors || []),
+        ...(clothing.patterns || []),
+        ...(clothing.details || []),
+      ].filter(Boolean).join(' ');
 
-    // VTO 처리
-    const result = await this.fittingService.processVirtualFittingFromUrls(
-      user.fullBodyImage,
-      clothingUrls,
-      userId,
+      await this.vtonCacheService.preprocessAndCacheText(clothingOwnerId, body.clothingId, description);
+      console.log(`[Cache] Text cache created for owner: ${clothingOwnerId}`);
+    }
+
+    // 4. Category 매핑
+    const categoryMap = {
+      'tops': 'upper_body',
+      'outerwear': 'upper_body',
+      'bottoms': 'lower_body',
+      'bottom': 'lower_body',
+      'shoes': 'lower_body',
+    };
+    const vtonCategory = categoryMap[clothing.category?.toLowerCase() ?? ''] || 'upper_body';
+
+    console.log(`[sns-virtual-try-on] Mapped VTON category: ${vtonCategory}`);
+
+    // 5. IDM-VTON V2 API 호출 (내 사진 + 남의 옷)
+    const resultImageBase64 = await this.vtonCacheService.generateTryOnV2(
+      userId, // 내 전신 사진 사용
+      body.clothingId,
+      vtonCategory,
+      10, // denoiseSteps
+      42, // seed
+      clothingOwnerId // 옷 주인의 캐시 사용
     );
 
     return {
-      ...result,
+      success: true,
+      message: '가상 피팅이 완료되었습니다',
+      imageUrl: `data:image/png;base64,${resultImageBase64}`,
       postId: body.postId,
+      clothingId: body.clothingId,
     };
   }
 
@@ -311,9 +359,9 @@ export class FittingController {
    */
   @Post('single-item-tryon')
   @UseGuards(JwtAuthGuard)
-  async singleItemTryOn(@Request() req, @Body() body: { clothingId: string; denoiseSteps?: number; seed?: number }) {
+  async singleItemTryOn(@Request() req, @Body() body: { clothingId: string; category?: string; denoiseSteps?: number; seed?: number }) {
     const userId = req.user.id;
-    console.log('[singleItemTryOn] Starting - userId:', userId, 'clothingId:', body.clothingId);
+    console.log('[singleItemTryOn] Starting - userId:', userId, 'clothingId:', body.clothingId, 'category:', body.category);
 
     if (!body.clothingId) {
       throw new BadRequestException({
@@ -396,24 +444,35 @@ export class FittingController {
 
     // 3. V2 API 호출 (FastAPI가 S3 직접 다운로드)
     // category 매핑: "tops", "outerwear" → "upper_body", "bottoms", "shoes" → "lower_body"
-    const clothing = await this.prisma.clothing.findUnique({
-      where: { id: body.clothingId, userId },
-      select: { category: true },
-    });
+
+    // Frontend에서 category를 보내면 그것을 사용, 아니면 DB에서 조회
+    let clothingCategory = body.category;
+    if (!clothingCategory) {
+      const clothing = await this.prisma.clothing.findUnique({
+        where: { id: body.clothingId, userId },
+        select: { category: true },
+      });
+      clothingCategory = clothing?.category;
+    }
+
+    console.log(`[singleItemTryOn] Clothing category: ${clothingCategory}`);
 
     const categoryMap = {
       'tops': 'upper_body',
       'outerwear': 'upper_body',
       'bottoms': 'lower_body',
+      'bottom' : 'lower_body',
       'shoes': 'lower_body',
     };
-    const vtonCategory = categoryMap[clothing?.category?.toLowerCase()] || 'upper_body';
+    const vtonCategory = categoryMap[clothingCategory?.toLowerCase() ?? ''] || 'upper_body';
+
+    console.log(`[singleItemTryOn] Mapped VTON category: ${vtonCategory}`);
 
     const resultImageBase64 = await this.vtonCacheService.generateTryOnV2(
       userId,
       body.clothingId,
       vtonCategory,  // ⚡ category 전달
-      body.denoiseSteps ?? 15,
+      body.denoiseSteps ?? 10,
       body.seed ?? 42,
     );
 

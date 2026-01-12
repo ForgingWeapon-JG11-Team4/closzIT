@@ -88,13 +88,13 @@ const MainPage = () => {
               'Content-Type': 'application/json'
             }
           })
-          .then(res => res.json())
-          .then(data => {
-            console.log('✅ Cache warmup completed:', data);
-          })
-          .catch(err => {
-            console.warn('⚠️ Cache warmup failed (non-critical):', err);
-          });
+            .then(res => res.json())
+            .then(data => {
+              console.log('✅ Cache warmup completed:', data);
+            })
+            .catch(err => {
+              console.warn('⚠️ Cache warmup failed (non-critical):', err);
+            });
         }
 
       } catch (error) {
@@ -925,6 +925,7 @@ const MainPage = () => {
                       },
                       body: JSON.stringify({
                         clothingId: selectedClothDetail.id,
+                        category: selectedClothDetail.category, // 옷 카테고리 전달 (tops, bottoms, outerwear, shoes)
                         denoiseSteps: 10,
                         seed: 42,
                       }),
@@ -1010,7 +1011,7 @@ const MainPage = () => {
         </div>
       )}
 
-      
+
       {/* VTO 결과 모달 */}
       {vtoResultImage && (
         <div

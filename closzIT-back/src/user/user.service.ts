@@ -25,11 +25,15 @@ export class UserService {
       return null;
     }
 
+    this.logger.log(`[findById] Original fullBodyImage URL: ${user.fullBodyImage}`);
+
     // 이미지 URL을 Pre-signed URL로 변환
     const [profileImage, fullBodyImage] = await Promise.all([
       this.s3Service.convertToPresignedUrl(user.profileImage),
       this.s3Service.convertToPresignedUrl(user.fullBodyImage),
     ]);
+
+    this.logger.log(`[findById] Converted fullBodyImage Presigned URL: ${fullBodyImage}`);
 
     return {
       ...user,
