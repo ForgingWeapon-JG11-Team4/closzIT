@@ -1,15 +1,16 @@
 // src/calendar/calendar.controller.ts
 
-import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CalendarService } from './calendar.service';
+import { CreateEventDto } from './dto/create-event.dto';
 
 @Controller('calendar')
+@UseGuards(JwtAuthGuard)
 export class CalendarController {
   constructor(private calendarService: CalendarService) {}
 
   @Get('today')
-  @UseGuards(JwtAuthGuard)
   async getTodayEvents(@Req() req) {
     const events = await this.calendarService.getEvents(
       req.user.id,
@@ -19,7 +20,6 @@ export class CalendarController {
   }
 
   @Get('today/tpo')
-  @UseGuards(JwtAuthGuard)
   async getTodayTPO(@Req() req) {
     const events = await this.calendarService.getEvents(req.user.id, new Date());
     
@@ -34,7 +34,6 @@ export class CalendarController {
   }
 
   @Get('today/context')
-  @UseGuards(JwtAuthGuard)
   async getTodayWithContext(@Req() req) {
     const events = await this.calendarService.getEventsWithWeather(
       req.user.id,
@@ -44,9 +43,16 @@ export class CalendarController {
   }
 
   @Get('upcoming')
-  @UseGuards(JwtAuthGuard)
   async getUpcomingEvents(@Req() req) {
     const events = await this.calendarService.getUpcomingEvents(req.user.id);
     return { events };
+  }
+
+  @Post('events')
+  async createEvent(
+    @Req() req,
+    @Body() dto: CreateEventDto,
+  ) {
+    return this.calendarService.createEvent(req.user.id, dto);
   }
 }

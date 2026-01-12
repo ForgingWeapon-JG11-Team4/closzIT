@@ -53,6 +53,7 @@ export class CalendarService {
     private readonly weatherService: WeatherService,
   ) {}
 
+  // 하루 가져오기
   async getEvents(userId: string, targetDate: Date): Promise<CalendarEvent[]> {
     // 1. DB에서 Access Token과 Refresh Token을 함께 조회
     const user = await this.prisma.user.findUnique({
@@ -116,6 +117,7 @@ export class CalendarService {
     }
   }
 
+  // 오늘, 내일 일정 가져오기
   async getUpcomingEvents(userId: string): Promise<UpcomingEvent[]> {
     const today = new Date();
     const tomorrow = new Date(today);
@@ -154,6 +156,7 @@ export class CalendarService {
     return combined;
   }
 
+  // 프론트엔드 제공용 포맷팅
   private formatEventForFrontend(event: CalendarEvent, isToday: boolean): UpcomingEvent {
     const startDate = new Date(event.start);
     
@@ -178,6 +181,106 @@ export class CalendarService {
     };
   }
 
+  async createEvent(userId: string, dto: CreateEventDto): Promise<{ success: boolean; event?: CalendarEvent; error?: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { googleAccessToken: true, googleRefreshToken: true },
+    });
+
+    if (!user?.googleAccessToken) {
+      return { success: false, error: 'Google 계정 연동이 필요합니다.' };
+    }
+
+    // 요청 바디 구성
+    const eventBody = this.buildEventBody(dto);
+
+    // API 호출 헬퍼
+    const postToGoogle = async (token: string) => {
+      return await firstValueFrom(
+        this.httpService.post(
+          'https://www.googleapis.com/calendar/v3/calendars/primary/events',
+          eventBody,
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+      );
+    };
+
+    try {
+      const response = await postToGoogle(user.googleAccessToken);
+      return {
+        success: true,
+        event: this.mapGoogleEventToCalendarEvent(response.data),
+      };
+    } catch (error) {
+      // 토큰 만료 시 갱신 후 재시도
+      if (error.response?.status === 401 && user.googleRefreshToken) {
+        console.log('[Calendar] 토큰 만료 감지, 갱신 시도 중...');
+        
+        const newToken = await this.refreshGoogleToken(userId, user.googleRefreshToken);
+        
+        if (newToken) {
+          try {
+            const retryResponse = await postToGoogle(newToken);
+            return {
+              success: true,
+              event: this.toCalendarEvent(response.data),
+            };
+          } catch (retryError) {
+            console.error('[Calendar] 토큰 갱신 후에도 요청 실패:', retryError.message);
+            return { success: false, error: '일정 추가에 실패했습니다.' };
+          }
+        }
+      }
+
+      console.error('[Calendar] 일정 추가 실패:', error.response?.data || error.message);
+      return { success: false, error: error.response?.data?.error?.message || '일정 추가에 실패했습니다.' };
+    }
+  }
+
+  private buildEventBody(dto: CreateEventDto): any {
+    const eventBody: any = {
+      summary: dto.title,
+    };
+
+    // location: 시/도 + 시/군/구 (날씨 조회용)
+    if (dto.province || dto.city) {
+      eventBody.location = [dto.province, dto.city].filter(Boolean).join(' ');
+    }
+
+    // description: 상세 정보
+    if (dto.description) {
+      eventBody.description = dto.description;
+    }
+
+    if (dto.startTime) {
+      // 특정 시간 일정
+      const startDateTime = `${dto.date}T${dto.startTime}:00+09:00`;
+      const endDateTime = dto.endTime
+        ? `${dto.date}T${dto.endTime}:00+09:00`
+        : `${dto.date}T${this.addHour(dto.startTime)}:00+09:00`;
+
+      eventBody.start = { dateTime: startDateTime, timeZone: 'Asia/Seoul' };
+      eventBody.end = { dateTime: endDateTime, timeZone: 'Asia/Seoul' };
+    } else {
+      // 종일 일정
+      const nextDay = new Date(dto.date);
+      nextDay.setDate(nextDay.getDate() + 1);
+      const endDate = nextDay.toISOString().split('T')[0];
+
+      eventBody.start = { date: dto.date };
+      eventBody.end = { date: endDate };
+    }
+
+    return eventBody;
+  }
+
+  private addHour(time: string): string {
+    const [hours, minutes] = time.split(':').map(Number);
+    const newHours = (hours + 1) % 24;
+    return `${newHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  }
+
+  // 구글 토큰 재발행
   private async refreshGoogleToken(userId: string, refreshToken: string): Promise<string | null> {
     try {
       const response = await firstValueFrom(
@@ -204,15 +307,18 @@ export class CalendarService {
   }
 
   private mapGoogleEventsToCalendarEvents(items: GoogleCalendarEvent[]): CalendarEvent[] {
-    const events = items || [];
-    return events.map((event) => ({
+    return (items || []).map(event => this.toCalendarEvent(event));
+  }
+
+  private toCalendarEvent(event: GoogleCalendarEvent): CalendarEvent {
+    return {
       id: event.id,
       summary: event.summary || '(제목 없음)',
       location: event.location,
       description: event.description,
       start: event.start?.dateTime || event.start?.date || '',
       end: event.end?.dateTime || event.end?.date || '',
-    }));
+    };
   }
 
   async extractTPOFromEvent(event: CalendarEvent): Promise<string> {
