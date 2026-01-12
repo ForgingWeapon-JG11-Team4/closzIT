@@ -176,10 +176,10 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange, searchText
 
       {/* Generate Button - Fixed at bottom above navigator */}
       {(selectedEvent || searchText || selectedKeywords.length > 0) && (
-        <div className="fixed bottom-20 left-0 right-0 px-4 z-40 animate-fadeIn">
+        <div className="fixed bottom-20 left-0 right-0 flex justify-center z-40 animate-fadeIn">
           <button
             onClick={handleGenerate}
-            className="w-full py-4 bg-gold text-cream rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-gold-dark active:scale-[0.98] transition-all"
+            className="px-10 py-4 bg-gold text-cream rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-gold-dark active:scale-[0.98] transition-all"
           >
             <span className="material-symbols-rounded text-xl">auto_awesome</span>
             <span>코디 추천받기</span>

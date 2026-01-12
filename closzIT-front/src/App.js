@@ -13,6 +13,7 @@ import LabelingPage from './pages/Labeling/LabelingPage';
 import FittingPage from './pages/Fitting/FittingPage';
 import DirectFittingPage from './pages/Fitting/DirectFittingPage';
 import BatchTryOnPage from './pages/BatchTryOn/BatchTryOnPage';
+import FittingRoomPage from './pages/FittingRoomPage';
 
 import FeedPage from './pages/FeedPage';
 import CreatePostPage from './pages/CreatePostPage';
@@ -42,6 +43,7 @@ function App() {
           <Route path="/labeling" element={<LabelingPage />} />
           <Route path="/fitting" element={<FittingPage />} />
           <Route path="/fitting/direct" element={<DirectFittingPage />} />
+          <Route path="/fitting-room" element={<FittingRoomPage />} />
           <Route path="/batch-tryon" element={<BatchTryOnPage />} />
 
           <Route path="/feed" element={<FeedPage />} />
