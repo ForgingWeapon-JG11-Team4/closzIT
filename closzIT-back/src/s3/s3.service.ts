@@ -131,13 +131,11 @@ export class S3Service {
     }
 
     /**
-     * 사용자 폴더 전체를 삭제합니다 (회원 탈퇴 시 사용).
-     * @param userId - 사용자 ID
+     * 특정 prefix로 시작하는 모든 파일을 삭제합니다.
+     * @param prefix - 삭제할 파일의 prefix (예: users/userId/fullbody)
      */
-    async deleteUserFolder(userId: string): Promise<void> {
+    async deleteFolder(prefix: string): Promise<void> {
         try {
-            const prefix = `users/${userId}/`;
-
             // 폴더 내 모든 객체 목록 조회
             const listCommand = new ListObjectsV2Command({
                 Bucket: this.bucketName,
@@ -147,7 +145,7 @@ export class S3Service {
             const listResponse = await this.s3Client.send(listCommand);
 
             if (!listResponse.Contents || listResponse.Contents.length === 0) {
-                this.logger.log(`No objects found for user: ${userId}`);
+                this.logger.log(`No objects found with prefix: ${prefix}`);
                 return;
             }
 
@@ -160,7 +158,21 @@ export class S3Service {
             });
 
             await this.s3Client.send(deleteCommand);
-            this.logger.log(`Deleted ${listResponse.Contents.length} objects for user: ${userId}`);
+            this.logger.log(`Deleted ${listResponse.Contents.length} objects with prefix: ${prefix}`);
+        } catch (error) {
+            this.logger.error(`Failed to delete folder with prefix: ${prefix}`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * 사용자 폴더 전체를 삭제합니다 (회원 탈퇴 시 사용).
+     * @param userId - 사용자 ID
+     */
+    async deleteUserFolder(userId: string): Promise<void> {
+        try {
+            const prefix = `users/${userId}/`;
+            await this.deleteFolder(prefix);
         } catch (error) {
             this.logger.error(`Failed to delete user folder: ${userId}`, error);
             throw error;

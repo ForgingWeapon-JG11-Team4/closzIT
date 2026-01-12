@@ -54,10 +54,21 @@ export class UserController {
       return { success: false, message: 'Image file is required' };
     }
 
+    // 기존 fullbody 이미지 삭제
+    console.log(`[FullBodyImage] Deleting old fullbody images for userId: ${userId}`);
+    try {
+      // users/{userId}/ 폴더 아래 fullbody로 시작하는 모든 파일 삭제
+      await this.s3Service.deleteFolder(`users/${userId}/fullbody`);
+      console.log(`[FullBodyImage] ✅ Old fullbody images deleted`);
+    } catch (deleteError) {
+      console.log(`[FullBodyImage] ⚠️ Failed to delete old fullbody images:`, deleteError.message);
+    }
+
     // 기존 VTON 캐시 삭제 (전신 사진이 바뀌면 캐시도 무효화)
     console.log(`[FullBodyImage] Deleting existing VTON cache for userId: ${userId}`);
     try {
       await Promise.all([
+        // 기존 경로 (upper/lower 구분)
         this.s3Service.deleteObject(`users/${userId}/vton-cache/upper/human_img.png`),
         this.s3Service.deleteObject(`users/${userId}/vton-cache/upper/mask.png`),
         this.s3Service.deleteObject(`users/${userId}/vton-cache/upper/mask_gray.png`),
@@ -66,6 +77,11 @@ export class UserController {
         this.s3Service.deleteObject(`users/${userId}/vton-cache/lower/mask.png`),
         this.s3Service.deleteObject(`users/${userId}/vton-cache/lower/mask_gray.png`),
         this.s3Service.deleteObject(`users/${userId}/vton-cache/lower/pose_tensor.pkl`),
+        // 새 경로 (upper/lower 구분 없음)
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/human_img.png`),
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/mask.png`),
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/mask_gray.png`),
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/pose_tensor.pkl`),
       ]);
       console.log(`[FullBodyImage] ✅ Old VTON cache deleted`);
     } catch (deleteError) {
