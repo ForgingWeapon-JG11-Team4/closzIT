@@ -1125,42 +1125,18 @@ const LabelingPage = () => {
         )}
       </main>
 
-      {/* Bottom Navigation - Matching MainPage style */}
-      <div
-        className="fixed bottom-0 left-0 right-0 h-16 flex items-center justify-around px-4 z-50"
-        style={{
-          background: 'rgba(250, 248, 245, 0.85)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          borderTop: '1px solid rgba(212, 175, 55, 0.15)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0)'
-        }}
-      >
+      {/* Bottom Navigation - Matching MainPage2 style */}
+      <div className="fixed bottom-0 left-0 right-0 h-16 glass-warm border-t border-gold-light/20 flex items-center justify-around px-4 z-50 safe-area-pb">
         <button
           onClick={() => navigate('/main')}
-          className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] transition-colors duration-300"
-          style={{ color: '#6B6B6B' }}
+          className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] text-charcoal-light dark:text-cream-dark hover:text-gold transition-colors"
         >
           <span className="material-symbols-rounded text-[22px]">checkroom</span>
           <span className="text-[10px] font-semibold">내 옷장</span>
         </button>
-
-        <button
-          className="flex items-center gap-2 px-5 py-2.5 rounded-full transition-all duration-300 hover:scale-105 active:scale-95"
-          style={{
-            background: 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)',
-            color: '#FFFAF0',
-            boxShadow: '0 4px 14px rgba(184, 134, 11, 0.35)'
-          }}
-        >
-          <span className="material-symbols-rounded text-lg">add</span>
-          <span className="text-sm font-semibold">의류 등록</span>
-        </button>
-
         <button
           onClick={() => navigate('/feed')}
-          className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] transition-colors duration-300 hover:text-[#D4AF37]"
-          style={{ color: '#6B6B6B' }}
+          className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] text-charcoal-light dark:text-cream-dark hover:text-gold transition-colors"
         >
           <span className="material-symbols-rounded text-[22px]">grid_view</span>
           <span className="text-[10px] font-semibold">SNS</span>
