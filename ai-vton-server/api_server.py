@@ -106,10 +106,10 @@ GPU_OPTIMIZATIONS_ENABLED = False
 
 # 🚀 메모리 캐시 (S3 다운로드 제거 - test.py처럼 빠르게!)
 memory_cache = {
-    "human_upper": {},      # user_id -> {human_img, mask, mask_gray, pose_tensor} for upper_body
-    "human_lower": {},      # user_id -> {human_img, mask, mask_gray, pose_tensor} for lower_body
-    "garment": {},          # clothing_id -> {garm_img, garm_tensor, category}
-    "text": {},             # clothing_id -> {prompt_embeds, ..., category}
+    "human_upper": {},  # user_id -> {human_img, mask, mask_gray, pose_tensor} for upper_body
+    "human_lower": {},  # user_id -> {human_img, mask, mask_gray, pose_tensor} for lower_body
+    "garment": {},  # clothing_id -> {garm_img, garm_tensor, category}
+    "text": {},  # clothing_id -> {prompt_embeds, ..., category}
 }
 
 # CORS 설정
@@ -304,7 +304,9 @@ def download_s3_as_tensor(key: str, device_name: str = "cuda") -> torch.Tensor:
 # ============================================================================
 
 
-def preprocess_human_internal(human_img: Image.Image, category: str = "upper_body") -> dict:
+def preprocess_human_internal(
+    human_img: Image.Image, category: str = "upper_body"
+) -> dict:
     """
     사람 이미지 전처리: OpenPose + Parsing + DensePose
 
@@ -654,7 +656,9 @@ async def preprocess_human(request: HumanPreprocessRequest):
     - users/{user_id}/vton-cache/lower/pose_tensor.pkl
     """
     try:
-        logger.info(f"[preprocess-human] user_id={request.user_id} - Processing both upper and lower body")
+        logger.info(
+            f"[preprocess-human] user_id={request.user_id} - Processing both upper and lower body"
+        )
         start_time = time.time()
 
         # Base64 → PIL
@@ -912,7 +916,9 @@ async def generate_tryon(request: VtonGenerateRequestV2):
                             "mask_gray": downloaded_data["mask_gray"],
                             "pose_tensor": downloaded_data["pose_tensor"],
                         }
-                        logger.info(f"💾 Human {category} cache saved for user {user_id}")
+                        logger.info(
+                            f"💾 Human {category} cache saved for user {user_id}"
+                        )
 
                     if not garment_cached:
                         memory_cache["garment"][clothing_id] = {
@@ -1117,7 +1123,9 @@ async def warmup_user_cache(request: dict):
     if not user_id:
         raise HTTPException(status_code=400, detail="user_id is required")
 
-    logger.info(f"🔥 Warming up cache for user {user_id} with {len(clothing_ids)} clothing items")
+    logger.info(
+        f"🔥 Warming up cache for user {user_id} with {len(clothing_ids)} clothing items"
+    )
     start_time = time.time()
 
     import concurrent.futures
@@ -1129,22 +1137,26 @@ async def warmup_user_cache(request: dict):
             # 1. Human 데이터 로드 (아직 캐시에 없으면)
             if user_id not in memory_cache["human"]:
                 logger.info(f"📥 Loading human data for user {user_id}")
-                futures.update({
-                    "human_img": executor.submit(
-                        download_s3_as_pil, f"users/{user_id}/vton-cache/human_img.png"
-                    ),
-                    "mask": executor.submit(
-                        download_s3_as_pil, f"users/{user_id}/vton-cache/mask.png"
-                    ),
-                    "mask_gray": executor.submit(
-                        download_s3_as_pil, f"users/{user_id}/vton-cache/mask_gray.png"
-                    ),
-                    "pose_tensor": executor.submit(
-                        download_s3_as_tensor,
-                        f"users/{user_id}/vton-cache/pose_tensor.pkl",
-                        device,
-                    ),
-                })
+                futures.update(
+                    {
+                        "human_img": executor.submit(
+                            download_s3_as_pil,
+                            f"users/{user_id}/vton-cache/human_img.png",
+                        ),
+                        "mask": executor.submit(
+                            download_s3_as_pil, f"users/{user_id}/vton-cache/mask.png"
+                        ),
+                        "mask_gray": executor.submit(
+                            download_s3_as_pil,
+                            f"users/{user_id}/vton-cache/mask_gray.png",
+                        ),
+                        "pose_tensor": executor.submit(
+                            download_s3_as_tensor,
+                            f"users/{user_id}/vton-cache/pose_tensor.pkl",
+                            device,
+                        ),
+                    }
+                )
 
             # 2. 모든 Garment & Text 데이터 로드
             for clothing_id in clothing_ids:
@@ -1177,10 +1189,12 @@ async def warmup_user_cache(request: dict):
                         f"users/{user_id}/vton-cache/text/{clothing_id}_pooled_prompt_embeds.pkl",
                         device,
                     )
-                    futures[f"negative_pooled_prompt_embeds_{clothing_id}"] = executor.submit(
-                        download_s3_as_tensor,
-                        f"users/{user_id}/vton-cache/text/{clothing_id}_negative_pooled_prompt_embeds.pkl",
-                        device,
+                    futures[f"negative_pooled_prompt_embeds_{clothing_id}"] = (
+                        executor.submit(
+                            download_s3_as_tensor,
+                            f"users/{user_id}/vton-cache/text/{clothing_id}_negative_pooled_prompt_embeds.pkl",
+                            device,
+                        )
                     )
                     futures[f"prompt_embeds_c_{clothing_id}"] = executor.submit(
                         download_s3_as_tensor,
@@ -1216,7 +1230,10 @@ async def warmup_user_cache(request: dict):
                 garm_img_key = f"garm_img_{clothing_id}"
                 garm_tensor_key = f"garm_tensor_{clothing_id}"
 
-                if garm_img_key in downloaded_data and garm_tensor_key in downloaded_data:
+                if (
+                    garm_img_key in downloaded_data
+                    and garm_tensor_key in downloaded_data
+                ):
                     memory_cache["garment"][clothing_id] = {
                         "garm_img": downloaded_data[garm_img_key],
                         "garm_tensor": downloaded_data[garm_tensor_key],
@@ -1234,11 +1251,21 @@ async def warmup_user_cache(request: dict):
 
                 if all(key in downloaded_data for key in text_keys):
                     memory_cache["text"][clothing_id] = {
-                        "prompt_embeds": downloaded_data[f"prompt_embeds_{clothing_id}"],
-                        "negative_prompt_embeds": downloaded_data[f"negative_prompt_embeds_{clothing_id}"],
-                        "pooled_prompt_embeds": downloaded_data[f"pooled_prompt_embeds_{clothing_id}"],
-                        "negative_pooled_prompt_embeds": downloaded_data[f"negative_pooled_prompt_embeds_{clothing_id}"],
-                        "prompt_embeds_c": downloaded_data[f"prompt_embeds_c_{clothing_id}"],
+                        "prompt_embeds": downloaded_data[
+                            f"prompt_embeds_{clothing_id}"
+                        ],
+                        "negative_prompt_embeds": downloaded_data[
+                            f"negative_prompt_embeds_{clothing_id}"
+                        ],
+                        "pooled_prompt_embeds": downloaded_data[
+                            f"pooled_prompt_embeds_{clothing_id}"
+                        ],
+                        "negative_pooled_prompt_embeds": downloaded_data[
+                            f"negative_pooled_prompt_embeds_{clothing_id}"
+                        ],
+                        "prompt_embeds_c": downloaded_data[
+                            f"prompt_embeds_c_{clothing_id}"
+                        ],
                     }
                     logger.info(f"✅ Text cache saved for clothing {clothing_id}")
 
@@ -1285,7 +1312,10 @@ def clear_human_cache(user_id: str):
         cleared = True
 
     if cleared:
-        return {"success": True, "message": f"Human cache (upper & lower) cleared for {user_id}"}
+        return {
+            "success": True,
+            "message": f"Human cache (upper & lower) cleared for {user_id}",
+        }
     return {"success": False, "message": "Cache not found"}
 
 

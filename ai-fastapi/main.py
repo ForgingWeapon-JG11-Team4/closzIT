@@ -7,12 +7,13 @@ import os
 import numpy as np
 
 # 환경 변수 설정
-USE_SAM2 = os.getenv('USE_SAM2', 'true').lower() == 'true'
+USE_SAM2 = os.getenv("USE_SAM2", "true").lower() == "true"
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.info(f"SAM2 사용 설정: {'활성화' if USE_SAM2 else '비활성화 (단순 크롭)'}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -24,11 +25,14 @@ async def lifespan(app: FastAPI):
     # 종료 시 실행 (필요한 경우 리소스 정리)
     logger.info("서버 종료: 리소스를 정리합니다.")
 
+
 app = FastAPI(lifespan=lifespan)
+
 
 @app.get("/")
 def read_root():
     return {"message": "AI FastAPI 서버가 실행 중입니다."}
+
 
 @app.get("/status")
 def get_status():
@@ -36,6 +40,7 @@ def get_status():
     # 로드된 모델 목록 확인
     loaded_models = list(manager.models.keys())
     return {"device": manager.device, "loaded_models": loaded_models}
+
 
 @app.post("/analyze")
 async def analyze_image(file: UploadFile = File(...)):
@@ -47,27 +52,29 @@ async def analyze_image(file: UploadFile = File(...)):
         contents = await file.read()
         image = utils.decode_image(contents)
         if image is None:
-            raise HTTPException(status_code=400, detail="유효하지 않은 이미지 파일입니다.")
+            raise HTTPException(
+                status_code=400, detail="유효하지 않은 이미지 파일입니다."
+            )
 
         manager = ModelManager()
 
         # 2. YOLO 객체 탐지
         detections = manager.predict_yolo(image)
         if not detections:
-            return [] # 탐지된 객체 없음
+            return []  # 탐지된 객체 없음
 
         # 3. 바운딩 박스 추출
-        boxes = [d['box'] for d in detections]
+        boxes = [d["box"] for d in detections]
 
         # 4. SAM2 세그멘테이션
         masks = manager.predict_sam2(image, boxes)
-        
+
         results = []
         for i, detection in enumerate(detections):
-            label = detection['label']
-            confidence = detection['confidence']
-            box = detection['box']
-            
+            label = detection["label"]
+            confidence = detection["confidence"]
+            box = detection["box"]
+
             # 마스크가 있으면 적용, 없으면 원본 이미지에서 박스만 크롭 (또는 투명 처리 불가)
             # SAM2 로딩 실패 시 masks는 None일 수 있음
             if masks and len(masks) > i:
@@ -75,29 +82,34 @@ async def analyze_image(file: UploadFile = File(...)):
                 processed_image = utils.apply_mask_and_crop(image, mask, box)
             else:
                 # 마스크가 없는 경우 (SAM2 미로드 등), 박스 영역만 단순 크롭 (배경 투명화 X)
-                # 여기서는 마스크가 없으면 투명 처리가 안 되므로, 
+                # 여기서는 마스크가 없으면 투명 처리가 안 되므로,
                 # 단순히 박스 영역만 잘라서 보낼 수도 있고, 에러를 낼 수도 있음.
                 # 요구사항: "배경을 투명하게 처리한 의류 조각 이미지"
                 # SAM2가 없으면 이 요구사항을 충족 못하므로 경고 로그 남기고 박스 크롭만 반환 시도
                 x1, y1, x2, y2 = map(int, box)
                 processed_image = image[y1:y2, x1:x2]
-                logger.warning(f"마스크 생성 실패로 인해 단순 크롭 이미지를 반환합니다: {label}")
+                logger.warning(
+                    f"마스크 생성 실패로 인해 단순 크롭 이미지를 반환합니다: {label}"
+                )
 
             # Base64 인코딩
             image_base64 = utils.encode_image_to_base64(processed_image)
-            
-            results.append({
-                "label": label,
-                "confidence": confidence,
-                "box": box.tolist(), # JSON 직렬화를 위해 리스트 변환
-                "image_base64": image_base64
-            })
-            
+
+            results.append(
+                {
+                    "label": label,
+                    "confidence": confidence,
+                    "box": box.tolist(),  # JSON 직렬화를 위해 리스트 변환
+                    "image_base64": image_base64,
+                }
+            )
+
         return results
 
     except Exception as e:
         logger.error(f"분석 중 오류 발생: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/analyze-all")
 async def analyze_all_images(file: UploadFile = File(...)):
@@ -106,15 +118,18 @@ async def analyze_all_images(file: UploadFile = File(...)):
     각 객체별 이미지 조각(Base64)과 임베딩 벡터를 반환합니다.
     """
     import time
+
     total_start = time.time()
-    
+
     try:
         # 1. 이미지 읽기 및 디코딩
         decode_start = time.time()
         contents = await file.read()
         image = utils.decode_image(contents)
         if image is None:
-            raise HTTPException(status_code=400, detail="유효하지 않은 이미지 파일입니다.")
+            raise HTTPException(
+                status_code=400, detail="유효하지 않은 이미지 파일입니다."
+            )
         logger.info(f"[TIMING] Image decode: {(time.time() - decode_start)*1000:.1f}ms")
 
         manager = ModelManager()
@@ -122,43 +137,53 @@ async def analyze_all_images(file: UploadFile = File(...)):
         # 2. YOLO 객체 탐지
         yolo_start = time.time()
         detections = manager.predict_yolo(image)
-        logger.info(f"[TIMING] YOLO detection: {(time.time() - yolo_start)*1000:.1f}ms, found {len(detections)} items")
-        
+        logger.info(
+            f"[TIMING] YOLO detection: {(time.time() - yolo_start)*1000:.1f}ms, found {len(detections)} items"
+        )
+
         # YOLO 탐지 결과 상세 로그
         logger.info("=" * 50)
         logger.info("[YOLO DETECTION RESULTS]")
         for i, det in enumerate(detections):
-            label = det.get('label', 'unknown')
-            conf = det.get('confidence', 0) * 100
-            box = det.get('box', [])
-            logger.info(f"  [{i}] Label: {label:10} | Confidence: {conf:5.1f}% | Box: {box}")
+            label = det.get("label", "unknown")
+            conf = det.get("confidence", 0) * 100
+            box = det.get("box", [])
+            logger.info(
+                f"  [{i}] Label: {label:10} | Confidence: {conf:5.1f}% | Box: {box}"
+            )
         logger.info("=" * 50)
-        
+
         # ============================================================
         # YOLO Fallback: CLIP으로 신발/의류 감지 → SAM2 중앙점 프롬프트
         # ============================================================
         if not detections:
-            logger.warning("[YOLO FALLBACK] 탐지된 객체 없음 - CLIP으로 아이템 타입 확인")
-            
+            logger.warning(
+                "[YOLO FALLBACK] 탐지된 객체 없음 - CLIP으로 아이템 타입 확인"
+            )
+
             # 1. CLIP으로 신발/의류 여부 확인
             clip_result = manager.detect_item_type_with_clip(image)
-            item_type = clip_result['item_type']
-            
-            if item_type == 'unknown':
-                logger.warning("[YOLO FALLBACK] CLIP도 패션 아이템으로 인식하지 못함 - 빈 결과 반환")
+            item_type = clip_result["item_type"]
+
+            if item_type == "unknown":
+                logger.warning(
+                    "[YOLO FALLBACK] CLIP도 패션 아이템으로 인식하지 못함 - 빈 결과 반환"
+                )
                 return []
-            
-            logger.info(f"[YOLO FALLBACK] CLIP 감지: {item_type} (confidence: {clip_result['confidence']:.2%})")
-            
+
+            logger.info(
+                f"[YOLO FALLBACK] CLIP 감지: {item_type} (confidence: {clip_result['confidence']:.2%})"
+            )
+
             h, w = image.shape[:2]
             # 신발 한 쌍을 위해 3개 포인트 사용 (왼쪽, 중앙, 오른쪽)
             points = [
-                [w // 4, h // 2],      # 왼쪽 1/4 지점
-                [w // 2, h // 2],      # 중앙
+                [w // 4, h // 2],  # 왼쪽 1/4 지점
+                [w // 2, h // 2],  # 중앙
                 [3 * w // 4, h // 2],  # 오른쪽 3/4 지점
             ]
             full_box = np.array([0, 0, w, h])
-            
+
             # 2. SAM2로 여러 포인트 기준 세그멘테이션
             processed_image = image
             if USE_SAM2:
@@ -166,55 +191,69 @@ async def analyze_all_images(file: UploadFile = File(...)):
                     sam_start = time.time()
                     # 여러 포인트 프롬프트로 SAM2 호출 (신발 한 쌍 모두 마스킹)
                     mask = manager.predict_sam2_with_points(image, points)
-                    logger.info(f"[TIMING] SAM2 multi-point segmentation: {(time.time() - sam_start)*1000:.1f}ms")
-                    
+                    logger.info(
+                        f"[TIMING] SAM2 multi-point segmentation: {(time.time() - sam_start)*1000:.1f}ms"
+                    )
+
                     if mask is not None:
-                        processed_image = utils.apply_mask_and_crop(image, mask, full_box)
+                        processed_image = utils.apply_mask_and_crop(
+                            image, mask, full_box
+                        )
                         logger.info("[YOLO FALLBACK] SAM2 마스크 적용 성공 (3-points)")
                     else:
-                        logger.warning("[YOLO FALLBACK] SAM2 마스크 생성 실패, 원본 이미지 사용")
+                        logger.warning(
+                            "[YOLO FALLBACK] SAM2 마스크 생성 실패, 원본 이미지 사용"
+                        )
                 except Exception as e:
                     logger.error(f"[YOLO FALLBACK] SAM2 실패: {e}")
-            
+
             # 3. Base64 인코딩
             image_base64 = utils.encode_image_to_base64(processed_image)
-            
+
             # 4. FashionSigLIP 임베딩 추출
             embed_start = time.time()
             embedding = manager.extract_embedding(processed_image)
-            logger.info(f"[TIMING] Embedding (fallback): {(time.time() - embed_start)*1000:.1f}ms")
-            
+            logger.info(
+                f"[TIMING] Embedding (fallback): {(time.time() - embed_start)*1000:.1f}ms"
+            )
+
             # 5. CLIP 감지 결과를 label로 전달 (Bedrock 힌트용)
-            result = [{
-                "label": item_type,  # 'shoes' 또는 'clothing' - Bedrock 힌트
-                "confidence": clip_result['confidence'],
-                "box": full_box.tolist(),
-                "image_base64": image_base64,
-                "embedding": embedding
-            }]
-            
-            logger.info(f"[TIMING] Total FastAPI processing (CLIP fallback): {(time.time() - total_start)*1000:.1f}ms")
+            result = [
+                {
+                    "label": item_type,  # 'shoes' 또는 'clothing' - Bedrock 힌트
+                    "confidence": clip_result["confidence"],
+                    "box": full_box.tolist(),
+                    "image_base64": image_base64,
+                    "embedding": embedding,
+                }
+            ]
+
+            logger.info(
+                f"[TIMING] Total FastAPI processing (CLIP fallback): {(time.time() - total_start)*1000:.1f}ms"
+            )
             return result
 
         # 3. 바운딩 박스 추출
-        boxes = [d['box'] for d in detections]
+        boxes = [d["box"] for d in detections]
 
         # 4. SAM2 세그멘테이션 (USE_SAM2=true일 때만 실행)
         masks = None
         if USE_SAM2:
             sam_start = time.time()
             masks = manager.predict_sam2(image, boxes)
-            logger.info(f"[TIMING] SAM2 segmentation: {(time.time() - sam_start)*1000:.1f}ms")
+            logger.info(
+                f"[TIMING] SAM2 segmentation: {(time.time() - sam_start)*1000:.1f}ms"
+            )
         else:
             logger.info("[TIMING] SAM2 비활성화 - 단순 크롭 사용")
-        
+
         results = []
         for i, detection in enumerate(detections):
             item_start = time.time()
-            label = detection['label']
-            confidence = detection['confidence']
-            box = detection['box']
-            
+            label = detection["label"]
+            confidence = detection["confidence"]
+            box = detection["box"]
+
             # 마스크 처리 및 크롭
             if USE_SAM2 and masks and len(masks) > i:
                 mask = masks[i]
@@ -227,35 +266,48 @@ async def analyze_all_images(file: UploadFile = File(...)):
             # 5. Base64 인코딩
             encode_start = time.time()
             image_base64 = utils.encode_image_to_base64(processed_image)
-            logger.info(f"[TIMING] Item {i} base64 encode: {(time.time() - encode_start)*1000:.1f}ms, size={len(image_base64)} chars")
+            logger.info(
+                f"[TIMING] Item {i} base64 encode: {(time.time() - encode_start)*1000:.1f}ms, size={len(image_base64)} chars"
+            )
 
             # 6. FashionSigLIP 임베딩 추출
             embed_start = time.time()
             embedding = manager.extract_embedding(processed_image)
-            logger.info(f"[TIMING] Item {i} embedding: {(time.time() - embed_start)*1000:.1f}ms")
-            
-            logger.info(f"[TIMING] Item {i} total: {(time.time() - item_start)*1000:.1f}ms")
-            
-            results.append({
-                "label": label,
-                "confidence": confidence,
-                "box": box.tolist(),
-                "image_base64": image_base64,
-                "embedding": embedding
-            })
-        
-        logger.info(f"[TIMING] Total FastAPI processing: {(time.time() - total_start)*1000:.1f}ms")
+            logger.info(
+                f"[TIMING] Item {i} embedding: {(time.time() - embed_start)*1000:.1f}ms"
+            )
+
+            logger.info(
+                f"[TIMING] Item {i} total: {(time.time() - item_start)*1000:.1f}ms"
+            )
+
+            results.append(
+                {
+                    "label": label,
+                    "confidence": confidence,
+                    "box": box.tolist(),
+                    "image_base64": image_base64,
+                    "embedding": embedding,
+                }
+            )
+
+        logger.info(
+            f"[TIMING] Total FastAPI processing: {(time.time() - total_start)*1000:.1f}ms"
+        )
         return results
 
     except Exception as e:
         logger.error(f"통합 분석 중 오류 발생: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 from pydantic import BaseModel
 from typing import List
 
+
 class TextEmbeddingRequest(BaseModel):
     texts: List[str]
+
 
 @app.post("/embed-text")
 async def embed_text(request: TextEmbeddingRequest):
@@ -278,24 +330,30 @@ async def embed_text(request: TextEmbeddingRequest):
         logger.error(f"텍스트 임베딩 중 오류 발생: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 # =============================================================================
 # IDM-VTON 전처리 엔드포인트 (향후 실제 모델 통합 예정)
 # =============================================================================
 
+
 class HumanPreprocessRequest(BaseModel):
     image_base64: str
+
 
 class GarmentPreprocessRequest(BaseModel):
     image_base64: str
 
+
 class TextPreprocessRequest(BaseModel):
     garment_description: str
+
 
 class VtonGenerateRequest(BaseModel):
     user_id: str
     clothing_id: str
-    denoise_steps: int = 20
+    denoise_steps: int = 10
     seed: int = 42
+
 
 @app.post("/vton/preprocess-human")
 async def preprocess_human(request: HumanPreprocessRequest):
@@ -312,6 +370,7 @@ async def preprocess_human(request: HumanPreprocessRequest):
         "pose_img_tensor": "",  # Mock: 빈 텐서
     }
 
+
 @app.post("/vton/preprocess-garment")
 async def preprocess_garment(request: GarmentPreprocessRequest):
     """
@@ -323,6 +382,7 @@ async def preprocess_garment(request: GarmentPreprocessRequest):
         "garm_img": request.image_base64,  # Mock: 원본 그대로 반환
         "garm_tensor": "",  # Mock: 빈 텐서
     }
+
 
 @app.post("/vton/preprocess-text")
 async def preprocess_text(request: TextPreprocessRequest):
@@ -339,6 +399,7 @@ async def preprocess_text(request: TextPreprocessRequest):
         "prompt_embeds_c": "",
     }
 
+
 @app.post("/vton/generate-tryon")
 async def generate_tryon(request: VtonGenerateRequest):
     """
@@ -351,4 +412,3 @@ async def generate_tryon(request: VtonGenerateRequest):
         "result_image_base64": "",  # Mock: 빈 이미지
         "processing_time": 0.5,
     }
-

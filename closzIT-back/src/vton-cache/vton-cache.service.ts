@@ -309,9 +309,10 @@ export class VtonCacheService {
     clothingId: string,
     category: string = 'upper_body',  // "upper_body" or "lower_body"
     denoiseSteps: number = 10,
-    seed: number = 42
+    seed: number = 42,
+    clothingOwnerId?: string  // 옷 주인 ID (옵션)
   ): Promise<string> {
-    this.logger.log(`[generateTryOnV2] Starting for userId: ${userId}, clothingId: ${clothingId}`);
+    this.logger.log(`[generateTryOnV2] Starting for userId: ${userId}, clothingId: ${clothingId}, clothingOwnerId: ${clothingOwnerId || userId}`);
     const startTime = Date.now();
 
     try {
@@ -323,6 +324,7 @@ export class VtonCacheService {
           category: category,
           denoise_steps: denoiseSteps,
           seed: seed,
+          clothing_owner_id: clothingOwnerId || userId, // 옷 주인 ID 전달
         })
       );
 

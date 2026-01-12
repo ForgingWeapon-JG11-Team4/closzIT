@@ -11,6 +11,8 @@ const PostDetailPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [tryOnLoading, setTryOnLoading] = useState(false);
   const [tryOnCompleted, setTryOnCompleted] = useState(false);
+  const [selectedClothDetail, setSelectedClothDetail] = useState(null); // 의류 상세정보 모달
+  const [vtoResultImage, setVtoResultImage] = useState(null); // VTO 결과 이미지
 
   useEffect(() => {
     fetchPost();
@@ -250,13 +252,23 @@ const PostDetailPage = () => {
                 {post.postClothes.map((pc) => (
                   <div
                     key={pc.id}
-                    className="aspect-square rounded-lg overflow-hidden bg-cream-dark dark:bg-charcoal-light shadow-soft border border-gold-light/30"
+                    className="group/cloth-card relative aspect-square rounded-lg overflow-hidden bg-cream-dark dark:bg-charcoal-light shadow-soft border border-gold-light/30 hover:border-gold transition-all"
                   >
                     <img
                       src={pc.clothing.imageUrl}
                       alt={pc.clothing.subCategory}
                       className="w-full h-full object-cover"
                     />
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedClothDetail({ ...pc.clothing, postId: post.id });
+                      }}
+                      className="absolute bottom-2 right-2 w-8 h-8 bg-white/90 dark:bg-charcoal/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover/cloth-card:opacity-100 transition-all duration-200 hover:scale-110 hover:bg-white dark:hover:bg-charcoal"
+                    >
+                      <span className="material-symbols-rounded text-gold text-sm">info</span>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -349,6 +361,144 @@ const PostDetailPage = () => {
           </form>
         </div>
       </div>
+
+      {/* VTO 결과 이미지 모달 */}
+      {vtoResultImage && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-fadeIn"
+          onClick={() => setVtoResultImage(null)}
+        >
+          <div
+            className="relative max-w-2xl w-full bg-warm-white dark:bg-charcoal rounded-2xl overflow-hidden shadow-2xl animate-slideDown"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative">
+              <img
+                src={vtoResultImage}
+                alt="VTO Result"
+                className="w-full h-auto"
+              />
+              <button
+                onClick={() => setVtoResultImage(null)}
+                className="absolute top-4 right-4 w-10 h-10 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
+              >
+                <span className="material-symbols-rounded text-white">close</span>
+              </button>
+            </div>
+            <div className="p-4 text-center">
+              <p className="text-sm text-charcoal-light dark:text-cream-dark">가상 피팅 결과</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 옷 상세 정보 모달 */}
+      {selectedClothDetail && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fadeIn"
+          onClick={() => setSelectedClothDetail(null)}
+        >
+          <div
+            className="bg-warm-white dark:bg-charcoal rounded-3xl shadow-2xl max-w-sm w-full max-h-[80vh] overflow-hidden animate-slideDown"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="relative">
+              <img
+                src={selectedClothDetail.image || selectedClothDetail.imageUrl}
+                alt={selectedClothDetail.name}
+                className="w-full h-48 object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              <button
+                onClick={() => setSelectedClothDetail(null)}
+                className="absolute top-3 right-3 w-8 h-8 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/40 transition-colors"
+              >
+                <span className="material-symbols-rounded text-white text-lg">close</span>
+              </button>
+              <div className="absolute bottom-3 left-4 right-4">
+                <h3 className="text-white text-lg font-bold">{selectedClothDetail.name || '의류'}</h3>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-5 space-y-4 max-h-[40vh] overflow-y-auto">
+              <div className="bg-cream-dark dark:bg-charcoal-light/20 rounded-xl p-3">
+                <p className="text-[10px] text-charcoal-light dark:text-cream-dark uppercase font-semibold mb-1">카테고리</p>
+                <p className="text-sm font-medium text-charcoal dark:text-cream">
+                  {selectedClothDetail.category === 'outerwear' && '외투'}
+                  {selectedClothDetail.category === 'tops' && '상의'}
+                  {selectedClothDetail.category === 'bottoms' && '하의'}
+                  {selectedClothDetail.category === 'shoes' && '신발'}
+                  {selectedClothDetail.subCategory && ` (${selectedClothDetail.subCategory})`}
+                </p>
+              </div>
+
+              {selectedClothDetail.wearCount !== undefined && (
+                <div className="bg-cream-dark dark:bg-charcoal-light/20 rounded-xl p-3">
+                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark uppercase font-semibold mb-1">착용 횟수</p>
+                  <p className="text-sm font-medium text-charcoal dark:text-cream">{selectedClothDetail.wearCount}회</p>
+                </div>
+              )}
+            </div>
+
+            {/* VTO 버튼 */}
+            <button
+              onClick={async () => {
+                try {
+                  const token = localStorage.getItem('accessToken');
+                  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+
+                  // 모달 닫기 전에 필요한 정보 저장
+                  const postId = selectedClothDetail.postId;
+                  const clothingId = selectedClothDetail.id;
+
+                  console.log(`[SNS VTO] Starting try-on for post: ${postId}, clothing: ${clothingId}`);
+
+                  setSelectedClothDetail(null);
+                  alert('SNS 옷 가상 피팅을 생성 중입니다... (약 4-5초 소요)');
+
+                  const response = await fetch(`${backendUrl}/api/fitting/sns-virtual-try-on`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      postId: postId,
+                      clothingId: clothingId,
+                    }),
+                  });
+
+                  if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || '가상 피팅 실패');
+                  }
+
+                  const result = await response.json();
+                  console.log('[SNS VTO] Response:', result);
+
+                  if (result.success && result.imageUrl) {
+                    console.log('[SNS VTO] Success! Opening modal with image');
+                    setSelectedClothDetail(null);
+                    setVtoResultImage(result.imageUrl);
+                  } else {
+                    console.error('[SNS VTO] Invalid response:', result);
+                    throw new Error('결과 이미지를 받지 못했습니다.');
+                  }
+                } catch (error) {
+                  console.error('SNS virtual try-on error:', error);
+                  alert(`가상 피팅 실패: ${error.message}`);
+                }
+              }}
+              className="w-64 mx-auto mb-4 py-3.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl font-bold hover:from-purple-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-rounded text-lg">auto_awesome</span>
+              하나만 입어보기 (AI)
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

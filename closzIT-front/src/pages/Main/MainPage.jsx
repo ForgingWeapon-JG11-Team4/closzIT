@@ -88,13 +88,13 @@ const MainPage = () => {
               'Content-Type': 'application/json'
             }
           })
-          .then(res => res.json())
-          .then(data => {
-            console.log('✅ Cache warmup completed:', data);
-          })
-          .catch(err => {
-            console.warn('⚠️ Cache warmup failed (non-critical):', err);
-          });
+            .then(res => res.json())
+            .then(data => {
+              console.log('✅ Cache warmup completed:', data);
+            })
+            .catch(err => {
+              console.warn('⚠️ Cache warmup failed (non-critical):', err);
+            });
         }
 
       } catch (error) {
@@ -1014,7 +1014,7 @@ const MainPage = () => {
         </div>
       )}
 
-      
+
       {/* VTO 결과 모달 */}
       {vtoResultImage && (
         <div
