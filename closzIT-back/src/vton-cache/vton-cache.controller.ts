@@ -187,6 +187,7 @@ export class VtonCacheController {
         'tops': 'upper_body',
         'outerwear': 'upper_body',
         'bottoms': 'lower_body',
+        'bottom': 'lower_body',
         'shoes': 'lower_body',
       };
       const clothingCategory = clothing?.category?.toLowerCase() || 'tops';
