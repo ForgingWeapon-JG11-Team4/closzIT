@@ -2,16 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SharedHeader from '../../components/SharedHeader';
 import OutfitRecommender from './OutfitRecommender';
+import { GiTrousers, GiTShirt, GiMonclerJacket } from 'react-icons/gi';
 
 
 // 요일 목록
 const weekDays = ['월', '화', '수', '목', '금', '토', '일'];
 
-// 카테고리 매핑
+// 카테고리 매핑 (customIcon: true인 경우 React Icons 사용)
 const categoryMap = {
-  outerwear: { name: '외투', icon: 'checkroom', color: '#D4AF37' },
-  tops: { name: '상의', icon: 'person', color: '#B8860B' },
-  bottoms: { name: '하의', icon: 'straighten', color: '#CD853F' },
+  outerwear: { name: '외투', icon: 'jacket', color: '#D4AF37', customIcon: true, IconComponent: GiMonclerJacket },
+  tops: { name: '상의', icon: 'tshirt', color: '#B8860B', customIcon: true, IconComponent: GiTShirt },
+  bottoms: { name: '하의', icon: 'trousers', color: '#CD853F', customIcon: true, IconComponent: GiTrousers },
   shoes: { name: '신발', icon: 'steps', color: '#DAA520' },
 };
 
@@ -341,10 +342,10 @@ const MainPage2 = () => {
 
           setWardrobeStats(stats);
           setUserClothes({
-            outerwear: data.outerwear || [],
-            tops: data.tops || [],
-            bottoms: data.bottoms || [],
-            shoes: data.shoes || [],
+            outerwear: (data.outerwear || []).map(item => ({ ...item, category: 'outerwear' })),
+            tops: (data.tops || []).map(item => ({ ...item, category: 'tops' })),
+            bottoms: (data.bottoms || []).map(item => ({ ...item, category: 'bottoms' })),
+            shoes: (data.shoes || []).map(item => ({ ...item, category: 'shoes' })),
           });
         }
       } catch (error) {
@@ -481,6 +482,7 @@ const MainPage2 = () => {
                       </span>
                       <span className="block text-[10px] text-charcoal-light dark:text-cream-dark leading-none mt-0.5">{weather.condition}</span>
                     </div>
+                    <span className="block text-[10px] text-charcoal-light/70 dark:text-cream-dark/70 mt-0.5">{userLocation}</span>
                   </div>
                   <p className="text-[10px] text-gold dark:text-gold-light mt-1 text-left font-medium leading-tight break-keep w-full">
                     {getWeatherTip()}
@@ -581,7 +583,14 @@ const MainPage2 = () => {
                       className="w-10 h-10 rounded-xl flex items-center justify-center mb-1"
                       style={{ backgroundColor: `${color}20` }}
                     >
-                      <span className="material-symbols-rounded text-lg" style={{ color }}>{icon}</span>
+                      {(() => {
+                        const IconComp = categoryMap[key].IconComponent;
+                        return categoryMap[key].customIcon && IconComp ? (
+                          <IconComp className="text-xl" style={{ color }} />
+                        ) : (
+                          <span className="material-symbols-rounded text-lg" style={{ color }}>{icon}</span>
+                        );
+                      })()}
                     </div>
                     <span className="text-lg font-bold text-charcoal dark:text-cream">{filteredStats[key] || 0}</span>
                     <span className="text-[10px] text-charcoal-light dark:text-cream-dark">{name}</span>
@@ -597,8 +606,8 @@ const MainPage2 = () => {
                 {/* 옷봉 레일 + 옷 카드들 */}
                 <div className="relative pt-2">
 
-                  {/* 옷봉 레일 (절대 위치) - 신발 카테고리는 제외, 닫혀있을 때도 제외 */}
-                  {expandedCategory && expandedCategory !== 'shoes' && (
+                  {/* 옷봉 레일 (절대 위치) - 신발 카테고리는 제외, 닫혀있을 때도 제외, 옷이 없으면 제외 */}
+                  {expandedCategory && expandedCategory !== 'shoes' && filteredClothes[expandedCategory]?.length > 0 && (
                     <div
                       className="absolute top-6 left-0 right-0 h-[14px] z-10 backdrop-blur-sm"
                       style={{
@@ -610,8 +619,8 @@ const MainPage2 = () => {
                     />
                   )}
 
-                  {/* 신발장 선반 (신발 카테고리일 때만) */}
-                  {expandedCategory === 'shoes' && (
+                  {/* 신발장 선반 (신발 카테고리일 때만, 신발이 있을 때만) */}
+                  {expandedCategory === 'shoes' && filteredClothes['shoes']?.length > 0 && (
                     <div
                       className="absolute bottom-0 left-0 right-0 h-[8px] z-10"
                       style={{
@@ -696,10 +705,16 @@ const MainPage2 = () => {
                       </div>
                     ))}
 
-                    {/* 빈 상태 */}
+                    {/* 빈 상태 - 귀여운 메시지 */}
                     {expandedCategory && (!filteredClothes[expandedCategory] || filteredClothes[expandedCategory].length === 0) && (
-                      <div className="flex-1 flex items-center justify-center py-6">
-                        <p className="text-sm text-charcoal-light dark:text-cream-dark">이 카테고리에 옷이 없어요</p>
+                      <div className="flex-1 flex flex-col items-center justify-center py-8 px-4">
+                        <span className="material-symbols-rounded text-4xl text-gold-light mb-2">checkroom</span>
+                        <p className="text-sm font-medium text-charcoal dark:text-cream mb-1">
+                          {expandedCategory === 'shoes' ? '아직 신발이 없어요 👟' : '아직 옷이 없어요 ✨'}
+                        </p>
+                        <p className="text-xs text-charcoal-light dark:text-cream-dark">
+                          새 {expandedCategory === 'shoes' ? '신발을' : '옷을'} 등록해보세요!
+                        </p>
                       </div>
                     )}
                   </div>
