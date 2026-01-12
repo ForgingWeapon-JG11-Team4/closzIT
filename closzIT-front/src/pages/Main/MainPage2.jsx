@@ -92,13 +92,15 @@ const MainPage2 = () => {
   const navigate = useNavigate();
 
   // 검색 및 추천기 상태
-  const [vtoResultImage, setVtoResultImage] = useState(null); // VTO 결과 이미지
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [selectedKeywords, setSelectedKeywords] = useState([]);
   const [searchText, setSearchText] = useState(''); // 자연어 검색어 상태
   const [userName, setUserName] = useState('');
   const [showGreeting, setShowGreeting] = useState(true);
   const [selectedClothDetail, setSelectedClothDetail] = useState(null); // 의류 상세정보 모달 상태
+  const [isVtoLoading, setIsVtoLoading] = useState(false); // VTO 로딩 상태
+  const [userFullBodyImage, setUserFullBodyImage] = useState(null); // 사용자 전신 사진
+  const [beforeAfterImage, setBeforeAfterImage] = useState(null); // Before & After 이미지 (After)
 
   // 날씨 API 상태
   const [weather, setWeather] = useState({ temperature: null, condition: '로딩중...' });
@@ -129,6 +131,7 @@ const MainPage2 = () => {
         if (response.ok) {
           const data = await response.json();
           setUserName(data.name || '');
+          setUserFullBodyImage(data.fullBodyImage || null); // 전신 사진 저장
         }
       } catch (e) {
         console.error(e);
@@ -704,6 +707,69 @@ const MainPage2 = () => {
               </div>
             </div>
 
+            {/* Before & After 섹션 */}
+            <div
+              className="bg-white/90 dark:bg-charcoal/80 backdrop-blur-md rounded-3xl p-5 shadow-soft border border-gold-light/20"
+              style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(250,248,245,0.98) 100%)' }}
+            >
+              <h3 className="text-base font-bold text-charcoal dark:text-cream flex items-center gap-2 mb-4">
+                <span className="material-symbols-rounded text-gold text-lg">compare</span>
+                Before & After
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                {/* Before */}
+                <div className="relative">
+                  <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-cream-dark/30 dark:bg-charcoal-light/20 border border-gold-light/20">
+                    {userFullBodyImage ? (
+                      <img
+                        src={userFullBodyImage}
+                        alt="Before"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-sm text-charcoal-light dark:text-cream-dark">사진 없음</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-2 text-center">
+                    <span className="text-xs font-semibold text-charcoal-light dark:text-cream-dark uppercase">Before</span>
+                  </div>
+                </div>
+
+                {/* After */}
+                <div className="relative">
+                  <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-cream-dark/30 dark:bg-charcoal-light/20 border border-gold-light/20">
+                    {beforeAfterImage ? (
+                      <img
+                        src={beforeAfterImage}
+                        alt="After"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : userFullBodyImage ? (
+                      <img
+                        src={userFullBodyImage}
+                        alt="After"
+                        className="w-full h-full object-contain opacity-50"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-sm text-charcoal-light dark:text-cream-dark">사진 없음</span>
+                      </div>
+                    )}
+                    {isVtoLoading && (
+                      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-4 border-gold border-t-transparent"></div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-2 text-center">
+                    <span className="text-xs font-semibold text-gold uppercase">After</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* 슬라이드 인 + 흔들흔들 애니메이션 */}
             <style>
               {`
@@ -818,17 +884,19 @@ const MainPage2 = () => {
             {/* 하나만 입어보기 버튼 (IDM-VTON) */}
             <button
               onClick={async () => {
-
                 try {
-                  setSelectedClothDetail(null); // 모달 닫기
-
                   const token = localStorage.getItem('accessToken');
                   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
-                  console.log(`[VTO] Starting try-on for clothing: ${selectedClothDetail.id}, category: ${selectedClothDetail.category}`);
+                  // 필요한 정보 먼저 저장
+                  const clothingId = selectedClothDetail.id;
+                  const category = selectedClothDetail.category;
 
-                  // 로딩 표시
-                  alert('단일 옷 가상 피팅을 생성 중입니다... (약 4-5초 소요)');
+                  console.log(`[VTO] Starting try-on for clothing: ${clothingId}, category: ${category}`);
+
+                  // 모달 닫고 로딩 시작
+                  setSelectedClothDetail(null);
+                  setIsVtoLoading(true);
 
                   const response = await fetch(`${backendUrl}/api/fitting/single-item-tryon`, {
                     method: 'POST',
@@ -837,8 +905,8 @@ const MainPage2 = () => {
                       'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                      clothingId: selectedClothDetail.id,
-                      category: selectedClothDetail.category, // 옷 카테고리 전달 (tops, bottoms, outerwear, shoes)
+                      clothingId: clothingId,
+                      category: category,
                       denoiseSteps: 10,
                       seed: 42,
                     }),
@@ -851,17 +919,17 @@ const MainPage2 = () => {
 
                   const result = await response.json();
 
-                  // 결과 이미지 표시 (모달로)
+                  // 결과 이미지 표시 (Before & After만 업데이트)
                   if (result.success && result.imageUrl) {
-                    // 팝업 차단 문제 방지: 모달로 표시
-                    setSelectedClothDetail(null); // 기존 모달 닫기
-                    setVtoResultImage(result.imageUrl); // 결과 이미지 표시
+                    setBeforeAfterImage(result.imageUrl); // Before & After의 After 업데이트
                   } else {
                     throw new Error('결과 이미지를 받지 못했습니다.');
                   }
                 } catch (error) {
                   console.error('Single item try-on error:', error);
                   alert(`가상 피팅 실패: ${error.message}`);
+                } finally {
+                  setIsVtoLoading(false); // 로딩 종료
                 }
               }}
               className="w-64 mx-auto py-3.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl font-bold hover:from-purple-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
@@ -993,57 +1061,6 @@ const MainPage2 = () => {
         </div>
       )}
 
-
-      {/* VTO 결과 모달 */}
-      {vtoResultImage && (
-        <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
-          onClick={() => setVtoResultImage(null)}
-        >
-          <div
-            className="bg-warm-white dark:bg-charcoal rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-auto shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-charcoal dark:text-cream flex items-center gap-2">
-                  <span className="material-symbols-rounded text-2xl text-gold">auto_awesome</span>
-                  가상 피팅 결과
-                </h2>
-                <button
-                  onClick={() => setVtoResultImage(null)}
-                  className="p-2 hover:bg-charcoal/10 dark:hover:bg-cream/10 rounded-lg transition-colors"
-                >
-                  <span className="material-symbols-rounded text-charcoal dark:text-cream">close</span>
-                </button>
-              </div>
-
-              <img
-                src={vtoResultImage}
-                alt="Virtual Try-On Result"
-                className="w-full rounded-xl shadow-lg"
-              />
-
-              <div className="mt-4 flex gap-2">
-                <a
-                  href={vtoResultImage}
-                  download="virtual-tryon-result.png"
-                  className="flex-1 py-3 bg-gold text-charcoal rounded-xl font-semibold hover:bg-gold-dark transition-colors flex items-center justify-center gap-2"
-                >
-                  <span className="material-symbols-rounded text-lg">download</span>
-                  다운로드
-                </a>
-                <button
-                  onClick={() => setVtoResultImage(null)}
-                  className="flex-1 py-3 bg-charcoal/10 dark:bg-cream/10 text-charcoal dark:text-cream rounded-xl font-semibold hover:bg-charcoal/20 dark:hover:bg-cream/20 transition-colors"
-                >
-                  닫기
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );
