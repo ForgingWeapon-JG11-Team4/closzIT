@@ -4,6 +4,9 @@ enum CreditTransactionType {
   CLOTHING_ADDED  // 의류 등록 보상
   VTO_USED        // VTO 서비스 사용
   FLATTEN_USED    // 옷 펴기 서비스 사용
+  PURCHASE        // 크레딧 구매
+  PIN_REDEEM      // PIN 코드 사용
+  REFUND          // 환불
   ADMIN_ADD       // 관리자 지급
   ADMIN_SUB       // 관리자 차감
   ADMIN_SET       // 관리자 직접 설정
@@ -30,4 +33,3 @@ model CreditHistory {
   @@index([type])
   @@map("credit_history")
 }
-
