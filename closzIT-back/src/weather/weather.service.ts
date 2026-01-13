@@ -345,14 +345,14 @@ export class WeatherService {
     return {
       date: this.formatDate(target),
       time: `${String(target.getHours()).padStart(2, '0')}00`,
-      temperature: null,
-      sky: null,
-      precipitationType: null,
+      temperature: 0,
+      sky: '맑음',
+      precipitationType: '없음',
       rainProbability: 0,
       humidity: null,
       windSpeed: null,
       locationName: locationName || null,
-      condition: '알 수 없음',
+      condition: '맑음',
     };
   }
 
