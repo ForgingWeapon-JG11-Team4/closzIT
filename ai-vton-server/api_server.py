@@ -164,6 +164,7 @@ class HumanPreprocessResponse(BaseModel):
     upper_body: dict  # {human_img, mask, mask_gray, pose_img_tensor}
     # Lower body data
     lower_body: dict  # {human_img, mask, mask_gray, pose_img_tensor}
+    dresses: dict
 
 
 class GarmentPreprocessRequest(BaseModel):
@@ -1340,7 +1341,7 @@ def clear_human_cache(user_id: str):
     if cleared:
         return {
             "success": True,
-            "message": f"Human cache (upper & lower) cleared for {user_id}",
+            "message": f"Human cache (upper & lower & dresses) cleared for {user_id}",
         }
     return {"success": False, "message": "Cache not found"}
 
@@ -1374,6 +1375,7 @@ def clear_all_cache():
         "message": "All cache cleared (upper, lower, garment, text)",
         "cached_humans_upper": 0,
         "cached_humans_lower": 0,
+        "cached_humans_dresses": 0,
         "cached_garments": 0,
         "cached_texts": 0,
     }
