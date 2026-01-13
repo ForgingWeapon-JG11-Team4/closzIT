@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SharedHeader from '../components/SharedHeader';
 import BottomNav from '../components/BottomNav';
+import ClothDetailModal from '../components/ClothDetailModal';
 import { GiTrousers, GiTShirt, GiMonclerJacket } from 'react-icons/gi';
 
 // 카테고리 매핑 (customIcon: true인 경우 React Icons 사용)
@@ -504,99 +505,83 @@ const FittingRoomPage = () => {
 
       {/* 옷 상세 모달 */}
       {selectedClothDetail && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fadeIn"
-          onClick={() => setSelectedClothDetail(null)}
-        >
-          <div
-            className="bg-warm-white dark:bg-charcoal rounded-3xl shadow-2xl max-w-sm w-full max-h-[80vh] overflow-hidden animate-slideDown"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="relative">
-              <img
-                src={selectedClothDetail.image || selectedClothDetail.imageUrl}
-                alt={selectedClothDetail.name}
-                className="w-full h-48 object-cover"
-              />
-              <button
-                onClick={() => setSelectedClothDetail(null)}
-                className="absolute top-3 right-3 w-8 h-8 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-colors"
-              >
-                <span className="material-symbols-rounded text-lg">close</span>
-              </button>
-            </div>
+        <ClothDetailModal
+          cloth={selectedClothDetail}
+          onClose={() => setSelectedClothDetail(null)}
+          onTryOn={async () => {
+            try {
+              const token = localStorage.getItem('accessToken');
+              const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+              const clothingId = selectedClothDetail.id;
+              const category = selectedClothDetail.category;
 
-            {/* Modal Body */}
-            <div className="p-5 space-y-4 max-h-[40vh] overflow-y-auto">
-              <div>
-                <h2 className="text-lg font-bold text-charcoal dark:text-cream mb-1">
-                  {selectedClothDetail.name || '옷'}
-                </h2>
-                <p className="text-sm text-charcoal-light dark:text-cream-dark">
-                  {selectedClothDetail.category === 'outerwear' && '외투'}
-                  {selectedClothDetail.category === 'tops' && '상의'}
-                  {selectedClothDetail.category === 'bottoms' && '하의'}
-                  {selectedClothDetail.category === 'shoes' && '신발'}
-                </p>
-              </div>
+              console.log(`[VTO] Starting try-on for clothing: ${clothingId}, category: ${category}`);
 
-              {/* 입어보기 버튼 */}
-              <button
-                onClick={async () => {
-                  try {
-                    const token = localStorage.getItem('accessToken');
-                    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+              setSelectedClothDetail(null);
+              setIsVtoLoading(true);
 
-                    const clothingId = selectedClothDetail.id;
+              const response = await fetch(`${backendUrl}/api/fitting/single-item-tryon`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  clothingId: clothingId,
+                  category: category,
+                  denoiseSteps: 10,
+                  seed: 42,
+                }),
+              });
+
+              if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || '가상 피팅 요청 실패');
+              }
+
+              const result = await response.json();
+
+              if (result.success && result.imageUrl) {
+                setBeforeAfterImage(result.imageUrl);
+              } else {
+                throw new Error('결과 이미지를 받지 못했습니다.');
+              }
+            } catch (error) {
+              console.error('Single item try-on error:', error);
+              alert(`가상 피팅 실패: ${error.message}`);
+            } finally {
+              setIsVtoLoading(false);
+            }
+          }}
+          onEdit={() => alert('수정 기능은 추후 업데이트 예정입니다.')}
+          onDelete={async () => {
+            if (window.confirm('정말 이 옷을 삭제하시겠습니까?')) {
+              try {
+                const token = localStorage.getItem('accessToken');
+                const response = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000'}/items/${selectedClothDetail.id}`, {
+                  method: 'DELETE',
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                  setUserClothes((prev) => {
+                    const newClothes = { ...prev };
                     const category = selectedClothDetail.category;
-
-                    console.log(`[VTO] Starting try-on for clothing: ${clothingId}, category: ${category}`);
-
-                    setSelectedClothDetail(null);
-                    setIsVtoLoading(true);
-
-                    const response = await fetch(`${backendUrl}/api/fitting/single-item-tryon`, {
-                      method: 'POST',
-                      headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        clothingId: clothingId,
-                        category: category,
-                        denoiseSteps: 10,
-                        seed: 42,
-                      }),
-                    });
-
-                    if (!response.ok) {
-                      const errorData = await response.json();
-                      throw new Error(errorData.message || '가상 피팅 요청 실패');
+                    if (newClothes[category]) {
+                      newClothes[category] = newClothes[category].filter(item => item.id !== selectedClothDetail.id);
                     }
-
-                    const result = await response.json();
-
-                    if (result.success && result.imageUrl) {
-                      setBeforeAfterImage(result.imageUrl);
-                    } else {
-                      throw new Error('결과 이미지를 받지 못했습니다.');
-                    }
-                  } catch (error) {
-                    console.error('Single item try-on error:', error);
-                    alert(`가상 피팅 실패: ${error.message}`);
-                  } finally {
-                    setIsVtoLoading(false);
-                  }
-                }}
-                className="w-full py-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl font-bold hover:from-purple-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-              >
-                <span className="material-symbols-rounded">checkroom</span>
-                입어보기
-              </button>
-            </div>
-          </div>
-        </div>
+                    return newClothes;
+                  });
+                  setSelectedClothDetail(null);
+                } else {
+                  alert('삭제 실패');
+                }
+              } catch (e) {
+                console.error(e);
+                alert('삭제 실패');
+              }
+            }
+          }}
+        />
       )}
 
       {/* 키워드 필터 모달 */}
@@ -676,7 +661,12 @@ const FittingRoomPage = () => {
       )}
 
       {/* Bottom Navigation */}
-      <BottomNav />
+      <BottomNav 
+        floatingAction={{
+          icon: 'apparel',
+          onClick: () => navigate('/register')
+        }}
+      />
     </div>
   );
 };
