@@ -189,8 +189,7 @@ export class VtonCacheController {
         'bottoms': 'lower_body',
         'bottom': 'lower_body',
         'shoes': 'lower_body',
-        'outer': 'dresses',
-        'coat': 'dresses'
+        'outer': 'dresses'
       };
       const clothingCategory = clothing?.category?.toLowerCase() || 'tops';
       const vtonCategory = categoryMap[clothingCategory] || 'upper_body';
