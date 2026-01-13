@@ -98,11 +98,11 @@ const ClothDetailModal = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center animate-fadeIn"
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center"
       onClick={onClose}
     >
       <div
-        className="bg-warm-white dark:bg-charcoal rounded-3xl shadow-2xl w-[90%] max-w-sm overflow-hidden animate-slideDown relative flex flex-col"
+        className="bg-warm-white dark:bg-charcoal rounded-3xl shadow-2xl w-[90%] max-w-sm overflow-hidden relative flex flex-col"
         style={{ maxHeight: '90vh' }}
         onClick={(e) => e.stopPropagation()}
       >

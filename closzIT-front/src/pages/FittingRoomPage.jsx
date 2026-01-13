@@ -1,6 +1,6 @@
 // src/pages/FittingRoomPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import SharedHeader from '../components/SharedHeader';
 import BottomNav from '../components/BottomNav';
 import ClothDetailModal from '../components/ClothDetailModal';
@@ -62,12 +62,72 @@ const keywordGroups = [
 
 const FittingRoomPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // VTO 상태
   const [isVtoLoading, setIsVtoLoading] = useState(false);
   const [userFullBodyImage, setUserFullBodyImage] = useState(null);
   const [beforeAfterImage, setBeforeAfterImage] = useState(null);
   const [selectedClothDetail, setSelectedClothDetail] = useState(null);
+  const [autoTryOnProcessed, setAutoTryOnProcessed] = useState(false);
+
+  // 다른 페이지에서 전달받은 옷 정보로 자동 VTO 실행
+  useEffect(() => {
+    const runAutoTryOn = async () => {
+      const tryOnCloth = location.state?.tryOnCloth;
+      if (!tryOnCloth || autoTryOnProcessed) return;
+
+      setAutoTryOnProcessed(true);
+      
+      // location state 초기화 (뒤로가기 시 재실행 방지)
+      window.history.replaceState({}, document.title);
+
+      try {
+        const token = localStorage.getItem('accessToken');
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+        const clothingId = tryOnCloth.id;
+        const category = tryOnCloth.category;
+
+        console.log(`[VTO] Auto try-on for clothing: ${clothingId}, category: ${category}`);
+
+        setIsVtoLoading(true);
+
+        const response = await fetch(`${backendUrl}/api/fitting/single-item-tryon`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            clothingId: clothingId,
+            category: category,
+            denoiseSteps: 10,
+            seed: 42,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || '가상 피팅 요청 실패');
+        }
+
+        const result = await response.json();
+
+        if (result.success && result.imageUrl) {
+          setBeforeAfterImage(result.imageUrl);
+        } else {
+          throw new Error('결과 이미지를 받지 못했습니다.');
+        }
+      } catch (error) {
+        console.error('Auto try-on error:', error);
+        alert(`가상 피팅 실패: ${error.message}`);
+      } finally {
+        setIsVtoLoading(false);
+      }
+    };
+
+    runAutoTryOn();
+  }, [location.state, autoTryOnProcessed]);
 
   // 옷장 현황 상태
   const [wardrobeStats, setWardrobeStats] = useState({
