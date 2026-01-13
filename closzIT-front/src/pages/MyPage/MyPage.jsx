@@ -232,7 +232,7 @@ const MyPage = () => {
                 </div>
               </div>
             )}
-            
+
             {/* 전신 사진 섹션 */}
             <div className="py-4 border-t border-gold-light/30 mt-2">
               <span className="text-charcoal-light dark:text-cream-dark block mb-3">전신 사진</span>

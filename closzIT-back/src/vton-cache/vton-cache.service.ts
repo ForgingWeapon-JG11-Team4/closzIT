@@ -62,19 +62,21 @@ export class VtonCacheService {
       this.logger.log(`[preprocessHuman] Response keys: ${JSON.stringify(Object.keys(response.data))}`);
 
       // 새 버전 응답 (upper_body, lower_body) 또는 구 버전 응답 (human_img, mask, ...) 모두 지원
-      let upper_body, lower_body;
+      let upper_body, lower_body, dresses;
 
-      if (response.data.upper_body && response.data.lower_body) {
+      if (response.data.upper_body && response.data.lower_body && response.data.dresses) {
         // 새 버전 응답
         this.logger.log(`[preprocessHuman] Using new response format (upper_body, lower_body)`);
         upper_body = response.data.upper_body;
         lower_body = response.data.lower_body;
+        dresses = response.data.dresses;
       } else {
         // 구 버전 응답 - 기존 데이터를 upper로 사용하고, lower도 동일하게 복사
         this.logger.log(`[preprocessHuman] Using legacy response format - duplicating to upper/lower`);
         const { human_img, mask, mask_gray, pose_img_tensor } = response.data;
         upper_body = { human_img, mask, mask_gray, pose_img_tensor };
         lower_body = { human_img, mask, mask_gray, pose_img_tensor };
+        dresses = { human_img, mask, mask_gray, pose_img_tensor };
       }
 
       // S3에 병렬 업로드 (Upper & Lower 분리)
@@ -87,6 +89,10 @@ export class VtonCacheService {
         lower_mask_url,
         lower_mask_gray_url,
         lower_pose_tensor_url,
+        dresses_human_img_url,
+        dresses_mask_url,
+        dresses_mask_gray_url,
+        dresses_pose_tensor_url,
       ] = await Promise.all([
         // Upper body
         this.s3Service.uploadBase64Image(upper_body.human_img, `users/${userId}/vton-cache/upper/human_img.png`),
@@ -98,6 +104,11 @@ export class VtonCacheService {
         this.s3Service.uploadBase64Image(lower_body.mask, `users/${userId}/vton-cache/lower/mask.png`),
         this.s3Service.uploadBase64Image(lower_body.mask_gray, `users/${userId}/vton-cache/lower/mask_gray.png`),
         this.uploadBinaryToS3(lower_body.pose_img_tensor, `users/${userId}/vton-cache/lower/pose_tensor.pkl`),
+
+        this.s3Service.uploadBase64Image(dresses.human_img, `users/${userId}/vton-cache/dresses/human_img.png`),
+        this.s3Service.uploadBase64Image(dresses.mask, `users/${userId}/vton-cache/dresses/mask.png`),
+        this.s3Service.uploadBase64Image(dresses.mask_gray, `users/${userId}/vton-cache/dresses/mask_gray.png`),
+        this.uploadBinaryToS3(dresses.pose_img_tensor, `users/${userId}/vton-cache/dresses/pose_tensor.pkl`),
       ]);
 
       const elapsed = (Date.now() - startTime) / 1000;
@@ -273,11 +284,13 @@ export class VtonCacheService {
       // upper와 lower 모두 존재하는지 확인
       const upperKey = `users/${userId}/vton-cache/upper/human_img.png`;
       const lowerKey = `users/${userId}/vton-cache/lower/human_img.png`;
-      const [upperExists, lowerExists] = await Promise.all([
+      const dressesKey = `users/${userId}/vton-cache/dresses/human_img.png`;
+      const [upperExists, lowerExists, dressesExists] = await Promise.all([
         this.s3Service.checkObjectExists(upperKey),
         this.s3Service.checkObjectExists(lowerKey),
+        this.s3Service.checkObjectExists(dressesKey),
       ]);
-      return upperExists && lowerExists;
+      return upperExists && lowerExists && dressesExists;
     } catch {
       return false;
     }

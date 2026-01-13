@@ -77,6 +77,10 @@ export class UserController {
         this.s3Service.deleteObject(`users/${userId}/vton-cache/lower/mask.png`),
         this.s3Service.deleteObject(`users/${userId}/vton-cache/lower/mask_gray.png`),
         this.s3Service.deleteObject(`users/${userId}/vton-cache/lower/pose_tensor.pkl`),
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/dresses/human_img.png`),
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/dresses/mask.png`),
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/dresses/mask_gray.png`),
+        this.s3Service.deleteObject(`users/${userId}/vton-cache/dresses/pose_tensor.pkl`),
         // 새 경로 (upper/lower 구분 없음)
         this.s3Service.deleteObject(`users/${userId}/vton-cache/human_img.png`),
         this.s3Service.deleteObject(`users/${userId}/vton-cache/mask.png`),
