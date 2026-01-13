@@ -44,7 +44,7 @@ const BottomNav = ({ floatingAction }) => {
           }`}
         >
           <span className="material-symbols-rounded text-[22px]">person</span>
-          <span className="text-[10px] font-semibold">내 정보</span>
+          <span className="text-[10px] font-semibold">Me</span>
         </button>
 
         {/* 피팅룸 */}

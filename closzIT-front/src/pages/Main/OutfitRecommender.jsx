@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange, searchText = '' }) => {
+const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange, searchText = '', onGenerate }) => {
   const navigate = useNavigate();
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(true);
@@ -75,6 +75,18 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange, searchText
   };
 
   const handleGenerate = () => {
+    // onGenerate 콜백이 있으면 페이지 이동 없이 콜백 호출 (MainPage2 통합용)
+    if (onGenerate) {
+      onGenerate({
+        calendarEvent: selectedEvent?.title,
+        isToday: selectedEvent?.isToday,
+        userQuery: searchText,
+        keywords: selectedKeywords, 
+      });
+      return;
+    }
+
+    // 콜백이 없으면 기존 로직대로 페이지 이동
     navigate('/fitting', { 
       state: { 
         calendarEvent: selectedEvent?.title,
