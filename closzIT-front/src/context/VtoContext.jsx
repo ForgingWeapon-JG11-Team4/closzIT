@@ -141,8 +141,8 @@ export const VtoProvider = ({ children }) => {
             const token = localStorage.getItem('accessToken');
             const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
-            // Step 1: 큐에 작업 등록 → jobId 즉시 반환
-            const response = await fetch(`${backendUrl}/api/fitting/sns-virtual-try-on`, {
+            // Step 1: 큐에 작업 등록 → jobId 즉시 반환 (전체 입어보기)
+            const response = await fetch(`${backendUrl}/api/fitting/sns-full-try-on`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

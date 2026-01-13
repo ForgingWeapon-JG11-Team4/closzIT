@@ -18,7 +18,7 @@ const RecentlyAddedClothes = ({ onClothClick }) => {
         // items/by-category는 이미 상위 컴포넌트에서 호출되므로, 
         // 최적화를 위해 props로 받을 수도 있지만, 
         // "최근 등록" 전용 API가 없다면 여기서 전체를 받아 정렬하는 로직을 구현합니다.
-        
+
         const response = await fetch(`${backendUrl}/items/by-category`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -53,16 +53,16 @@ const RecentlyAddedClothes = ({ onClothClick }) => {
 
   return (
     <div className="mt-4 px-1 w-1/2">
-      <div 
+      <div
         className="rounded-[28px] p-3 shadow-soft border border-gold/30 relative overflow-hidden flex flex-col bg-white backdrop-blur-sm min-h-[160px] h-full"
       >
         <h3 className="text-base font-bold text-charcoal dark:text-cream flex items-center gap-1.5 mb-1 flex-shrink-0 pl-1 z-10 relative">
           <span className="material-symbols-rounded text-gold text-lg">new_releases</span>
           최근 등록
         </h3>
-        
+
         {/* 옷봉 (Rail) */}
-        <div 
+        <div
           className="absolute top-[3.5rem] left-0 right-0 h-1.5 z-0"
           style={{
             background: 'linear-gradient(180deg, #4A4A4A 0%, #2D2D2D 50%, #1A1A1A 100%)',
@@ -75,7 +75,7 @@ const RecentlyAddedClothes = ({ onClothClick }) => {
           <div className="flex gap-4 animate-infinite-scroll hover:[animation-play-state:paused] w-max items-start">
             {/* Loop mainly for visual effect - duplicate items */}
             {[...recentClothes, ...recentClothes].map((cloth, index) => (
-              <div 
+              <div
                 key={`${cloth.id}-${index}`}
                 onClick={() => onClothClick && onClothClick(cloth)}
                 className="flex-shrink-0 flex flex-col items-center cursor-pointer group w-20"
@@ -98,14 +98,14 @@ const RecentlyAddedClothes = ({ onClothClick }) => {
                 ) : (
                   /* 신발은 옷걸이 없이 아래쪽에 배치 (marginTop으로 높이 맞춤) */
                   <div className="mt-5 w-20 h-20 rounded-xl overflow-hidden border border-gold-light/20 shadow-sm relative bg-white group-hover:shadow-md transition-all duration-300">
-                     <img
-                        src={cloth.imageUrl || cloth.image}
-                        alt={cloth.name}
-                        className="w-full h-full object-cover"
-                      />
-                     <div className="absolute top-1 right-1 w-4 h-4 bg-gold/90 rounded-full flex items-center justify-center shadow-sm z-10">
-                        <span className="material-symbols-rounded text-white text-[8px]">steps</span>
-                     </div>
+                    <img
+                      src={cloth.imageUrl || cloth.image}
+                      alt={cloth.name}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-1 right-1 w-4 h-4 bg-gold/90 rounded-full flex items-center justify-center shadow-sm z-10">
+                      <span className="material-symbols-rounded text-white text-[8px]">steps</span>
+                    </div>
                   </div>
                 )}
               </div>

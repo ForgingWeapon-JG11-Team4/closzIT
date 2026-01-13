@@ -232,7 +232,10 @@ export class FittingController {
       throw error;
     }
   }
-
+  /**
+   * 한옷 입어보기 (IDM-VTON) - clothingId 필수
+   * POST /api/fitting/sns-virtual-try-on
+   */
   @Post('sns-virtual-try-on')
   async snsVirtualTryOn(
     @Request() req,
@@ -389,6 +392,110 @@ export class FittingController {
       };
     } catch (error) {
       this.logger.error(`[VTO Queue] Error queuing SNS VTO job: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 전체 입어보기 (Gemini API) - postId로 태그된 모든 옷
+   * POST /api/fitting/sns-full-try-on
+   */
+  @Post('sns-full-try-on')
+  async snsFullTryOn(
+    @Request() req,
+    @Body() body: { postId: string },
+  ) {
+    const userId = req.user.id;
+    console.log('[sns-full-try-on] Starting - userId:', userId, 'postId:', body.postId);
+
+    // 사용자의 전신 이미지 확인
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { fullBodyImage: true },
+    });
+
+    if (!user?.fullBodyImage) {
+      throw new BadRequestException({
+        success: false,
+        code: 'NO_FULL_BODY_IMAGE',
+        message: '피팅 모델 이미지가 없어서 착장서비스 이용이 불가합니다.',
+      });
+    }
+
+    // 게시글에 태그된 모든 의상 조회
+    const allPostClothes = await this.prisma.postClothing.findMany({
+      where: { postId: body.postId },
+      include: {
+        clothing: {
+          select: {
+            id: true,
+            imageUrl: true,
+            flattenImageUrl: true,
+            category: true,
+          },
+        },
+      },
+    });
+
+    if (allPostClothes.length === 0) {
+      throw new BadRequestException({
+        success: false,
+        message: '해당 게시글에 태그된 의상이 없습니다.',
+      });
+    }
+
+    // 카테고리별 clothingUrls 구성
+    const categoryMap: Record<string, string> = {
+      'top': 'top',       // DB에서 "Top"으로 저장된 경우
+      'tops': 'top',
+      'outer': 'outer',   // DB에서 "Outer"로 저장된 경우
+      'outerwear': 'outer',
+      'bottom': 'bottom', // DB에서 "Bottom"으로 저장된 경우
+      'bottoms': 'bottom',
+      'shoes': 'shoes',
+    };
+
+    const clothingUrls: { outer?: string; top?: string; bottom?: string; shoes?: string } = {};
+
+    for (const pc of allPostClothes) {
+      const category = categoryMap[pc.clothing.category?.toLowerCase() ?? ''];
+      if (category) {
+        let imageUrl = pc.clothing.flattenImageUrl || pc.clothing.imageUrl;
+        
+        if (this.s3Service.isS3Url(imageUrl)) {
+          const presignedUrl = await this.s3Service.convertToPresignedUrl(imageUrl);
+          if (presignedUrl) {
+            imageUrl = presignedUrl;
+          }
+        }
+
+        clothingUrls[category as keyof typeof clothingUrls] = imageUrl;
+      }
+    }
+
+    // 큐에 VTO 작업 등록
+    this.logger.log(`[VTO Queue] Queuing SNS Full VTO for user ${userId}, postId: ${body.postId}`);
+    
+    try {
+      const job = await this.vtoQueue.add('vto', {
+        userId,
+        personImageUrl: user.fullBodyImage,
+        clothingUrls,
+        type: 'sns-full-try-on',
+        postId: body.postId,
+      });
+
+      this.logger.log(`[VTO Queue] Job ${job.id} queued for user ${userId}`);
+
+      return {
+        success: true,
+        jobId: job.id,
+        status: 'queued',
+        postId: body.postId,
+        message: 'SNS 전체 가상 착장 작업이 대기열에 추가되었습니다.',
+      };
+    } catch (error) {
+      this.logger.error(`[VTO Queue] Error queuing SNS Full VTO job: ${error.message}`);
       throw error;
     }
   }
