@@ -7,6 +7,7 @@ import {
   Body,
   UseGuards,
   Request,
+  Logger,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { FittingService } from './fitting.service';
@@ -14,15 +15,20 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { VtonCacheService } from '../vton-cache/vton-cache.service';
 import { S3Service } from '../s3/s3.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 @Controller('api/fitting')
 @UseGuards(JwtAuthGuard)
 export class FittingController {
+  private readonly logger = new Logger(FittingController.name);
+
   constructor(
     private readonly fittingService: FittingService,
     private readonly prisma: PrismaService,
     private readonly vtonCacheService: VtonCacheService,
     private readonly s3Service: S3Service,
+    @InjectQueue('vto-queue') private readonly vtoQueue: Queue,
   ) {}
 
   @Post('virtual-try-on')
@@ -202,14 +208,29 @@ export class FittingController {
 
     console.log('Clothing URLs found:', Object.keys(clothingUrls));
 
-    // VTO 처리 (백엔드에서 S3 이미지 fetch)
-    const result = await this.fittingService.processVirtualFittingFromUrls(
-      user.fullBodyImage,
-      clothingUrls,
-      userId,
-    );
+    // 큐에 VTO 작업 등록 (즉시 jobId 반환)
+    this.logger.log(`[VTO Queue] Queuing partial VTO for user ${userId}`);
+    
+    try {
+      const job = await this.vtoQueue.add('vto', {
+        userId,
+        personImageUrl: user.fullBodyImage,
+        clothingUrls,
+        type: 'partial-try-on-by-ids',
+      });
 
-    return result;
+      this.logger.log(`[VTO Queue] Job ${job.id} queued for user ${userId}`);
+
+      return {
+        success: true,
+        jobId: job.id,
+        status: 'queued',
+        message: '가상 착장 작업이 대기열에 추가되었습니다.',
+      };
+    } catch (error) {
+      this.logger.error(`[VTO Queue] Error queuing job: ${error.message}`);
+      throw error;
+    }
   }
 
   @Post('sns-virtual-try-on')
@@ -317,35 +338,58 @@ export class FittingController {
       console.log(`[Cache] Text cache created for owner: ${clothingOwnerId}`);
     }
 
-    // 4. Category 매핑
-    const categoryMap = {
-      'tops': 'upper_body',
-      'outerwear': 'upper_body',
-      'bottoms': 'lower_body',
-      'bottom': 'lower_body',
-      'shoes': 'lower_body',
+    // 4. Category 매핑 및 clothingUrls 구성
+    const categoryMap: Record<string, string> = {
+      'tops': 'top',
+      'outerwear': 'outer',
+      'bottoms': 'bottom',
+      'bottom': 'bottom',
+      'shoes': 'shoes',
     };
-    const vtonCategory = categoryMap[clothing.category?.toLowerCase() ?? ''] || 'upper_body';
+    const clothingCategory = categoryMap[clothing.category?.toLowerCase() ?? ''] || 'top';
 
-    console.log(`[sns-virtual-try-on] Mapped VTON category: ${vtonCategory}`);
+    // S3 URL을 Pre-signed URL로 변환
+    let clothingImageUrl = clothing.flattenImageUrl || clothing.imageUrl;
+    if (this.s3Service.isS3Url(clothingImageUrl)) {
+      const presignedUrl = await this.s3Service.convertToPresignedUrl(clothingImageUrl);
+      if (presignedUrl) {
+        clothingImageUrl = presignedUrl;
+      }
+    }
 
-    // 5. IDM-VTON V2 API 호출 (내 사진 + 남의 옷)
-    const resultImageBase64 = await this.vtonCacheService.generateTryOnV2(
-      userId, // 내 전신 사진 사용
-      body.clothingId,
-      vtonCategory,
-      10, // denoiseSteps
-      42, // seed
-      clothingOwnerId // 옷 주인의 캐시 사용
-    );
+    // clothingUrls 구성
+    const clothingUrls: { outer?: string; top?: string; bottom?: string; shoes?: string } = {};
+    clothingUrls[clothingCategory as keyof typeof clothingUrls] = clothingImageUrl;
 
-    return {
-      success: true,
-      message: '가상 피팅이 완료되었습니다',
-      imageUrl: `data:image/png;base64,${resultImageBase64}`,
-      postId: body.postId,
-      clothingId: body.clothingId,
-    };
+    console.log(`[sns-virtual-try-on] Clothing category: ${clothingCategory}, URL ready`);
+
+    // 5. 큐에 VTO 작업 등록 (즉시 jobId 반환)
+    this.logger.log(`[VTO Queue] Queuing SNS VTO for user ${userId}, postId: ${body.postId}`);
+    
+    try {
+      const job = await this.vtoQueue.add('vto', {
+        userId,
+        personImageUrl: user.fullBodyImage,
+        clothingUrls,
+        type: 'sns-virtual-try-on',
+        postId: body.postId,
+        clothingId: body.clothingId,
+        clothingOwnerId, // 옷 주인 ID (캐시용)
+      });
+
+      this.logger.log(`[VTO Queue] Job ${job.id} queued for user ${userId}`);
+
+      return {
+        success: true,
+        jobId: job.id,
+        status: 'queued',
+        postId: body.postId,
+        message: 'SNS 가상 착장 작업이 대기열에 추가되었습니다.',
+      };
+    } catch (error) {
+      this.logger.error(`[VTO Queue] Error queuing SNS VTO job: ${error.message}`);
+      throw error;
+    }
   }
 
   @Post('check-status')

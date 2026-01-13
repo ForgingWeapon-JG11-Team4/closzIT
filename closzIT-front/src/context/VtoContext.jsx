@@ -131,7 +131,7 @@ export const VtoProvider = ({ children }) => {
         setPendingVtoRequest(null);
     };
 
-    // 실제 SNS VTO 요청 실행
+    // 실제 SNS VTO 요청 실행 (큐 기반 Polling 방식)
     const executeVtoRequest = async (postId) => {
         if (vtoLoadingPosts.has(postId) || vtoCompletedPosts.has(postId)) return;
 
@@ -141,6 +141,7 @@ export const VtoProvider = ({ children }) => {
             const token = localStorage.getItem('accessToken');
             const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
+            // Step 1: 큐에 작업 등록 → jobId 즉시 반환
             const response = await fetch(`${backendUrl}/api/fitting/sns-virtual-try-on`, {
                 method: 'POST',
                 headers: {
@@ -150,10 +151,10 @@ export const VtoProvider = ({ children }) => {
                 body: JSON.stringify({ postId }),
             });
 
-            const data = await response.json();
+            const queueResult = await response.json();
 
             if (!response.ok) {
-                if (data.code === 'NO_FULL_BODY_IMAGE') {
+                if (queueResult.code === 'NO_FULL_BODY_IMAGE') {
                     const confirm = window.confirm(
                         '피팅 모델 이미지가 없어서 착장서비스 이용이 불가합니다. 등록하시겠습니까?'
                     );
@@ -162,18 +163,67 @@ export const VtoProvider = ({ children }) => {
                     }
                     return;
                 }
-                throw new Error(data.message || '가상 착장에 실패했습니다.');
+                throw new Error(queueResult.message || '가상 착장에 실패했습니다.');
             }
 
-            if (data.success) {
+            // 큐 방식인 경우 polling
+            if (queueResult.jobId && queueResult.status === 'queued') {
+                console.log('[VTO] Job queued, polling for result:', queueResult.jobId);
+
+                // Step 2: Polling으로 결과 대기
+                const pollInterval = 1000;
+                const maxPolls = 300; // 5분
+                let pollCount = 0;
+
+                const pollForResult = async () => {
+                    while (pollCount < maxPolls) {
+                        pollCount++;
+                        await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+                        try {
+                            const statusResponse = await fetch(`${backendUrl}/queue/job/vto/${queueResult.jobId}`, {
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+
+                            if (!statusResponse.ok) continue;
+
+                            const statusResult = await statusResponse.json();
+                            console.log('[VTO] Poll result:', statusResult.status);
+
+                            if (statusResult.status === 'completed') {
+                                const data = statusResult.result;
+                                if (data.success) {
+                                    addVtoResult({
+                                        imageUrl: data.imageUrl,
+                                        postId: postId,
+                                        appliedClothing: data.appliedClothing,
+                                    });
+                                    setVtoCompletedPosts(prev => new Set([...prev, postId]));
+                                    refreshVtoData();
+                                    setToastMessage('착장 완료!');
+                                    setTimeout(() => setToastMessage(''), 3000);
+                                }
+                                return;
+                            } else if (statusResult.status === 'failed') {
+                                throw new Error(statusResult.error || 'VTO 작업이 실패했습니다.');
+                            }
+                        } catch (pollError) {
+                            console.error('[VTO] Poll error:', pollError);
+                        }
+                    }
+                    throw new Error('VTO 작업 시간이 초과되었습니다.');
+                };
+
+                await pollForResult();
+            } else if (queueResult.success && queueResult.imageUrl) {
+                // 기존 동기 방식 응답 (fallback)
                 addVtoResult({
-                    imageUrl: data.imageUrl,
-                    postId: postId,  // 함수 파라미터 사용 (completedPosts와 일치)
-                    appliedClothing: data.appliedClothing,
+                    imageUrl: queueResult.imageUrl,
+                    postId: postId,
+                    appliedClothing: queueResult.appliedClothing,
                 });
                 setVtoCompletedPosts(prev => new Set([...prev, postId]));
                 refreshVtoData();
-
                 setToastMessage('착장 완료!');
                 setTimeout(() => setToastMessage(''), 3000);
             }
@@ -267,16 +317,17 @@ export const VtoProvider = ({ children }) => {
         });
     };
 
-    // ID 기반 Partial VTO 요청 실행 (CORS 우회용)
+    // ID 기반 Partial VTO 요청 실행 (큐 기반 Polling 방식)
     const executePartialVtoByIds = async (clothingIds, source = 'default') => {
-        const jobId = 'direct-fitting-' + Date.now();
-        setVtoLoadingPosts(prev => new Set([...prev, jobId]));
+        const localJobId = 'direct-fitting-' + Date.now();
+        setVtoLoadingPosts(prev => new Set([...prev, localJobId]));
         setPartialVtoLoadingSources(prev => new Set(prev).add(source));
 
         try {
             const token = localStorage.getItem('accessToken');
             const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
+            // Step 1: 큐에 작업 등록 → jobId 즉시 반환
             const response = await fetch(`${backendUrl}/api/fitting/partial-try-on-by-ids`, {
                 method: 'POST',
                 headers: {
@@ -286,10 +337,10 @@ export const VtoProvider = ({ children }) => {
                 body: JSON.stringify(clothingIds),
             });
 
-            const data = await response.json();
+            const queueResult = await response.json();
 
             if (!response.ok) {
-                if (data.code === 'NO_FULL_BODY_IMAGE') {
+                if (queueResult.code === 'NO_FULL_BODY_IMAGE') {
                     const confirm = window.confirm(
                         '피팅 모델 이미지가 없어서 착장서비스 이용이 불가합니다. 등록하시겠습니까?'
                     );
@@ -298,21 +349,71 @@ export const VtoProvider = ({ children }) => {
                     }
                     return;
                 }
-                throw new Error(data.message || '가상 피팅에 실패했습니다.');
+                throw new Error(queueResult.message || '가상 피팅에 실패했습니다.');
             }
 
-            if (data.success) {
+            // 큐 방식인 경우 polling
+            if (queueResult.jobId && queueResult.status === 'queued') {
+                console.log('[Partial VTO] Job queued, polling for result:', queueResult.jobId);
+
+                // Step 2: Polling으로 결과 대기
+                const pollInterval = 1000;
+                const maxPolls = 300; // 5분
+                let pollCount = 0;
+
+                const pollForResult = async () => {
+                    while (pollCount < maxPolls) {
+                        pollCount++;
+                        await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+                        try {
+                            const statusResponse = await fetch(`${backendUrl}/queue/job/vto/${queueResult.jobId}`, {
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+
+                            if (!statusResponse.ok) continue;
+
+                            const statusResult = await statusResponse.json();
+                            console.log('[Partial VTO] Poll result:', statusResult.status);
+
+                            if (statusResult.status === 'completed') {
+                                const data = statusResult.result;
+                                if (data.success) {
+                                    addVtoResult({
+                                        imageUrl: data.imageUrl,
+                                        postId: 'direct-fitting',
+                                        appliedClothing: data.itemsProcessed,
+                                        isDirect: true
+                                    });
+                                    refreshVtoData();
+                                    setToastMessage('가상 피팅 완료!');
+                                    setTimeout(() => setToastMessage(''), 3000);
+                                    return data;
+                                }
+                                return;
+                            } else if (statusResult.status === 'failed') {
+                                throw new Error(statusResult.error || 'VTO 작업이 실패했습니다.');
+                            }
+                        } catch (pollError) {
+                            console.error('[Partial VTO] Poll error:', pollError);
+                        }
+                    }
+                    throw new Error('VTO 작업 시간이 초과되었습니다.');
+                };
+
+                return await pollForResult();
+            } else if (queueResult.success && queueResult.imageUrl) {
+                // 기존 동기 방식 응답 (fallback)
                 addVtoResult({
-                    imageUrl: data.imageUrl,
+                    imageUrl: queueResult.imageUrl,
                     postId: 'direct-fitting',
-                    appliedClothing: data.itemsProcessed,
+                    appliedClothing: queueResult.itemsProcessed,
                     isDirect: true
                 });
                 refreshVtoData();
-
                 setToastMessage('가상 피팅 완료!');
                 setTimeout(() => setToastMessage(''), 3000);
-                return data;
+                return queueResult;
             }
         } catch (error) {
             console.error('Partial VTO by IDs Error:', error);
@@ -322,7 +423,7 @@ export const VtoProvider = ({ children }) => {
         } finally {
             setVtoLoadingPosts(prev => {
                 const next = new Set(prev);
-                next.delete(jobId);
+                next.delete(localJobId);
                 return next;
             });
             setPartialVtoLoadingSources(prev => {
