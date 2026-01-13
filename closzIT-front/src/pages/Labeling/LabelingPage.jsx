@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import SharedHeader from '../../components/SharedHeader';
 import BottomNav from '../../components/BottomNav';
@@ -170,34 +170,34 @@ const LabelingPage = () => {
     currentFormData.category?.toLowerCase() === 'shoes';
 
   // 페이지 로드 시 사용자 ID 가져오기
-  useEffect(() => {
-    const fetchUserId = async () => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        console.warn('[LabelingPage] No access token found');
-        return;
+  const fetchUserData = useCallback(async () => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      console.warn('[LabelingPage] No access token found');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/user/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        setUserId(userData.id);
+        setUserCredit(userData.credit || 0);
+        console.log('[LabelingPage] User ID loaded:', userData.id, 'Credit:', userData.credit);
+      } else {
+        console.error('[LabelingPage] Failed to fetch user data');
       }
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/user/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-          const userData = await response.json();
-          setUserId(userData.id);
-          setUserCredit(userData.credit || 0);
-          console.log('[LabelingPage] User ID loaded:', userData.id, 'Credit:', userData.credit);
-        } else {
-          console.error('[LabelingPage] Failed to fetch user data');
-        }
-      } catch (error) {
-        console.error('[LabelingPage] Error fetching user:', error);
-      }
-    };
-
-    fetchUserId();
+    } catch (error) {
+      console.error('[LabelingPage] Error fetching user:', error);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchUserData();
+  }, [fetchUserData]);
 
   // 아이템 변경 시 폼 데이터 로드
   useEffect(() => {
@@ -557,6 +557,10 @@ const LabelingPage = () => {
           : `data:image/png;base64,${originalImg}`;
       });
       setSavedItemImages(savedImages);
+
+      // 저장 후 사용자 정보(크레딧) 갱신
+      await fetchUserData();
+
       setShowSuccessPopup(true);
 
     } catch (error) {
@@ -617,25 +621,31 @@ const LabelingPage = () => {
             style={{ border: '1px solid rgba(212, 175, 55, 0.2)' }}
           >
             {/* 성공 아이콘 */}
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)' }}>
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center animate-bounce-slow"
+              style={{ background: 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)', boxShadow: '0 4px 15px rgba(212, 175, 55, 0.4)' }}>
               <span className="material-symbols-rounded text-3xl text-white">check</span>
             </div>
 
-            <h3 className="text-lg font-bold mb-2" style={{ color: '#2C2C2C' }}>
+            <h3 className="text-xl font-bold mb-2" style={{ color: '#2C2C2C' }}>
               옷이 등록되었어요!
             </h3>
-            <p className="text-sm mb-4" style={{ color: '#6B6B6B' }}>
-              {savedItemImages.length}벌의 옷이 옷장에 추가되었습니다
-            </p>
+
+            <div className="flex flex-col items-center gap-1 mb-6">
+              <p className="text-sm text-gray-400">
+                {savedItemImages.length}벌의 옷이 옷장에 추가되었습니다
+              </p>
+              <span className="text-gold font-bold text-sm bg-gold/10 px-3 py-1 rounded-full border border-gold/20">
+                + {savedItemImages.length} 크레딧 적립
+              </span>
+            </div>
 
             {/* 등록된 옷 이미지들 */}
             <div className="flex justify-center gap-2 mb-6 flex-wrap">
               {savedItemImages.map((img, idx) => (
                 <div
                   key={idx}
-                  className="w-16 h-16 rounded-xl overflow-hidden shadow-md"
-                  style={{ border: '2px solid rgba(212, 175, 55, 0.3)' }}
+                  className="w-16 h-16 rounded-xl overflow-hidden shadow-md bg-white"
+                  style={{ border: '1px solid rgba(212, 175, 55, 0.2)' }}
                 >
                   <img
                     src={img}
@@ -646,13 +656,20 @@ const LabelingPage = () => {
               ))}
             </div>
 
+            {/* 보유 크레딧 표시 */}
+            <div className="flex items-center justify-center gap-2 mb-6 py-3 px-4 bg-[#FDFBF7] rounded-xl border border-gold/10">
+              <span className="text-sm text-gray-600 font-medium">보유 크레딧:</span>
+              <span className="material-symbols-rounded text-gold text-lg">monetization_on</span>
+              <span className="font-bold text-gold text-lg">{userCredit}</span>
+            </div>
+
             {/* 확인 버튼 */}
             <button
               onClick={() => {
                 setShowSuccessPopup(false);
                 navigate('/main');
               }}
-              className="w-full py-3 rounded-xl font-bold text-white transition-all hover:scale-105"
+              className="w-full py-3.5 rounded-xl font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
               style={{
                 background: 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)',
                 boxShadow: '0 4px 14px rgba(184, 134, 11, 0.35)'
