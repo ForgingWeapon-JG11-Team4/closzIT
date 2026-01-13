@@ -632,9 +632,7 @@ export class FittingController {
         'bottoms': 'lower_body',
         'bottom': 'lower_body',
         'shoes': 'lower_body',
-        'dresses': 'dresses',
-        'outer':'dresses',
-        'coat':'dresses'
+        'dresses': 'dresses'
       };
       vtonCategory = categoryMap[categoryLower] || 'upper_body';
     }
