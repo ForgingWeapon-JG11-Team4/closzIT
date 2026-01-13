@@ -74,7 +74,9 @@ Rules:
    - Outerwear MUST be fully open at the front. Inner top MUST be visible.
    - Adjust the fabric's wrinkles and fit to match the person's specific pose and body shape in Image 1 naturally.
 
-Output ONLY the final image. No text or explanations.
+4. OUTPUT REQUIREMENTS:
+   - Output image resolution MUST be exactly 768x1024 pixels (portrait orientation).
+   - Output ONLY the final image. No text or explanations.
 `;
 
       const apiCallStartTime = Date.now();
@@ -274,7 +276,9 @@ Rules:
    - Keep all other original clothing unchanged.
    - Adjust the fabric's wrinkles and fit to match the person's specific pose and body shape naturally.
 
-Output ONLY the final image. No text or explanations.
+4. OUTPUT REQUIREMENTS:
+   - Output image resolution MUST be exactly 768x1024 pixels (portrait orientation).
+   - Output ONLY the final image. No text or explanations.
 `;
 
       const apiCallStartTime = Date.now();
@@ -487,6 +491,9 @@ Rules:
 3. CLOTHING ADAPTATION:
    - Replace only the relevant clothing items with the garments from the reference images.
 ${clothingImages.some(i => i.category === 'outer') ? '   - Outerwear MUST be fully open at the front. Inner top MUST be visible.\n' : ''}   - Adjust the fabric's wrinkles and fit to match the person's specific pose and body shape in Image 1 naturally.
+
+4. OUTPUT REQUIREMENTS:
+   - Output image resolution MUST be exactly 768x1024 pixels (portrait orientation).
 
 Image descriptions:
 Image 1: Person to dress (base)
