@@ -345,6 +345,7 @@ export class FittingController {
       'bottoms': 'bottom',
       'bottom': 'bottom',
       'shoes': 'shoes',
+      'dresses':'dresses'
     };
     const clothingCategory = categoryMap[clothing.category?.toLowerCase() ?? ''] || 'top';
 
@@ -490,25 +491,44 @@ export class FittingController {
     // category 매핑: "tops", "outerwear" → "upper_body", "bottoms", "shoes" → "lower_body"
 
     // Frontend에서 category를 보내면 그것을 사용, 아니면 DB에서 조회
+    // subCategory는 항상 DB에서 조회 필요
     let clothingCategory = body.category;
+    let clothingSubCategory: string | undefined;
+
+    const clothing = await this.prisma.clothing.findUnique({
+      where: { id: body.clothingId, userId },
+      select: { category: true, subCategory: true },
+    });
+
     if (!clothingCategory) {
-      const clothing = await this.prisma.clothing.findUnique({
-        where: { id: body.clothingId, userId },
-        select: { category: true },
-      });
       clothingCategory = clothing?.category;
     }
+    clothingSubCategory = clothing?.subCategory;
 
-    console.log(`[singleItemTryOn] Clothing category: ${clothingCategory}`);
+    console.log(`[singleItemTryOn] Clothing category: ${clothingCategory}, subCategory: ${clothingSubCategory}`);
 
-    const categoryMap = {
-      'tops': 'upper_body',
-      'outerwear': 'upper_body',
-      'bottoms': 'lower_body',
-      'bottom' : 'lower_body',
-      'shoes': 'lower_body',
-    };
-    const vtonCategory = categoryMap[clothingCategory?.toLowerCase() ?? ''] || 'upper_body';
+    // 카테고리 매핑: 아우터 + (코트 or 롱패딩) → dresses
+    let vtonCategory: string;
+    const categoryLower = clothingCategory?.toLowerCase() ?? '';
+    const subCategoryLower = clothingSubCategory?.toLowerCase() ?? '';
+
+    if (categoryLower === 'outerwear' || categoryLower === '아우터') {
+      if (subCategoryLower === '코트' || subCategoryLower === 'coat' ||
+          subCategoryLower === '롱패딩' || subCategoryLower === 'long padding') {
+        vtonCategory = 'dresses';
+      } else {
+        vtonCategory = 'upper_body';
+      }
+    } else {
+      const categoryMap = {
+        'tops': 'upper_body',
+        'bottoms': 'lower_body',
+        'bottom': 'lower_body',
+        'shoes': 'lower_body',
+        'dresses': 'dresses'
+      };
+      vtonCategory = categoryMap[categoryLower] || 'upper_body';
+    }
 
     console.log(`[singleItemTryOn] Mapped VTON category: ${vtonCategory}`);
 

@@ -189,9 +189,11 @@ export class VtonCacheController {
         'bottoms': 'lower_body',
         'bottom': 'lower_body',
         'shoes': 'lower_body',
+        'outer': 'dresses'
       };
       const clothingCategory = clothing?.category?.toLowerCase() || 'tops';
       const vtonCategory = categoryMap[clothingCategory] || 'upper_body';
+
 
       // Diffusion 생성 (V2 - FastAPI가 S3 직접 다운로드)
       const resultImageBase64 = await this.vtonCacheService.generateTryOnV2(

@@ -113,7 +113,7 @@ const RecentlyAddedClothes = ({ onClothClick }) => {
           </div>
         </div>
 
-        <style jsx>{`
+        <style>{`
           @keyframes infinite-scroll {
             0% { transform: translateX(0); }
             100% { transform: translateX(-50%); }

@@ -108,6 +108,7 @@ GPU_OPTIMIZATIONS_ENABLED = False
 memory_cache = {
     "human_upper": {},  # user_id -> {human_img, mask, mask_gray, pose_tensor} for upper_body
     "human_lower": {},  # user_id -> {human_img, mask, mask_gray, pose_tensor} for lower_body
+    "human_dresses": {},
     "garment": {},  # clothing_id -> {garm_img, garm_tensor, category}
     "text": {},  # clothing_id -> {prompt_embeds, ..., category}
 }
@@ -136,7 +137,7 @@ class VtonGenerateRequestV2(BaseModel):
 
     user_id: str  # UUID
     clothing_id: str  # UUID
-    category: str = "upper_body"  # "upper_body" or "lower_body"
+    category: str = "upper_body"  # "upper_body" or "lower_body" or "dresses"
     denoise_steps: int = 10
     seed: int = 42
 
@@ -632,6 +633,7 @@ def health_check():
         "caching": "Memory + S3 (Upper/Lower separated)",
         "cached_humans_upper": len(memory_cache["human_upper"]),
         "cached_humans_lower": len(memory_cache["human_lower"]),
+        "cached_humans_dresses": len(memory_cache["human_dresses"]),
         "cached_garments": len(memory_cache["garment"]),
         "cached_texts": len(memory_cache["text"]),
     }
@@ -672,6 +674,9 @@ async def preprocess_human(request: HumanPreprocessRequest):
         logger.info("[preprocess-human] Processing lower body...")
         lower_result = preprocess_human_internal(human_img, category="lower_body")
 
+        logger.info("[preprocess-human] Processing dresses body...")
+        dresses_result = preprocess_human_internal(human_img, category="dresses")
+
         total_elapsed = time.time() - start_time
 
         # NestJS가 S3에 업로드할 데이터 반환
@@ -690,6 +695,12 @@ async def preprocess_human(request: HumanPreprocessRequest):
                 "mask": lower_result["mask"],
                 "mask_gray": lower_result["mask_gray"],
                 "pose_img_tensor": lower_result["pose_img_tensor"],
+            },
+            dresses={
+                "human_img": dresses_result["human_img"],
+                "mask": dresses_result["mask"],
+                "mask_gray": dresses_result["mask_gray"],
+                "pose_img_tensor": dresses_result["pose_img_tensor"],
             },
         )
     except Exception as e:
@@ -796,7 +807,12 @@ async def generate_tryon(request: VtonGenerateRequestV2):
             download_start = time.time()
 
             # Human 캐시 확인 (category에 따라 upper 또는 lower)
-            cache_key = "human_upper" if category == "upper_body" else "human_lower"
+            cache_key = "human_upper"
+            if category == "lower_body":
+                cache_key = "human_lower"
+            if category == "dresses":
+                cache_key = "human_dresses"
+
             if user_id in memory_cache[cache_key]:
                 logger.info(f"✅ Human {category} cache HIT for user {user_id}")
                 cache_data.update(memory_cache[cache_key][user_id])
@@ -831,7 +847,12 @@ async def generate_tryon(request: VtonGenerateRequestV2):
 
                     # Human 데이터 다운로드 (캐시 미스 시) - category에 따라 upper/lower 선택
                     if not human_cached:
-                        category_path = "upper" if category == "upper_body" else "lower"
+                        category_path = "upper"
+                        if category == "lower_body":
+                            category_path = "lower"
+                        if category == "dresses":
+                            category_path = "dresses"
+
                         futures.update(
                             {
                                 "human_img": executor.submit(
@@ -1305,6 +1326,11 @@ def clear_human_cache(user_id: str):
         logger.info(f"✅ Cleared human_lower cache for {user_id}")
         cleared = True
 
+    if "human_dresses" in memory_cache and user_id in memory_cache["human_dresses"]:
+        del memory_cache["human_dresses"][user_id]
+        logger.info(f"✅ Cleared legacy human_dresses cache for {user_id}")
+        cleared = True
+
     # 구버전 캐시도 확인 (있다면 삭제)
     if "human" in memory_cache and user_id in memory_cache["human"]:
         del memory_cache["human"][user_id]
@@ -1337,6 +1363,7 @@ def clear_all_cache():
     """모든 캐시 삭제"""
     memory_cache["human_upper"].clear()
     memory_cache["human_lower"].clear()
+    memory_cache["human_dresses"].clear()
     memory_cache["garment"].clear()
     memory_cache["text"].clear()
     # 구버전 캐시도 삭제

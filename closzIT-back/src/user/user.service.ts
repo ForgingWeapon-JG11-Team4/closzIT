@@ -139,6 +139,7 @@ export class UserService {
     setNumber('weight', updateProfileDto.weight);
     setString('bodyType', updateProfileDto.bodyType);
 
+    
     // 배열 필드 (빈 배열은 허용)
     if (updateProfileDto.preferredStyles !== undefined && updateProfileDto.preferredStyles !== null) {
       updateData.preferredStyles = updateProfileDto.preferredStyles;

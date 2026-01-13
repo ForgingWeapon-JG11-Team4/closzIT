@@ -1,4 +1,4 @@
-# elasticache-connect.ps1
+﻿# elasticache-connect.ps1
 
 # ⚠️ 아래 값들을 확인하세요!
 $INSTANCE_ID = "i-0617e4b725d90c05b"  # EC2 인스턴스 ID (RDS와 동일)
