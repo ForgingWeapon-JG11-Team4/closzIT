@@ -426,7 +426,7 @@ const FeedPage = () => {
       </div>
 
       {/* Global Bottom Navigation */}
-      <BottomNav 
+      <BottomNav
         floatingAction={{
           icon: 'add',
           onClick: () => navigate('/create-post')
@@ -481,13 +481,13 @@ const FeedPage = () => {
           onClose={() => setSelectedClothDetail(null)}
           onTryOn={() => {
             // FittingRoom으로 이동하면서 옷 정보 전달
-            const clothToTryOn = { 
+            const clothToTryOn = {
               ...selectedClothDetail,
               image: selectedClothDetail.imageUrl,
             };
             setSelectedClothDetail(null);
-            navigate('/fitting-room', { 
-              state: { tryOnCloth: clothToTryOn } 
+            navigate('/fitting-room', {
+              state: { tryOnCloth: clothToTryOn }
             });
           }}
           showActions={true}
