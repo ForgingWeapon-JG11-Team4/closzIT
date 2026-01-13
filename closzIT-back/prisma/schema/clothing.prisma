@@ -28,6 +28,8 @@ model Clothing {
   userRating                                 Float                  @default(5.0) @map("user_rating")
   /// 사용자 메모
   note                                       String?
+  /// 공개 여부 (기본값: true)
+  isPublic                                   Boolean                @default(true) @map("is_public")
   /// 총 착용 횟수
   wearCount                                  Int                    @default(0) @map("wear_count")
   /// 마지막 착용일

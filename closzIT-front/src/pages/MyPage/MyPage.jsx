@@ -11,6 +11,8 @@ const MyPage = () => {
   const [showImageModal, setShowImageModal] = useState(false);
   const [imageCacheBuster, setImageCacheBuster] = useState(Date.now());
   const [imageBlobUrl, setImageBlobUrl] = useState(null);
+  const [profileImageUrl, setProfileImageUrl] = useState(null);
+  const [isUploadingProfile, setIsUploadingProfile] = useState(false);
 
   // Cleanup blob URL on unmount
   useEffect(() => {
@@ -111,6 +113,98 @@ const MyPage = () => {
     }
   };
 
+  const handleProfileImageUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // 이미지 파일 타입 검증
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일만 업로드 가능합니다.');
+      return;
+    }
+
+    setIsUploadingProfile(true);
+
+    try {
+      // 이미지 리사이징
+      const resizedImage = await resizeImage(file, 200, 200);
+
+      // FormData 생성
+      const formData = new FormData();
+      formData.append('profileImage', resizedImage, file.name);
+
+      const token = localStorage.getItem('accessToken');
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+
+      const response = await fetch(`${backendUrl}/user/profile-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setProfileImageUrl(data.profileImageUrl);
+        // 사용자 데이터 새로고침
+        await refreshUserData();
+        alert('프로필 사진이 업데이트되었습니다.');
+      } else {
+        throw new Error('프로필 사진 업로드 실패');
+      }
+    } catch (error) {
+      console.error('Failed to upload profile image:', error);
+      alert('프로필 사진 업로드 중 오류가 발생했습니다.');
+    } finally {
+      setIsUploadingProfile(false);
+      // input 초기화
+      event.target.value = '';
+    }
+  };
+
+  // 이미지 리사이징 함수
+  const resizeImage = (file, maxWidth, maxHeight) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // 비율 유지하면서 리사이징
+          if (width > height) {
+            if (width > maxWidth) {
+              height = (height * maxWidth) / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = (width * maxHeight) / height;
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob((blob) => {
+            resolve(blob);
+          }, file.type);
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem('accessToken');
@@ -159,8 +253,33 @@ const MyPage = () => {
         <div className="bg-warm-white dark:bg-charcoal rounded-2xl p-6 shadow-soft border border-gold-light/20">
           {/* Profile Header */}
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gold to-gold-dark flex items-center justify-center text-warm-white text-3xl font-bold shadow-lg">
-              {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
+            <div className="relative">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gold to-gold-dark flex items-center justify-center text-warm-white text-3xl font-bold shadow-lg overflow-hidden">
+                {user?.profileImage ? (
+                  <img
+                    src={user.profileImage}
+                    alt="프로필 사진"
+                    className="w-full h-full object-cover"
+                    key={imageCacheBuster}
+                  />
+                ) : (
+                  user?.name ? user.name.charAt(0).toUpperCase() : '?'
+                )}
+              </div>
+              <input
+                type="file"
+                id="profile-image-input"
+                accept="image/*"
+                onChange={handleProfileImageUpload}
+                className="hidden"
+              />
+              <button
+                onClick={() => document.getElementById('profile-image-input').click()}
+                disabled={isUploadingProfile}
+                className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-gold text-white text-xs rounded-full shadow-md hover:bg-gold-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isUploadingProfile ? '...' : '변경'}
+              </button>
             </div>
             <div className="flex-1">
               <h2 className="text-xl font-bold text-charcoal dark:text-cream">{user?.name || '사용자'}</h2>

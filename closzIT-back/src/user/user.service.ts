@@ -116,6 +116,9 @@ export class UserService {
     if (updateProfileDto.bodyType !== undefined) updateData.bodyType = updateProfileDto.bodyType;
     if (updateProfileDto.preferredStyles !== undefined) updateData.preferredStyles = updateProfileDto.preferredStyles;
 
+    // Profile image 업데이트 (S3 URL)
+    if (updateProfileDto.profileImage !== undefined) updateData.profileImage = updateProfileDto.profileImage;
+
     // Setup 3 정보 업데이트 - fullBodyImage를 S3에 업로드
     if (updateProfileDto.fullBodyImage !== undefined) {
       // Base64 이미지인 경우 S3에 업로드

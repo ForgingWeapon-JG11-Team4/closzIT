@@ -199,8 +199,16 @@ const PostDetailPage = () => {
         {/* Post Header */}
         <div className="bg-warm-white dark:bg-charcoal p-4 flex items-center justify-between border-b border-gold-light/20">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold to-gold-dark flex items-center justify-center text-warm-white font-bold">
-              {post.user.name?.[0] || post.user.email[0].toUpperCase()}
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold to-gold-dark flex items-center justify-center text-warm-white font-bold overflow-hidden">
+              {post.user.profileImage ? (
+                <img
+                  src={post.user.profileImage}
+                  alt={`${post.user.name || post.user.email} 프로필`}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                post.user.name?.[0] || post.user.email[0].toUpperCase()
+              )}
             </div>
             <div>
               <p className="font-semibold text-charcoal dark:text-cream">{post.user.name || post.user.email}</p>

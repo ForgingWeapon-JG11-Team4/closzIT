@@ -17,5 +17,8 @@ export class UpdateProfileDto {
   preferredStyles?: string[];
 
   // Setup 3 정보
-  fullBodyImage?: string; // Base64 encoded image
+  fullBodyImage?: string; // Base64 encoded image or S3 URL
+
+  // Profile image
+  profileImage?: string; // S3 URL
 }
