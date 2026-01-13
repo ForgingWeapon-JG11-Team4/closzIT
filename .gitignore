@@ -13,6 +13,7 @@ dist/
 
 # production
 /build
+**/build
 
 # misc
 .DS_Store
@@ -28,9 +29,13 @@ yarn-error.log*
 
 # python
 __pycache__
+venv/
+*.pyc
 
-# AWS RDS
+# AWS RDS & ElastiCache
 rds-connect.ps1
+elasticache-connect.ps1
+elasticache-connect.sh
 # AI model checkpoints (다운로드 스크립트로 설치: python ai-fastapi/download_models.py)
 ai-fastapi/checkpoints/*.pt
 ai-fastapi/checkpoints/**/*.pt

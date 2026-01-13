@@ -42,6 +42,46 @@ export class UserController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('profile-image')
+  @UseInterceptors(FileInterceptor('profileImage'))
+  async uploadProfileImage(
+    @Request() req,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const userId = req.user.id;
+
+    if (!file) {
+      return { success: false, message: 'Profile image file is required' };
+    }
+
+    // 기존 profile 이미지 삭제
+    console.log(`[ProfileImage] Deleting old profile images for userId: ${userId}`);
+    try {
+      await this.s3Service.deleteFolder(`users/${userId}/profile_image`);
+      console.log(`[ProfileImage] ✅ Old profile images deleted`);
+    } catch (deleteError) {
+      console.log(`[ProfileImage] ⚠️ Failed to delete old profile images:`, deleteError.message);
+    }
+
+    // S3에 직접 업로드 (타임스탬프 추가하여 브라우저 캐시 방지)
+    const timestamp = Date.now();
+    const fileExtension = file.mimetype.split('/')[1] || 'jpg';
+    const s3Key = `users/${userId}/profile_image/${timestamp}.${fileExtension}`;
+    console.log(`[ProfileImage] Uploading to S3 key: ${s3Key}`);
+    const imageUrl = await this.s3Service.uploadBuffer(file.buffer, s3Key, file.mimetype);
+    console.log(`[ProfileImage] S3 upload complete. URL: ${imageUrl}`);
+
+    // DB 업데이트
+    await this.userService.updateProfile(userId, { profileImage: imageUrl });
+    console.log(`[ProfileImage] DB updated with imageUrl: ${imageUrl}`);
+
+    // Presigned URL로 변환하여 반환
+    const presignedUrl = await this.s3Service.convertToPresignedUrl(imageUrl);
+
+    return { success: true, profileImageUrl: presignedUrl };
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post('fullbody-image')
   @UseInterceptors(FileInterceptor('image'))
   async uploadFullBodyImage(

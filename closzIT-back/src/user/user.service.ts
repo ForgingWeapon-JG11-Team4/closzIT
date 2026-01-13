@@ -138,11 +138,15 @@ export class UserService {
     setNumber('height', updateProfileDto.height);
     setNumber('weight', updateProfileDto.weight);
     setString('bodyType', updateProfileDto.bodyType);
+
     
     // 배열 필드 (빈 배열은 허용)
     if (updateProfileDto.preferredStyles !== undefined && updateProfileDto.preferredStyles !== null) {
       updateData.preferredStyles = updateProfileDto.preferredStyles;
     }
+
+    // Profile image 업데이트 (S3 URL) - 새로 추가된 기능
+    setString('profileImage', updateProfileDto.profileImage);
 
     // Setup 3 정보 - fullBodyImage
     if (updateProfileDto.fullBodyImage !== undefined && updateProfileDto.fullBodyImage !== null && updateProfileDto.fullBodyImage !== '') {

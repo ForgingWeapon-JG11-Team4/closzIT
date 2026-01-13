@@ -35,6 +35,7 @@ export class ItemsService {
         seasons: true,
         userRating: true,
         note: true,
+        isPublic: true,
         wearCount: true,
         lastWorn: true,
         createdAt: true,
@@ -66,6 +67,7 @@ export class ItemsService {
           seasons: item.seasons,
           userRating: item.userRating,
           note: item.note,
+          isPublic: item.isPublic,
           wearCount: item.wearCount,
           lastWorn: item.lastWorn,
           createdAt: item.createdAt,
@@ -118,6 +120,22 @@ export class ItemsService {
         seasons: data.seasons as any,
         note: data.note,
       },
+    });
+  }
+
+  async updateItemVisibility(userId: string, itemId: string, isPublic: boolean) {
+    // 해당 아이템이 사용자의 것인지 확인
+    const item = await this.prisma.clothing.findFirst({
+      where: { id: itemId, userId }
+    });
+
+    if (!item) {
+      throw new Error('아이템을 찾을 수 없습니다.');
+    }
+
+    return this.prisma.clothing.update({
+      where: { id: itemId },
+      data: { isPublic },
     });
   }
 

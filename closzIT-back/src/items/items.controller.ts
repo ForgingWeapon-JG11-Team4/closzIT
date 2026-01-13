@@ -40,6 +40,16 @@ export class ItemsController {
     return this.itemsService.updateItem(userId, id, updateData);
   }
 
+  @Patch(':id/visibility')
+  async updateItemVisibility(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() body: { isPublic: boolean },
+  ) {
+    const userId = req.user.id;
+    return this.itemsService.updateItemVisibility(userId, id, body.isPublic);
+  }
+
   @Delete(':id')
   async deleteItem(
     @Request() req,
