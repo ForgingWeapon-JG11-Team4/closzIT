@@ -134,7 +134,7 @@ const WardrobeStatus = ({ userClothes }) => {
            </div>
            
            {/* Animation Keyframes */}
-           <style jsx>{`
+           <style>{`
              @keyframes grow-chart {
                from { stroke-dasharray: 0 ${circumference}; }
                to { stroke-dasharray: var(--target-dasharray); }
