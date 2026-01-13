@@ -14,6 +14,7 @@ import FittingPage from './pages/Fitting/FittingPage';
 import DirectFittingPage from './pages/Fitting/DirectFittingPage';
 import BatchTryOnPage from './pages/BatchTryOn/BatchTryOnPage';
 import FittingRoomPage from './pages/FittingRoomPage';
+import CreditShopPage from './pages/Credit/CreditShopPage';
 
 import FeedPage from './pages/FeedPage';
 import CreatePostPage from './pages/CreatePostPage';
@@ -51,6 +52,7 @@ function App() {
           <Route path="/post/:postId" element={<PostDetailPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
+          <Route path="/credit-shop" element={<CreditShopPage />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
       </Router>

@@ -150,11 +150,14 @@ const SharedHeader = ({
                             <span className="material-symbols-rounded text-xl">person</span>
                         </button>
 
-                        {/* 크레딧 표시 */}
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-gold/20 to-gold-light/20 border border-gold/30">
+                        {/* 크레딧 표시 - 클릭 시 크레딧샵으로 이동 */}
+                        <button
+                            onClick={() => navigate('/credit-shop')}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-gold/20 to-gold-light/20 border border-gold/30 hover:from-gold/30 hover:to-gold-light/30 hover:scale-105 transition-all active:scale-95"
+                        >
                             <span className="material-symbols-rounded text-base text-gold">monetization_on</span>
                             <span className="text-sm font-semibold text-gold">{userCredit}</span>
-                        </div>
+                        </button>
 
                         {/* Custom right content (e.g., submit button) */}
                         {rightContent}
