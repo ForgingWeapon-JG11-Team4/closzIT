@@ -19,6 +19,7 @@ import { CreditModule } from './credit/credit.module';
 import { WeatherModule } from './weather/weather.module';
 import { S3Module } from './s3/s3.module';
 import { VtonCacheModule } from './vton-cache/vton-cache.module';
+import { QueueModule } from './queue/queue.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { VtonCacheModule } from './vton-cache/vton-cache.module';
     CreditModule,
     WeatherModule,
     VtonCacheModule,
+    QueueModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
 import { AnalysisService } from './analysis.service';
 import { AnalysisController } from './analysis.controller';
 import { HttpModule } from '@nestjs/axios';
@@ -16,9 +17,10 @@ import { VtonCacheModule } from '../vton-cache/vton-cache.module';
         forwardRef(() => CreditModule),
         S3Module,
         forwardRef(() => VtonCacheModule),
+        BullModule.registerQueue({ name: 'flatten-queue' }),
     ],
     controllers: [AnalysisController],
     providers: [AnalysisService],
+    exports: [AnalysisService],
 })
 export class AnalysisModule { }
-

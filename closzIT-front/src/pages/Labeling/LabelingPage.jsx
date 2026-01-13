@@ -366,7 +366,7 @@ const LabelingPage = () => {
     }
   };
 
-  // 옷 펴기 API 호출
+  // 옷 펴기 API 호출 (큐 기반 Polling 방식)
   const handleFlattenClothing = async () => {
     if (!analysisResults[currentItemIndex]) return;
 
@@ -377,9 +377,11 @@ const LabelingPage = () => {
       const currentItem = analysisResults[itemIndex];
       const formData = itemFormData[itemIndex] || {};
 
-      console.log('[DEBUG] Flattening clothing:', formData.category, formData.sub_category);
+      console.log('[DEBUG] Flattening clothing (queue mode):', formData.category, formData.sub_category);
 
       const token = localStorage.getItem('accessToken');
+
+      // Step 1: 작업 요청 → jobId 받기
       const response = await fetch(`${API_BASE_URL}/analysis/flatten`, {
         method: 'POST',
         headers: {
@@ -390,7 +392,6 @@ const LabelingPage = () => {
           image_base64: currentItem.image,
           category: formData.category,
           sub_category: formData.sub_category,
-          // 추가 라벨링 정보 (프롬프트 품질 향상용)
           colors: formData.colors || [],
           pattern: formData.pattern || [],
           detail: formData.detail || [],
@@ -402,16 +403,73 @@ const LabelingPage = () => {
         throw new Error(`Flatten request failed: ${response.status}`);
       }
 
-      const result = await response.json();
-      console.log('[DEBUG] Flatten result:', result);
+      const queueResult = await response.json();
+      console.log('[DEBUG] Queue result:', queueResult);
 
-      if (result.success && result.flattened_image_base64) {
+      // 큐 방식인 경우 polling
+      if (queueResult.jobId && queueResult.status === 'queued') {
+        const jobId = queueResult.jobId;
+        console.log('[DEBUG] Job queued, polling for result:', jobId);
+
+        // Step 2: Polling으로 결과 대기
+        const pollInterval = 1000; // 1초
+        const maxPolls = 300; // 최대 5분 대기
+        let pollCount = 0;
+
+        const pollForResult = async () => {
+          while (pollCount < maxPolls) {
+            pollCount++;
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+            try {
+              const statusResponse = await fetch(`${API_BASE_URL}/queue/job/flatten/${jobId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+
+              if (!statusResponse.ok) {
+                console.warn('[DEBUG] Status check failed:', statusResponse.status);
+                continue;
+              }
+
+              const statusResult = await statusResponse.json();
+              console.log('[DEBUG] Poll result:', statusResult);
+
+              if (statusResult.status === 'completed') {
+                // 완료! 결과 처리
+                if (statusResult.result?.success && statusResult.result?.flattened_image_base64) {
+                  setFlattenedImages(prev => ({
+                    ...prev,
+                    [itemIndex]: statusResult.result.flattened_image_base64,
+                  }));
+                  // 크레딧 업데이트
+                  if (statusResult.result.remainingCredit !== undefined) {
+                    setUserCredit(statusResult.result.remainingCredit);
+                  }
+                  return; // 성공적으로 완료
+                } else {
+                  throw new Error('No flattened image in result');
+                }
+              } else if (statusResult.status === 'failed') {
+                throw new Error(statusResult.error || '옷 펴기 작업이 실패했습니다.');
+              }
+              // 'waiting', 'active' 상태면 계속 polling
+            } catch (pollError) {
+              console.error('[DEBUG] Poll error:', pollError);
+              // 일시적 오류면 계속 polling
+            }
+          }
+          throw new Error('옷 펴기 작업 시간이 초과되었습니다.');
+        };
+
+        await pollForResult();
+      } else if (queueResult.success && queueResult.flattened_image_base64) {
+        // 기존 동기 방식 응답 (fallback)
         setFlattenedImages(prev => ({
           ...prev,
-          [itemIndex]: result.flattened_image_base64,
+          [itemIndex]: queueResult.flattened_image_base64,
         }));
       } else {
-        throw new Error('No flattened image received');
+        throw new Error('Invalid response from server');
       }
     } catch (error) {
       console.error('[ERROR] Flatten error:', error);
