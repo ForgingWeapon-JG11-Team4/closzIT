@@ -101,27 +101,54 @@ export class UserService {
 
     const updateData: any = {};
 
-    // Setup 1 정보 업데이트
-    if (updateProfileDto.name !== undefined) updateData.name = updateProfileDto.name;
-    if (updateProfileDto.gender !== undefined) updateData.gender = updateProfileDto.gender;
-    if (updateProfileDto.birthday !== undefined) updateData.birthday = new Date(updateProfileDto.birthday);
-    if (updateProfileDto.province !== undefined) updateData.province = updateProfileDto.province;
-    if (updateProfileDto.city !== undefined) updateData.city = updateProfileDto.city;
+    const setString = (key: string, value: any) => {
+      if (value !== undefined && value !== null && value !== '') {
+        updateData[key] = value;
+      }
+    };
 
-    // Setup 2 정보 업데이트
-    if (updateProfileDto.hairColor !== undefined) updateData.hairColor = updateProfileDto.hairColor;
-    if (updateProfileDto.personalColor !== undefined) updateData.personalColor = updateProfileDto.personalColor;
-    if (updateProfileDto.height !== undefined) updateData.height = updateProfileDto.height;
-    if (updateProfileDto.weight !== undefined) updateData.weight = updateProfileDto.weight;
-    if (updateProfileDto.bodyType !== undefined) updateData.bodyType = updateProfileDto.bodyType;
-    if (updateProfileDto.preferredStyles !== undefined) updateData.preferredStyles = updateProfileDto.preferredStyles;
+    const setEnum = (key: string, value: any) => {
+      if (value !== undefined && value !== null && value !== '') {
+        updateData[key] = value;
+      }
+    };
 
-    // Profile image 업데이트 (S3 URL)
-    if (updateProfileDto.profileImage !== undefined) updateData.profileImage = updateProfileDto.profileImage;
+    const setNumber = (key: string, value: any) => {
+      if (value !== undefined && value !== null && value !== '') {
+        updateData[key] = value;
+      }
+    };
 
-    // Setup 3 정보 업데이트 - fullBodyImage를 S3에 업로드
-    if (updateProfileDto.fullBodyImage !== undefined) {
-      // Base64 이미지인 경우 S3에 업로드
+    const setDate = (key: string, value: any) => {
+      if (value !== undefined && value !== null && value !== '') {
+        updateData[key] = new Date(value);
+      }
+    };
+
+    // Setup 1 정보
+    setString('name', updateProfileDto.name);
+    setEnum('gender', updateProfileDto.gender);
+    setDate('birthday', updateProfileDto.birthday);
+    setString('province', updateProfileDto.province);
+    setString('city', updateProfileDto.city);
+
+    // Setup 2 정보
+    setEnum('hairColor', updateProfileDto.hairColor);
+    setEnum('personalColor', updateProfileDto.personalColor);
+    setNumber('height', updateProfileDto.height);
+    setNumber('weight', updateProfileDto.weight);
+    setString('bodyType', updateProfileDto.bodyType);
+
+    // 배열 필드 (빈 배열은 허용)
+    if (updateProfileDto.preferredStyles !== undefined && updateProfileDto.preferredStyles !== null) {
+      updateData.preferredStyles = updateProfileDto.preferredStyles;
+    }
+
+    // Profile image 업데이트 (S3 URL) - 새로 추가된 기능
+    setString('profileImage', updateProfileDto.profileImage);
+
+    // Setup 3 정보 - fullBodyImage
+    if (updateProfileDto.fullBodyImage !== undefined && updateProfileDto.fullBodyImage !== null && updateProfileDto.fullBodyImage !== '') {
       if (updateProfileDto.fullBodyImage.startsWith('data:image/')) {
         try {
           const s3Url = await this.s3Service.uploadBase64Image(
@@ -136,7 +163,6 @@ export class UserService {
           throw error;
         }
       } else {
-        // 이미 URL인 경우 그대로 저장 (S3 URL 또는 외부 URL)
         updateData.fullBodyImage = updateProfileDto.fullBodyImage;
       }
     }
