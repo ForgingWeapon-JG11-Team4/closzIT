@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 const FittingResult = ({ 
   recommendationParams = {}, 
   onClose,
+  onClothClick,
   backendUrl 
 }) => {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ const FittingResult = ({
   const [fittingError, setFittingError] = useState(null);
   const [userFullBodyImage, setUserFullBodyImage] = useState(null);
   const [isFeedbackLoading, setIsFeedbackLoading] = useState(false);
+  const [feedbackStatus, setFeedbackStatus] = useState({}); // { [index]: 'accept' | 'reject' }
 
   // 현재 선택된 outfit
   const currentOutfit = outfits[currentOutfitIndex] || null;
@@ -158,6 +160,9 @@ const FittingResult = ({
   const handleFeedback = async (feedbackType) => {
     if (!currentOutfit || isFeedbackLoading) return;
 
+    // Prevent clicking the same feedback type again if it's already selected
+    if (feedbackStatus[currentOutfitIndex] === feedbackType) return;
+
     setIsFeedbackLoading(true);
 
     const feedbackTypeMap = {
@@ -190,6 +195,13 @@ const FittingResult = ({
       if (result.duplicate) {
         console.log('이미 처리된 피드백:', result.message);
       }
+      
+      // Update local state to reflect the new feedback
+      setFeedbackStatus(prev => ({
+        ...prev,
+        [currentOutfitIndex]: feedbackType
+      }));
+
     } catch (err) {
       console.error('Feedback error:', err);
     } finally {
@@ -328,7 +340,29 @@ const FittingResult = ({
             {outfitItems.map((item, index) => (
               <div
                 key={index}
-                className="relative flex flex-col items-center justify-center group flex-1 h-full max-h-[220px]"
+                className="relative flex flex-col items-center justify-center group flex-1 h-full max-h-[220px] cursor-pointer"
+                onClick={() => {
+                  if (!onClothClick) return;
+                  
+                  // Map display category to currentOutfit keys
+                  const categoryKeyMap = {
+                    outerwear: 'outer',
+                    tops: 'top',
+                    bottoms: 'bottom',
+                    shoes: 'shoes'
+                  };
+                  const originalKey = categoryKeyMap[item.category];
+                  const originalItem = currentOutfit[originalKey];
+
+                  if (originalItem) {
+                    onClothClick({
+                      ...originalItem,
+                      // Ensure essential props for Modal are present if different
+                      image: originalItem.image || originalItem.imageUrl || item.image,
+                      category: item.category // Maintain the display category string if needed
+                    });
+                  }
+                }}
               >
                   <div className="w-full h-full rounded-2xl overflow-hidden border border-black/5 dark:border-white/10 shadow-lg relative bg-white dark:bg-charcoal transition-all duration-300 hover:scale-105 hover:shadow-xl flex items-center justify-center p-2">
                     <img
@@ -359,18 +393,26 @@ const FittingResult = ({
              <button
                onClick={() => handleFeedback('reject')}
                disabled={isFeedbackLoading}
-               className="flex-1 h-9 rounded-xl border border-red-200 dark:border-red-800 text-red-500 bg-red-50/50 hover:bg-red-50 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium"
+               className={`flex-1 h-9 rounded-xl border transition-all flex items-center justify-center gap-1.5 text-xs font-medium ${
+                 feedbackStatus[currentOutfitIndex] === 'reject'
+                   ? 'bg-red-500 border-red-500 text-white shadow-md'
+                   : 'border-red-200 dark:border-red-800 text-red-500 bg-red-50/50 hover:bg-red-50'
+               }`}
              >
                <span className="material-symbols-rounded text-base">thumb_down</span>
-               별로예요
+               {feedbackStatus[currentOutfitIndex] === 'reject' ? '별로예요' : '별로예요'}
              </button>
              <button
                onClick={() => handleFeedback('accept')}
                disabled={isFeedbackLoading}
-               className="flex-1 h-9 rounded-xl border border-green-200 dark:border-green-800 text-green-600 bg-green-50/50 hover:bg-green-50 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium"
+               className={`flex-1 h-9 rounded-xl border transition-all flex items-center justify-center gap-1.5 text-xs font-medium ${
+                 feedbackStatus[currentOutfitIndex] === 'accept'
+                   ? 'bg-green-600 border-green-600 text-white shadow-md'
+                   : 'border-green-200 dark:border-green-800 text-green-600 bg-green-50/50 hover:bg-green-50'
+               }`}
              >
                <span className="material-symbols-rounded text-base">thumb_up</span>
-               좋아요
+               {feedbackStatus[currentOutfitIndex] === 'accept' ? '좋아요!' : '좋아요'}
              </button>
           </div>
 

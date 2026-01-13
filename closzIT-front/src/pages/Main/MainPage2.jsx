@@ -555,6 +555,7 @@ const MainPage2 = () => {
                     setShowFittingResult(false);
                     setRecommendationParams(null);
                   }}
+                  onClothClick={setSelectedClothDetail}
                 />
               </div>
             )}
@@ -615,50 +616,13 @@ const MainPage2 = () => {
         <ClothDetailModal
           cloth={selectedClothDetail}
           onClose={() => setSelectedClothDetail(null)}
-          onTryOn={async () => {
-             try {
-               const token = localStorage.getItem('accessToken');
-               const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-               const clothingId = selectedClothDetail.id;
-               const category = selectedClothDetail.category;
-
-               // console.log(`[VTO] Starting try-on for clothing: ${clothingId}, category: ${category}`);
-
-               setSelectedClothDetail(null);
-               setIsVtoLoading(true);
-
-               const response = await fetch(`${backendUrl}/api/fitting/single-item-tryon`, {
-                 method: 'POST',
-                 headers: {
-                   'Authorization': `Bearer ${token}`,
-                   'Content-Type': 'application/json',
-                 },
-                 body: JSON.stringify({
-                   clothingId: clothingId,
-                   category: category,
-                   denoiseSteps: 10,
-                   seed: 42,
-                 }),
-               });
-
-               if (!response.ok) {
-                 const errorData = await response.json();
-                 throw new Error(errorData.message || '가상 피팅 요청 실패');
-               }
-
-               const result = await response.json();
-
-               if (result.success && result.imageUrl) {
-                 setBeforeAfterImage(result.imageUrl);
-               } else {
-                 throw new Error('결과 이미지를 받지 못했습니다.');
-               }
-             } catch (error) {
-               console.error('Single item try-on error:', error);
-               alert(`가상 피팅 실패: ${error.message}`);
-             } finally {
-               setIsVtoLoading(false);
-             }
+          onTryOn={() => {
+            // FittingRoom으로 이동하면서 옷 정보 전달
+            const clothToTryOn = { ...selectedClothDetail };
+            setSelectedClothDetail(null);
+            navigate('/fitting-room', { 
+              state: { tryOnCloth: clothToTryOn } 
+            });
           }}
           onEdit={() => alert('수정 기능은 추후 업데이트 예정입니다.')}
           onDelete={async () => {
