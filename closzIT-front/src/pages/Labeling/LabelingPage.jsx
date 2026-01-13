@@ -366,18 +366,17 @@ const LabelingPage = () => {
     }
   };
 
-  // 옷 펴기 API 호출 (큐 기반 Polling 방식)
-  const handleFlattenClothing = async () => {
-    if (!analysisResults[currentItemIndex]) return;
+  // 옷 펴기 실행 함수 (개별 및 일괄 처리용)
+  const executeFlattenClothing = async (targetIndex) => {
+    if (!analysisResults[targetIndex]) return;
 
-    const itemIndex = currentItemIndex; // 클로저에 현재 인덱스 저장
-    setFlatteningItems(prev => new Set(prev).add(itemIndex));
+    setFlatteningItems(prev => new Set(prev).add(targetIndex));
 
     try {
-      const currentItem = analysisResults[itemIndex];
-      const formData = itemFormData[itemIndex] || {};
+      const currentItem = analysisResults[targetIndex];
+      const formData = itemFormData[targetIndex] || {};
 
-      console.log('[DEBUG] Flattening clothing (queue mode):', formData.category, formData.sub_category);
+      console.log(`[DEBUG] Flattening clothing (index: ${targetIndex}):`, formData.category, formData.sub_category);
 
       const token = localStorage.getItem('accessToken');
 
@@ -404,12 +403,12 @@ const LabelingPage = () => {
       }
 
       const queueResult = await response.json();
-      console.log('[DEBUG] Queue result:', queueResult);
+      console.log(`[DEBUG] Queue result (index: ${targetIndex}):`, queueResult);
 
       // 큐 방식인 경우 polling
       if (queueResult.jobId && queueResult.status === 'queued') {
         const jobId = queueResult.jobId;
-        console.log('[DEBUG] Job queued, polling for result:', jobId);
+        console.log(`[DEBUG] Job queued, polling for result (index: ${targetIndex}):`, jobId);
 
         // Step 2: Polling으로 결과 대기
         const pollInterval = 1000; // 1초
@@ -432,14 +431,13 @@ const LabelingPage = () => {
               }
 
               const statusResult = await statusResponse.json();
-              console.log('[DEBUG] Poll result:', statusResult);
 
               if (statusResult.status === 'completed') {
                 // 완료! 결과 처리
                 if (statusResult.result?.success && statusResult.result?.flattened_image_base64) {
                   setFlattenedImages(prev => ({
                     ...prev,
-                    [itemIndex]: statusResult.result.flattened_image_base64,
+                    [targetIndex]: statusResult.result.flattened_image_base64,
                   }));
                   // 크레딧 업데이트
                   if (statusResult.result.remainingCredit !== undefined) {
@@ -466,21 +464,64 @@ const LabelingPage = () => {
         // 기존 동기 방식 응답 (fallback)
         setFlattenedImages(prev => ({
           ...prev,
-          [itemIndex]: queueResult.flattened_image_base64,
+          [targetIndex]: queueResult.flattened_image_base64,
         }));
       } else {
         throw new Error('Invalid response from server');
       }
     } catch (error) {
-      console.error('[ERROR] Flatten error:', error);
-      alert(`옷 펴기 중 오류가 발생했습니다.\n${error.message}`);
+      console.error(`[ERROR] Flatten error (index: ${targetIndex}):`, error);
+      // 개별 에러는 alert를 띄우지 않고 콘솔에만 기록하거나, 필요시 토스트 메시지 등으로 처리
+      // 단, 단일 실행일 때는 alert가 필요할 수 있음
+      if (flatteningItems.size === 1) { // 대략적인 체크 (정확하진 않음)
+        alert(`옷 펴기 중 오류가 발생했습니다.\n${error.message}`);
+      }
     } finally {
       setFlatteningItems(prev => {
         const newSet = new Set(prev);
-        newSet.delete(itemIndex);
+        newSet.delete(targetIndex);
         return newSet;
       });
     }
+  };
+
+  // 기존 단일 옷 펴기 핸들러 (현재 인덱스 사용)
+  const handleFlattenClothing = () => {
+    executeFlattenClothing(currentItemIndex);
+  };
+
+  // 전체 옷 펴기 상태
+  const [showFlattenAllConfirm, setShowFlattenAllConfirm] = useState(false);
+  const [flattenAllCost, setFlattenAllCost] = useState(0);
+  const [flattenAllTargets, setFlattenAllTargets] = useState([]);
+
+  // 전체 옷 펴기 버튼 핸들러
+  const handleFlattenAll = () => {
+    // 대상: 스킵되지 않음 AND 아직 펴지지 않음 AND 현재 작업중이 아님
+    const targets = analysisResults.map((_, idx) => idx).filter(idx =>
+      !skippedItems.includes(idx) &&
+      !flattenedImages[idx] &&
+      !flatteningItems.has(idx)
+    );
+
+    if (targets.length === 0) {
+      alert('옷 펴기를 진행할 의상이 없습니다.');
+      return;
+    }
+
+    setFlattenAllTargets(targets);
+    setFlattenAllCost(targets.length);
+    setShowFlattenAllConfirm(true);
+  };
+
+  // 전체 옷 펴기 확인 핸들러
+  const handleConfirmFlattenAll = () => {
+    setShowFlattenAllConfirm(false);
+
+    // 일괄 실행
+    flattenAllTargets.forEach(idx => {
+      executeFlattenClothing(idx);
+    });
   };
 
   // 저장 API 호출 - 모든 비스킵 아이템 일괄 저장
@@ -681,6 +722,63 @@ const LabelingPage = () => {
         </div>
       )}
 
+      {/* ========== 전체 옷 펴기 확인 팝업 ========== */}
+      {showFlattenAllConfirm && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
+          <div
+            className="bg-white rounded-3xl shadow-2xl p-6 mx-6 max-w-sm w-full text-center"
+            style={{ border: '1px solid rgba(212, 175, 55, 0.2)' }}
+          >
+            {/* 동전 아이콘 */}
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center bg-gradient-to-br from-gold/20 to-gold-light/20"
+              style={{ border: '2px solid rgba(212, 175, 55, 0.3)' }}>
+              <span className="material-symbols-rounded text-3xl text-gold">monetization_on</span>
+            </div>
+
+            <h3 className="text-lg font-bold mb-2" style={{ color: '#2C2C2C' }}>
+              {flattenAllCost} 크레딧을 사용하시겠어요?
+            </h3>
+            <p className="text-sm mb-4" style={{ color: '#6B6B6B' }}>
+              전체 {flattenAllCost}벌의 옷을 한 번에 폅니다
+            </p>
+
+            {/* 크레딧 잔액 표시 */}
+            <div className="flex items-center justify-center gap-2 mb-6 py-2 px-4 rounded-xl bg-cream-dark/50">
+              <span className="material-symbols-rounded text-gold">account_balance_wallet</span>
+              <span className="text-sm" style={{ color: '#6B6B6B' }}>보유 크레딧: </span>
+              <span className="text-lg font-bold text-gold">{userCredit}</span>
+            </div>
+
+            {/* 버튼들 */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowFlattenAllConfirm(false)}
+                className="flex-1 py-3 rounded-xl font-medium transition-all"
+                style={{
+                  background: '#F5F0E8',
+                  color: '#6B6B6B',
+                  border: '1px solid rgba(212, 175, 55, 0.2)'
+                }}
+              >
+                취소
+              </button>
+              <button
+                onClick={handleConfirmFlattenAll}
+                disabled={userCredit < flattenAllCost}
+                className="flex-1 py-3 rounded-xl font-bold text-white transition-all hover:scale-105"
+                style={{
+                  background: userCredit < flattenAllCost ? '#9CA3AF' : 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)',
+                  boxShadow: userCredit < flattenAllCost ? 'none' : '0 4px 14px rgba(184, 134, 11, 0.35)',
+                  cursor: userCredit < flattenAllCost ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {userCredit < flattenAllCost ? '크레딧 부족' : '일괄 사용'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ========== 옷 펴기 확인 팝업 ========== */}
       {showFlattenConfirm && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
@@ -873,31 +971,72 @@ const LabelingPage = () => {
 
                 {/* 아이템 네비게이션 */}
                 {analysisResults.length > 1 && (
-                  <div className="mt-3 flex items-center gap-3">
-                    <button
-                      onClick={() => setCurrentItemIndex(prev => Math.max(0, prev - 1))}
-                      disabled={currentItemIndex === 0}
-                      className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 disabled:opacity-30"
-                    >
-                      <span className="material-symbols-rounded text-sm">chevron_left</span>
-                    </button>
-                    <div className="flex gap-1">
-                      {analysisResults.map((_, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setCurrentItemIndex(idx)}
-                          className={`w-2 h-2 rounded-full transition-colors ${idx === currentItemIndex ? 'bg-primary' : 'bg-gray-300'
-                            }`}
-                        />
-                      ))}
+                  <div className="mt-3 flex flex-col items-center gap-3">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setCurrentItemIndex(prev => Math.max(0, prev - 1))}
+                        disabled={currentItemIndex === 0}
+                        className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 disabled:opacity-30"
+                      >
+                        <span className="material-symbols-rounded text-sm">chevron_left</span>
+                      </button>
+                      <div className="flex gap-1">
+                        {analysisResults.map((_, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setCurrentItemIndex(idx)}
+                            className={`w-2 h-2 rounded-full transition-colors ${idx === currentItemIndex ? 'bg-primary' : 'bg-gray-300'
+                              }`}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => setCurrentItemIndex(prev => Math.min(analysisResults.length - 1, prev + 1))}
+                        disabled={currentItemIndex === analysisResults.length - 1}
+                        className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 disabled:opacity-30"
+                      >
+                        <span className="material-symbols-rounded text-sm">chevron_right</span>
+                      </button>
                     </div>
-                    <button
-                      onClick={() => setCurrentItemIndex(prev => Math.min(analysisResults.length - 1, prev + 1))}
-                      disabled={currentItemIndex === analysisResults.length - 1}
-                      className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 disabled:opacity-30"
-                    >
-                      <span className="material-symbols-rounded text-sm">chevron_right</span>
-                    </button>
+
+                    {/* 전체 옷 펴기 버튼 (Global Position) */}
+                    {(() => {
+                      // 남은 대상 계산: 스킵X, 펴지지 않음, 현재 작업중 아님
+                      const remainingTargets = analysisResults.filter((_, idx) =>
+                        !skippedItems.includes(idx) &&
+                        !flattenedImages[idx] &&
+                        !flatteningItems.has(idx)
+                      ).length;
+
+                      const isAllCompleted = analysisResults.every((_, idx) =>
+                        skippedItems.includes(idx) || flattenedImages[idx]
+                      );
+
+                      if (isAllCompleted) return null; // 모든 작업 완료 시 숨김
+
+                      return (
+                        <button
+                          onClick={handleFlattenAll}
+                          disabled={remainingTargets === 0}
+                          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${remainingTargets > 0
+                              ? 'bg-white border border-gold text-gold hover:bg-gold hover:text-white'
+                              : 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed'
+                            }`}
+                        >
+                          {remainingTargets > 0 ? (
+                            <>
+                              <span className="material-symbols-rounded text-sm">filter_none</span>
+                              남은 {remainingTargets}벌 일괄 펴기
+                            </>
+                          ) : (
+                            <>
+                              <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                              작업 진행 중...
+                            </>
+                          )}
+                        </button>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
@@ -949,36 +1088,39 @@ const LabelingPage = () => {
                     />
                   </div>
                 ) : (
-                  // 옷 펴기 버튼
-                  <button
-                    onClick={() => setShowFlattenConfirm(true)}
-                    disabled={flatteningItems.has(currentItemIndex)}
-                    className="w-20 h-24 rounded-xl shadow-lg flex flex-col items-center justify-center transition-all hover:scale-105 active:scale-95"
-                    style={{
-                      background: flatteningItems.has(currentItemIndex)
-                        ? '#9CA3AF'
-                        : 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)',
-                      boxShadow: flatteningItems.has(currentItemIndex)
-                        ? 'none'
-                        : '0 4px 14px rgba(184, 134, 11, 0.35)',
-                      cursor: flatteningItems.has(currentItemIndex) ? 'not-allowed' : 'pointer'
-                    }}
-                  >
-                    {flatteningItems.has(currentItemIndex) ? (
-                      <>
-                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span className="text-xs text-white font-medium mt-1">생성 중...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="material-symbols-rounded text-2xl text-white">dry_cleaning</span>
-                        <span className="text-xs text-white font-medium mt-1">옷 펴기</span>
-                        <span className="text-[10px] text-white/80 mt-0.5">
-                          (1 크레딧)
-                        </span>
-                      </>
-                    )}
-                  </button>
+                  // 옷 펴기 버튼들 컨테이너
+                  <div className="flex flex-col gap-2">
+                    {/* 개별 옷 펴기 버튼 */}
+                    <button
+                      onClick={() => setShowFlattenConfirm(true)}
+                      disabled={flatteningItems.has(currentItemIndex)}
+                      className="w-20 h-24 rounded-xl shadow-lg flex flex-col items-center justify-center transition-all hover:scale-105 active:scale-95"
+                      style={{
+                        background: flatteningItems.has(currentItemIndex)
+                          ? '#9CA3AF'
+                          : 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)',
+                        boxShadow: flatteningItems.has(currentItemIndex)
+                          ? 'none'
+                          : '0 4px 14px rgba(184, 134, 11, 0.35)',
+                        cursor: flatteningItems.has(currentItemIndex) ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {flatteningItems.has(currentItemIndex) ? (
+                        <>
+                          <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span className="text-xs text-white font-medium mt-1">생성 중...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-rounded text-2xl text-white">dry_cleaning</span>
+                          <span className="text-xs text-white font-medium mt-1">옷 펴기</span>
+                          <span className="text-[10px] text-white/80 mt-0.5">
+                            (1 크레딧)
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
