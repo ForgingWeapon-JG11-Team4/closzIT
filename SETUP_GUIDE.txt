@@ -3,123 +3,128 @@
 ================================================================================
 
 이 가이드는 프로젝트를 처음 클론한 팀원이 개발 환경을 설정하는 방법을 안내합니다.
+🖥️ Windows와 🍎 macOS 각각의 설치 방법을 구분하여 제공합니다.
 
 ================================================================================
 📋 목차
 ================================================================================
-1. 사전 요구사항
+1. 사전 요구사항 설치
 2. 프로젝트 클론
 3. 백엔드 설정 (NestJS)
 4. 프론트엔드 설정 (React)
 5. AI 서버 설정 (FastAPI)
-6. Redis 연결 설정 (ElastiCache 터널링) ⭐ NEW
-7. 서버 실행
-7. 문제 해결
+6. Redis 연결 설정 (ElastiCache 터널링)
+7. 전체 서버 실행
+8. 문제 해결
 
 ================================================================================
-1. 사전 요구사항
+1. 사전 요구사항 설치
 ================================================================================
 
-다음 프로그램들이 설치되어 있어야 합니다:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  🖥️ WINDOWS 사용자                                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-✅ Node.js (v18 이상)
-   - 다운로드: https://nodejs.org/
-   - 확인: node --version
+[1-1] Node.js (v18 이상)
+   다운로드: https://nodejs.org/ → LTS 버전 설치
+   확인: node --version
 
-✅ Python (v3.10 이상)
-   - 다운로드: https://www.python.org/
-   - 확인: python --version
+[1-2] Python (v3.10 이상)
+   다운로드: https://www.python.org/ → 설치 시 "Add to PATH" 체크!
+   확인: python --version
 
-✅ PostgreSQL (v14 이상)
-   - 다운로드: https://www.postgresql.org/
-   - 데이터베이스 생성 필요 (이름: closzit_db)
+[1-3] Git
+   다운로드: https://git-scm.com/
+   확인: git --version
 
-✅ Git
-   - 다운로드: https://git-scm.com/
-   - 확인: git --version
+[1-4] AWS CLI (v2) - PowerShell 관리자 권한으로 실행
+   winget install Amazon.AWSCLI
+   확인: aws --version
 
-✅ AWS CLI (v2)
-   - 설치 (PowerShell 관리자 권한):
-     winget install Amazon.AWSCLI
-     또는: msiexec.exe /i https://awscli.amazonaws.com/AWSCLIV2.msi /qn
-   - 확인: aws --version
-   - 설정: aws configure (팀 리더에게 액세스 키 문의)
+[1-5] AWS Session Manager Plugin - PowerShell 관리자 권한으로 실행
+   Invoke-WebRequest -Uri "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/windows/SessionManagerPluginSetup.exe" -OutFile "$env:TEMP\SessionManagerPluginSetup.exe"
+   Start-Process -FilePath "$env:TEMP\SessionManagerPluginSetup.exe" -ArgumentList "/quiet" -Wait
+   
+   ⚠️ 설치 후 터미널 재시작 필요!
+   확인: session-manager-plugin --version
 
-✅ AWS Session Manager Plugin
-   - 설치 (PowerShell 관리자 권한):
-     # 다운로드 후 설치
-     Invoke-WebRequest -Uri "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/windows/SessionManagerPluginSetup.exe" -OutFile "$env:TEMP\SessionManagerPluginSetup.exe"
-     Start-Process -FilePath "$env:TEMP\SessionManagerPluginSetup.exe" -ArgumentList "/quiet" -Wait
-   - 확인: session-manager-plugin --version
-   - ⚠️ ElastiCache 터널링에 필요! (설치 후 터미널 재시작)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  🍎 macOS 사용자                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+[1-1] Homebrew 설치 (없는 경우)
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+[1-2] Node.js (v18 이상)
+   brew install node@18
+   확인: node --version
+
+[1-3] Python (v3.10 이상)
+   brew install python@3.10
+   확인: python3 --version
+
+[1-4] Git
+   brew install git
+   확인: git --version
+
+[1-5] AWS CLI (v2)
+   brew install awscli
+   확인: aws --version
+
+[1-6] AWS Session Manager Plugin
+   curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/mac/sessionmanager-bundle.zip" -o "sessionmanager-bundle.zip"
+   unzip sessionmanager-bundle.zip
+   sudo ./sessionmanager-bundle/install -i /usr/local/sessionmanagerplugin -b /usr/local/bin/session-manager-plugin
+   
+   ⚠️ 설치 후 터미널 재시작 필요!
+   확인: session-manager-plugin --version
 
 ================================================================================
-2. 프로젝트 클론
+2. 프로젝트 클론 (Windows / macOS 공통)
 ================================================================================
-
-터미널/명령 프롬프트에서 실행:
 
 git clone https://github.com/ForgingWeapon-JG11-Team4/closzIT.git
 cd closzIT
 
 ================================================================================
-3. 백엔드 설정 (NestJS)
+3. 백엔드 설정 (NestJS) - Windows / macOS 공통
 ================================================================================
 
 📂 위치: closzIT-back/
 
-[단계 1] 의존성 설치
-------------------------
-cd closzIT-back
-npm install
+[3-1] 의존성 설치
+   cd closzIT-back
+   npm install
 
-[단계 2] 환경 변수 설정
-------------------------
-.env 파일을 생성하고 사전에 slack에 공유된 내용을 기록하세요
+[3-2] 환경 변수 설정
+   .env 파일을 생성하고 Slack에 공유된 내용을 복사하세요.
+   
+   ⚠️ 반드시 다음 설정 포함 확인:
+   REDIS_HOST=localhost
+   REDIS_PORT=6379
 
-추가적으로 AWS S3 이미지 저장소를 사용하려면 다음 환경변수를 추가하세요:
+[3-3] Prisma Client 생성
+   npx prisma generate
+   
+   ⚠️ 주의: 공유 RDS 사용 중이므로 'npx prisma db push' 실행 금지!
 
-# AWS S3 Configuration (이미지 저장소)
-AWS_S3_BUCKET=your-bucket-name
-AWS_S3_REGION=ap-northeast-2
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
-
-⚠️ S3 환경변수가 설정되지 않으면 이미지 업로드가 실패합니다.
-   → S3 버킷 생성 및 IAM 자격증명은 팀 리더에게 문의하세요.
-
-----------------------
-
-[단계 3] Prisma Client 생성
-------------------------
-npx prisma generate
-
-⚠️ 주의: 공유 RDS를 사용하므로 'npx prisma db push'는 실행하지 마세요!
-   → DB 스키마는 이미 설정되어 있습니다.
-   → 스키마 변경이 필요하면 팀 리더에게 문의하세요.
-
-[단계 4] 서버 실행 확인
-------------------------
-npm run start
-
-✅ 성공 시: http://localhost:3000 에서 서버 실행
+[3-4] 서버 실행 확인
+   npm run start
+   ✅ 성공: http://localhost:3000
 
 ================================================================================
-4. 프론트엔드 설정 (React)
+4. 프론트엔드 설정 (React) - Windows / macOS 공통
 ================================================================================
 
 📂 위치: closzIT-front/
 
-[단계 1] 의존성 설치
-------------------------
-cd ../closzIT-front
-npm install
+[4-1] 의존성 설치
+   cd ../closzIT-front
+   npm install
 
-[단계 2] 서버 실행 확인
-------------------------
-npm start
-
-✅ 성공 시: http://localhost:3001 에서 앱 실행
+[4-2] 서버 실행 확인
+   npm start
+   ✅ 성공: http://localhost:3001
 
 ================================================================================
 5. AI 서버 설정 (FastAPI)
@@ -127,192 +132,199 @@ npm start
 
 📂 위치: ai-fastapi/
 
-[단계 1] Python 가상환경 생성
-------------------------
-cd ../ai-fastapi
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  🖥️ WINDOWS                                                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-# Windows:
-python -m venv venv
-venv\Scripts\activate
+[5-1] 가상환경 생성 및 활성화
+   cd ../ai-fastapi
+   python -m venv venv
+   venv\Scripts\activate
 
-# macOS/Linux:
-python3 -m venv venv
-source venv/Scripts/activate
+[5-2] 의존성 설치
+   pip install -r requirements.txt
 
-[단계 2] 의존성 설치
-------------------------
-pip install -r requirements.txt
+[5-3] AI 모델 다운로드 (시간 소요)
+   python download_models.py
 
-[단계 3] AI 모델 다운로드 ⭐ 중요!
-------------------------
-python download_models.py
+[5-4] 서버 실행
 
-📥 다운로드되는 모델:
-  1. yolov8n-clothing-detection (약 6MB)
-     - 의류/신발/가방/액세서리 분류
-  
-  2. deepfashion2_yolov8s-seg (약 44MB)
-     - 의류 상세 분류
-  
-  3. sam2_hiera_large (약 857MB) ⚠️ 시간 소요
-     - 이미지 세그멘테이션
+   uvicorn main:app --reload
+   ✅ 성공: http://localhost:8000
 
-💡 FashionSigLIP (이미지 임베딩)
-   - 추가 다운로드 없이 자동으로 Hugging Face에서 로드됩니다.
-   - 의상 이미지 임베딩에 사용 (768차원)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  🍎 macOS                                                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-💡 CLIP ViT-B-32 (텍스트 임베딩)
-   - 추가 다운로드 없이 자동으로 로드됩니다.
-   - 라벨 텍스트 임베딩에 사용 (512차원)
+[5-1] 가상환경 생성 및 활성화
+   cd ../ai-fastapi
+   python3 -m venv venv
+   source venv/bin/activate
 
-[단계 4] 서버 실행 확인
-------------------------
-uvicorn main:app --reload
+[5-2] 의존성 설치
+   pip install -r requirements.txt
 
-✅ 성공 시: http://localhost:8000 에서 AI 서버 실행
+[5-3] AI 모델 다운로드 (시간 소요)
+   python download_models.py
+
+[5-4] 서버 실행
+   uvicorn main:app --reload
+   ✅ 성공: http://localhost:8000
 
 ================================================================================
-6. Redis 연결 설정 (ElastiCache 터널링) ⭐ NEW
+6. Redis 연결 설정 (ElastiCache 터널링) ⭐ 중요
 ================================================================================
 
 📢 VTO/옷펴기 기능은 Redis 큐잉 시스템을 사용합니다.
-   로컬에서 이 기능을 테스트하려면 ElastiCache에 터널링 연결이 필요합니다.
+   로컬에서 테스트하려면 ElastiCache 터널링 연결이 필요합니다.
 
-📂 위치: closzIT/ (프로젝트 루트)
+[6-1] AWS CLI 설정 (공통)
+   aws configure
+   
+   # 입력할 정보 (팀 리더에게 문의):
+   # AWS Access Key ID: [팀 리더에게 문의]
+   # AWS Secret Access Key: [팀 리더에게 문의]
+   # Default region name: ap-northeast-2
+   # Default output format: json
 
-[단계 1] AWS CLI 설정 확인
-------------------------
-aws configure
+[6-2] ElastiCache 터널링 실행
 
-# 다음 정보 입력 (팀 리더에게 문의):
-# AWS Access Key ID
-# AWS Secret Access Key
-# Default region name: ap-northeast-2
-# Default output format: json
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  🖥️ WINDOWS - PowerShell에서 실행                                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+   cd closzIT
+   .\elasticache-connect.ps1
 
-[단계 2] ElastiCache 터널링 스크립트 실행
-------------------------
-# PowerShell에서 실행 (프로젝트 루트 디렉토리에서):
-.\elasticache-connect.ps1
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  🍎 macOS - 두 가지 방법 중 선택                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+   방법 1: Finder에서 elasticache-connect.command 파일 더블클릭
+   
+   방법 2: 터미널에서 실행
+      cd closzIT
+      chmod +x elasticache-connect.command  # 최초 1회만
+      ./elasticache-connect.command
 
-# 성공 시 출력:
-# 🔌 ElastiCache Redis 포트 포워딩 시작...
-# 📍 .env 설정 정보:
-#    REDIS_HOST=localhost
-#    REDIS_PORT=6379
+[성공 시 출력]
+   🔌 ElastiCache Redis 포트 포워딩 시작...
+   📍 .env 설정 정보:
+      REDIS_HOST=localhost
+      REDIS_PORT=6379
 
 ⚠️ 주의:
    - 이 터미널은 서버 실행 전에 먼저 실행하고 열어두세요!
    - 터널링이 끊기면 VTO/옷펴기 요청 시 연결 에러가 발생합니다.
    - 종료하려면 Ctrl + C
 
-[단계 3] 백엔드 .env 확인
-------------------------
-# closzIT-back/.env 에 다음 설정 확인:
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
 ================================================================================
-7. 서버 실행 (전체)
+7. 전체 서버 실행 (4개 터미널 필요)
 ================================================================================
 
-4개의 터미널 창이 필요합니다:
+💡 실행 순서가 중요합니다! 아래 순서대로 실행하세요.
 
-[터미널 1] ElastiCache 터널링 ⭐ 가장 먼저 실행!
-------------------------
-cd closzIT
-.\elasticache-connect.ps1
-→ "포트 포워딩 시작..." 메시지 확인 후 열어두기
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  🖥️ WINDOWS                                                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+[터미널 1] ElastiCache 터널링 ⭐ 가장 먼저!
+   cd closzIT
+   .\elasticache-connect.ps1
 
 [터미널 2] 백엔드
-------------------------
-cd closzIT-back
-npm run start
-→ http://localhost:3000
+   cd closzIT-back
+   npm run start
 
-[터미널 3] 프론트엔드
-------------------------
-cd closzIT-front
-npm start
-→ http://localhost:3001
+[터미널 3] AI 서버
+   cd ai-fastapi
+   venv\Scripts\activate
+   uvicorn main:app --reload
 
-[터미널 4] AI 서버
-------------------------
-cd ai-fastapi
-venv\Scripts\activate  (또는 source venv/bin/activate)
-uvicorn main:app --reload
-→ http://localhost:8000
+[터미널 4] 프론트엔드
+   cd closzIT-front
+   npm start
 
-✅ 모든 서버가 실행되면 개발 준비 완료!
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  🍎 macOS                                                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-💡 터미널 실행 순서:
-   1️⃣ ElastiCache 터널링 (Redis 연결)
-   2️⃣ 백엔드 (NestJS - Redis 연결 필요)
-   3️⃣ AI 서버 (FastAPI)
-   4️⃣ 프론트엔드 (React)
+[터미널 1] ElastiCache 터널링 ⭐ 가장 먼저!
+   cd closzIT
+   ./elasticache-connect.command
+   (또는 Finder에서 더블클릭)
+
+[터미널 2] 백엔드
+   cd closzIT-back
+   npm run start
+
+[터미널 3] AI 서버
+   cd ai-fastapi
+   source venv/bin/activate
+   uvicorn main:app --reload
+
+[터미널 4] 프론트엔드
+   cd closzIT-front
+   npm start
+
+✅ 모든 서버 실행 확인:
+   - ElastiCache: "포트 포워딩 시작..." 메시지
+   - 백엔드: http://localhost:3000
+   - AI 서버: http://localhost:8000
+   - 프론트엔드: http://localhost:3001
 
 ================================================================================
 8. 문제 해결
 ================================================================================
 
 [문제 1] npm install 실패
-해결: Node.js 버전 확인 (v18 이상 필요)
-     node --version
+   → Node.js 버전 확인: node --version (v18 이상 필요)
 
 [문제 2] Prisma 에러
-해결: PostgreSQL이 실행 중인지 확인
-     데이터베이스 이름/사용자명/비밀번호 확인
+   → .env 파일의 DATABASE_URL 확인
+   → Slack에서 최신 .env 내용 확인
 
 [문제 3] AI 모델 다운로드 실패
-해결: 인터넷 연결 확인
-     python download_models.py 재실행
-     수동 다운로드 링크는 스크립트 출력 참고
+   → 인터넷 연결 확인
+   → python download_models.py 재실행
 
-[문제 4] 포트 충돌
-해결: 이미 사용 중인 포트가 있다면:
-     - 백엔드: nest-cli.json에서 포트 변경
-     - 프론트엔드: package.json의 PORT 환경변수 설정
-     - AI 서버: uvicorn main:app --port 55554 --reload
+[문제 4] aws 명령어를 찾을 수 없음
+   → AWS CLI 설치 확인: aws --version
+   → 설치 후 터미널 재시작
 
-[문제 5] AWS Bedrock 권한 에러
-해결: 팀 리더에게 AWS 키 요청
-     .env 파일의 AWS 설정 확인
+[문제 5] session-manager-plugin 명령어를 찾을 수 없음
+   → Session Manager Plugin 설치 확인
+   → 설치 후 터미널 재시작 필요!
 
 [문제 6] ElastiCache 연결 에러
-해결: 
-     1. elasticache-connect.ps1가 실행 중인지 확인
-     2. AWS CLI 설정 확인: aws configure
-     3. Session Manager Plugin 설치 확인
-     4. VPN 연결 상태 확인 (필요한 경우)
-     5. .env의 REDIS_HOST=localhost, REDIS_PORT=6379 확인
+   → AWS CLI 설정 확인: aws configure
+   → Session Manager Plugin 설치 확인
+   → 터널링 스크립트가 실행 중인지 확인
 
 [문제 7] VTO/옷펴기 작업이 계속 대기 중
-해결:
-     1. 백엔드 콘솔에서 Redis 연결 에러 확인
-     2. ElastiCache 터널링이 끊어졌는지 확인
-     3. 터널링 재시작 후 백엔드 서버 재시작
+   → ElastiCache 터널링이 끊어졌는지 확인
+   → 터널링 재시작 후 백엔드 서버 재시작
+
+[문제 8] macOS에서 .command 파일 실행 안됨
+   → 터미널에서 실행: chmod +x elasticache-connect.command
+   → 보안 설정: 시스템 환경설정 → 보안 및 개인정보 → "확인 없이 열기"
 
 ================================================================================
-📞 추가 도움이 필요하신가요?
+🎉 설정 완료 체크리스트
 ================================================================================
 
-1. 프로젝트 README.md 파일 확인
-2. 각 폴더의 README.md 확인
-3. 팀 슬랙/디스코드 채널에 문의
-4. GitHub Issues에 버그 리포트
-
-================================================================================
-🎉 설정 완료! 즐거운 개발 되세요!
-================================================================================
-
-마지막 체크리스트:
-□ Node.js, Python, PostgreSQL 설치 완료
-□ AWS CLI 및 Session Manager Plugin 설치 완료
+□ Node.js, Python 설치 완료
+□ AWS CLI & Session Manager Plugin 설치 완료
 □ 프로젝트 클론 완료
-□ 백엔드 의존성 설치 및 .env 설정
-□ 프론트엔드 의존성 설치
+□ 백엔드 의존성 설치 및 .env 설정 완료
+□ 프론트엔드 의존성 설치 완료
 □ AI 모델 다운로드 완료
 □ ElastiCache 터널링 연결 성공
 □ 4개 서버 모두 정상 실행
 
 모든 체크박스에 ✅가 있다면 개발 시작 가능합니다!
+
+================================================================================
+📞 도움이 필요하면?
+================================================================================
+1. 팀 Slack 채널에 문의
+2. GitHub Issues에 버그 리포트
+================================================================================
