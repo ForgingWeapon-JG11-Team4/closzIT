@@ -192,7 +192,7 @@ export const VtoProvider = ({ children }) => {
 
                             if (statusResult.status === 'completed') {
                                 const data = statusResult.result;
-                                if (data.success) {
+                                if (data && data.success) {
                                     addVtoResult({
                                         imageUrl: data.imageUrl,
                                         postId: postId,
@@ -202,6 +202,9 @@ export const VtoProvider = ({ children }) => {
                                     refreshVtoData();
                                     setToastMessage('착장 완료!');
                                     setTimeout(() => setToastMessage(''), 3000);
+                                } else if (!data) {
+                                    console.warn('[VTO] Job completed but result is null, retrying...');
+                                    continue; // 다시 polling 시도
                                 }
                                 return;
                             } else if (statusResult.status === 'failed') {
