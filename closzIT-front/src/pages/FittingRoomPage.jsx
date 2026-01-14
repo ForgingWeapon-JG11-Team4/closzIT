@@ -241,44 +241,52 @@ const FittingRoomPage = ({ hideHeader = false }) => {
     }
   }, [storeFullBodyImage]);
 
-  // 옷장 현황 API 호출
-  useEffect(() => {
-    const fetchWardrobeStats = async () => {
-      try {
-        const token = localStorage.getItem('accessToken');
-        if (!token) return;
+  // 옷장 현황 API 호출 함수
+  const fetchWardrobeStats = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
 
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-        const response = await fetch(`${backendUrl}/items/by-category`, {
-          headers: { 'Authorization': `Bearer ${token}` },
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+      const response = await fetch(`${backendUrl}/items/by-category`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const stats = {
+          outerwear: data.outerwear?.length || 0,
+          tops: data.tops?.length || 0,
+          bottoms: data.bottoms?.length || 0,
+          shoes: data.shoes?.length || 0,
+          total: (data.outerwear?.length || 0) + (data.tops?.length || 0) +
+            (data.bottoms?.length || 0) + (data.shoes?.length || 0),
+        };
+
+        setWardrobeStats(stats);
+        setUserClothes({
+          outerwear: (data.outerwear || []).map(item => ({ ...item, category: 'outerwear' })),
+          tops: (data.tops || []).map(item => ({ ...item, category: 'tops' })),
+          bottoms: (data.bottoms || []).map(item => ({ ...item, category: 'bottoms' })),
+          shoes: (data.shoes || []).map(item => ({ ...item, category: 'shoes' })),
         });
-
-        if (response.ok) {
-          const data = await response.json();
-          const stats = {
-            outerwear: data.outerwear?.length || 0,
-            tops: data.tops?.length || 0,
-            bottoms: data.bottoms?.length || 0,
-            shoes: data.shoes?.length || 0,
-            total: (data.outerwear?.length || 0) + (data.tops?.length || 0) +
-              (data.bottoms?.length || 0) + (data.shoes?.length || 0),
-          };
-
-          setWardrobeStats(stats);
-          setUserClothes({
-            outerwear: (data.outerwear || []).map(item => ({ ...item, category: 'outerwear' })),
-            tops: (data.tops || []).map(item => ({ ...item, category: 'tops' })),
-            bottoms: (data.bottoms || []).map(item => ({ ...item, category: 'bottoms' })),
-            shoes: (data.shoes || []).map(item => ({ ...item, category: 'shoes' })),
-          });
-        }
-      } catch (error) {
-        console.error('Wardrobe API error:', error);
       }
-    };
+    } catch (error) {
+      console.error('Wardrobe API error:', error);
+    }
+  };
 
+  // 초기 로드
+  useEffect(() => {
     fetchWardrobeStats();
   }, []);
+
+  // FittingRoom 탭으로 돌아올 때 데이터 새로고침
+  useEffect(() => {
+    if (activeTab === TAB_KEYS.FITTING_ROOM) {
+      fetchWardrobeStats();
+    }
+  }, [activeTab]);
 
   return (
     <div className="min-h-screen bg-cream dark:bg-[#1A1918] pb-20">

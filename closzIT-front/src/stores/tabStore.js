@@ -35,6 +35,11 @@ export const useTabStore = create((set, get) => ({
         set({ pendingTryOnCloth: null });
         return cloth;
     },
+
+    // 피드 탭 새로고침 트리거
+    shouldRefreshFeed: false,
+    setShouldRefreshFeed: (shouldRefresh) => set({ shouldRefreshFeed: shouldRefresh }),
+    
     
     // 탭 변경
     setActiveTab: (tab) => {

@@ -96,7 +96,7 @@ const dummyData = {
 
 const MainPage2 = ({ hideHeader = false }) => {
   const navigate = useNavigate();
-  const { setActiveTab, setPendingTryOnCloth } = useTabStore();
+  const { activeTab: globalActiveTab, setActiveTab, setPendingTryOnCloth } = useTabStore();
 
   // ========== 전역 Store에서 가져오기 ==========
   const {
@@ -133,6 +133,16 @@ const MainPage2 = ({ hideHeader = false }) => {
     fetchUpcomingEvents();
     fetchUserInfo();
   }, [fetchWeather, fetchUpcomingEvents, fetchUserInfo]);
+
+  // Main 탭으로 돌아올 때 데이터 새로고침
+  useEffect(() => {
+    if (globalActiveTab === TAB_KEYS.MAIN) {
+      // 날씨와 일정 데이터도 갱신 (캐시가 있으면 빠르게 표시)
+      fetchWeather();
+      fetchUpcomingEvents();
+      fetchUserInfo();
+    }
+  }, [globalActiveTab, fetchWeather, fetchUpcomingEvents, fetchUserInfo]);
 
   useEffect(() => {
     if (userName && showGreeting) {
@@ -244,35 +254,43 @@ const MainPage2 = ({ hideHeader = false }) => {
     }
   }, [expandedCategory]);
 
-  // 옷장 데이터 API 호출
-  useEffect(() => {
-    const fetchUserClothes = async () => {
-      try {
-        const token = localStorage.getItem('accessToken');
-        if (!token) return;
+  // 옷장 데이터 API 호출 함수
+  const fetchUserClothes = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
 
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-        const response = await fetch(`${backendUrl}/items/by-category`, {
-          headers: { 'Authorization': `Bearer ${token}` },
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+      const response = await fetch(`${backendUrl}/items/by-category`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        setUserClothes({
+          outerwear: (data.outerwear || []).map(item => ({ ...item, category: 'outerwear' })),
+          tops: (data.tops || []).map(item => ({ ...item, category: 'tops' })),
+          bottoms: (data.bottoms || []).map(item => ({ ...item, category: 'bottoms' })),
+          shoes: (data.shoes || []).map(item => ({ ...item, category: 'shoes' })),
         });
-
-        if (response.ok) {
-          const data = await response.json();
-
-          setUserClothes({
-            outerwear: (data.outerwear || []).map(item => ({ ...item, category: 'outerwear' })),
-            tops: (data.tops || []).map(item => ({ ...item, category: 'tops' })),
-            bottoms: (data.bottoms || []).map(item => ({ ...item, category: 'bottoms' })),
-            shoes: (data.shoes || []).map(item => ({ ...item, category: 'shoes' })),
-          });
-        }
-      } catch (error) {
-        console.error('User clothes API error:', error);
       }
-    };
+    } catch (error) {
+      console.error('User clothes API error:', error);
+    }
+  };
 
+  // 초기 로드
+  useEffect(() => {
     fetchUserClothes();
   }, []);
+
+  // Main 탭으로 돌아올 때 데이터 새로고침 (옷 등록 후 등)
+  useEffect(() => {
+    if (globalActiveTab === TAB_KEYS.MAIN) {
+      fetchUserClothes();
+    }
+  }, [globalActiveTab]);
 
   const getWeatherIcon = () => {
     const condition = weather.condition || '';
