@@ -2,8 +2,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import SharedHeader from '../components/SharedHeader';
-import BottomNav from '../components/BottomNav';
 import ClothDetailModal from '../components/ClothDetailModal';
+import { useVtoStore } from '../stores/vtoStore';
+import { useUserStore } from '../stores/userStore';
+import { useTabStore, TAB_KEYS } from '../stores/tabStore';
 import { GiTrousers, GiTShirt, GiMonclerJacket } from 'react-icons/gi';
 
 // 카테고리 매핑 (customIcon: true인 경우 React Icons 사용)
@@ -60,27 +62,26 @@ const keywordGroups = [
   }
 ];
 
-const FittingRoomPage = () => {
+const FittingRoomPage = ({ hideHeader = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { activeTab, consumePendingTryOnCloth } = useTabStore();
 
   // VTO 상태
   const [isVtoLoading, setIsVtoLoading] = useState(false);
   const [userFullBodyImage, setUserFullBodyImage] = useState(null);
   const [beforeAfterImage, setBeforeAfterImage] = useState(null);
   const [selectedClothDetail, setSelectedClothDetail] = useState(null);
-  const [autoTryOnProcessed, setAutoTryOnProcessed] = useState(false);
 
-  // 다른 페이지에서 전달받은 옷 정보로 자동 VTO 실행
+  // 다른 탭에서 전달받은 옷 정보로 자동 VTO 실행
   useEffect(() => {
-    const runAutoTryOn = async () => {
-      const tryOnCloth = location.state?.tryOnCloth;
-      if (!tryOnCloth || autoTryOnProcessed) return;
+    // FittingRoom 탭이 활성화될 때만 실행
+    if (activeTab !== TAB_KEYS.FITTING_ROOM) return;
 
-      setAutoTryOnProcessed(true);
-      
-      // location state 초기화 (뒤로가기 시 재실행 방지)
-      window.history.replaceState({}, document.title);
+    const runAutoTryOn = async () => {
+      // tabStore에서 pending 데이터 가져오기 (한 번만 소비)
+      const tryOnCloth = consumePendingTryOnCloth();
+      if (!tryOnCloth) return;
 
       try {
         const token = localStorage.getItem('accessToken');
@@ -127,7 +128,7 @@ const FittingRoomPage = () => {
     };
 
     runAutoTryOn();
-  }, [location.state, autoTryOnProcessed]);
+  }, [activeTab, consumePendingTryOnCloth]);
 
   // 옷장 현황 상태
   const [wardrobeStats, setWardrobeStats] = useState({
@@ -225,25 +226,20 @@ const FittingRoomPage = () => {
   }, [expandedCategory]);
 
   // 사용자 정보 및 전신 사진 가져오기
+  const { userFullBodyImage: storeFullBodyImage, fetchUser } = useUserStore();
+  
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const token = localStorage.getItem('accessToken');
-        if (!token) return;
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-        const response = await fetch(`${backendUrl}/user/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setUserFullBodyImage(data.fullBodyImage || null);
-        }
-      } catch (e) {
-        console.error(e);
-      }
+    const loadUserImage = async () => {
+      await fetchUser();
     };
-    fetchUser();
-  }, []);
+    loadUserImage();
+  }, [fetchUser]);
+  
+  useEffect(() => {
+    if (storeFullBodyImage) {
+      setUserFullBodyImage(storeFullBodyImage);
+    }
+  }, [storeFullBodyImage]);
 
   // 옷장 현황 API 호출
   useEffect(() => {
@@ -287,7 +283,7 @@ const FittingRoomPage = () => {
   return (
     <div className="min-h-screen bg-cream dark:bg-[#1A1918] pb-20">
       {/* Header */}
-      <SharedHeader />
+      {!hideHeader && <SharedHeader />}
 
       <main className="px-4 pt-2 pb-4 space-y-4">
         {/* 카테고리별 현황 */}
@@ -720,13 +716,6 @@ const FittingRoomPage = () => {
         </div>
       )}
 
-      {/* Bottom Navigation */}
-      <BottomNav 
-        floatingAction={{
-          icon: 'apparel',
-          onClick: () => navigate('/register')
-        }}
-      />
     </div>
   );
 };

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import SharedHeader from '../../components/SharedHeader';
 import BottomNav from '../../components/BottomNav';
+import { useUserStore } from '../../stores/userStore';
 
 // 카테고리 옵션 (한글 매핑)
 const categoryLabels = {
@@ -116,9 +117,40 @@ const styleMoodOptions = [
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
+// 이미지 회전 유틸리티 (Canvas 사용)
+const rotateImageBase64 = (base64Data, degrees) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // 90도, 270도 회전 시 width/height 교체
+      if (degrees === 90 || degrees === 270) {
+        canvas.width = img.height;
+        canvas.height = img.width;
+      } else {
+        canvas.width = img.width;
+        canvas.height = img.height;
+      }
+      
+      // 중앙 기준 회전
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((degrees * Math.PI) / 180);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      
+      // Data URL에서 Base64 부분만 추출
+      resolve(canvas.toDataURL('image/png').split(',')[1]);
+    };
+    img.onerror = reject;
+    img.src = `data:image/png;base64,${base64Data}`;
+  });
+};
+
 const LabelingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { userId, userCredit, fetchUser } = useUserStore();
 
   // RegisterPage에서 전달받은 이미지 정보
   const { imageUrl: initialImageUrl, imageFile: initialImageFile } = location.state || {};
@@ -126,9 +158,6 @@ const LabelingPage = () => {
   // 현재 사용 중인 이미지 (새 이미지 등록 가능)
   const [currentImageUrl, setCurrentImageUrl] = useState(initialImageUrl);
   const [currentImageFile, setCurrentImageFile] = useState(initialImageFile);
-
-  // 현재 로그인된 사용자 ID
-  const [userId, setUserId] = useState(null);
 
   // 분석 상태
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -155,7 +184,6 @@ const LabelingPage = () => {
   const [flattenedImages, setFlattenedImages] = useState({}); // { itemIndex: base64Image }
   const [skippedFlattenImages, setSkippedFlattenImages] = useState([]); // 펼쳐진 이미지 제외 목록
   const [showFlattenConfirm, setShowFlattenConfirm] = useState(false); // 옷 펴기 확인 팝업
-  const [userCredit, setUserCredit] = useState(0); // 사용자 크레딧
 
   // 각 아이템별 수정된 폼 데이터 저장
   const [itemFormData, setItemFormData] = useState([]);
@@ -170,34 +198,14 @@ const LabelingPage = () => {
     currentFormData.category?.toLowerCase() === 'shoes';
 
   // 페이지 로드 시 사용자 ID 가져오기
-  const fetchUserData = useCallback(async () => {
+  useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (!token) {
       console.warn('[LabelingPage] No access token found');
       return;
     }
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/user/me`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUserId(userData.id);
-        setUserCredit(userData.credit || 0);
-        console.log('[LabelingPage] User ID loaded:', userData.id, 'Credit:', userData.credit);
-      } else {
-        console.error('[LabelingPage] Failed to fetch user data');
-      }
-    } catch (error) {
-      console.error('[LabelingPage] Error fetching user:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchUserData();
-  }, [fetchUserData]);
+    fetchUser();
+  }, [fetchUser]);
 
   // 아이템 변경 시 폼 데이터 로드
   useEffect(() => {
@@ -441,7 +449,8 @@ const LabelingPage = () => {
                   }));
                   // 크레딧 업데이트
                   if (statusResult.result.remainingCredit !== undefined) {
-                    setUserCredit(statusResult.result.remainingCredit);
+                    // userStore의 refreshCredit 호출
+                    fetchUser(true);
                   }
                   return; // 성공적으로 완료
                 } else {
@@ -524,6 +533,44 @@ const LabelingPage = () => {
     });
   };
 
+  // 분석된 의상 이미지 회전 (90도)
+  const handleRotateAnalyzedImage = async () => {
+    if (!analysisResults[currentItemIndex] || !analysisResults[currentItemIndex].image) return;
+    
+    try {
+      const currentImage = analysisResults[currentItemIndex].image;
+      const rotatedImage = await rotateImageBase64(currentImage, 90);
+      
+      setAnalysisResults(prev => {
+        const newData = [...prev];
+        newData[currentItemIndex] = {
+          ...newData[currentItemIndex],
+          image: rotatedImage
+        };
+        return newData;
+      });
+    } catch (e) {
+      console.error('Image rotation failed:', e);
+    }
+  };
+
+  // 펼쳐진 의상 이미지 회전 (90도)
+  const handleRotateFlattenedImage = async () => {
+    if (!flattenedImages[currentItemIndex]) return;
+    
+    try {
+      const currentImage = flattenedImages[currentItemIndex];
+      const rotatedImage = await rotateImageBase64(currentImage, 90);
+      
+      setFlattenedImages(prev => ({
+        ...prev,
+        [currentItemIndex]: rotatedImage
+      }));
+    } catch (e) {
+      console.error('Flattened image rotation failed:', e);
+    }
+  };
+
   // 저장 API 호출 - 모든 비스킵 아이템 일괄 저장
   const handleSave = async () => {
     setIsSaving(true);
@@ -600,7 +647,7 @@ const LabelingPage = () => {
       setSavedItemImages(savedImages);
 
       // 저장 후 사용자 정보(크레딧) 갱신
-      await fetchUserData();
+      await fetchUser(true);
 
       setShowSuccessPopup(true);
 
@@ -958,12 +1005,27 @@ const LabelingPage = () => {
                   )}
 
                   {currentAnalyzedImage ? (
-                    <img
-                      src={currentAnalyzedImage}
-                      alt="분석된 의상"
-                      className="w-full h-full object-contain cursor-pointer transition-transform hover:scale-105"
-                      onClick={() => { setZoomedImageSrc(currentAnalyzedImage); setIsImageZoomed(true); }}
-                    />
+                    <>
+                      <img
+                        src={currentAnalyzedImage}
+                        alt="분석된 의상"
+                        className="w-full h-full object-contain cursor-pointer transition-transform hover:scale-105"
+                        onClick={() => { setZoomedImageSrc(currentAnalyzedImage); setIsImageZoomed(true); }}
+                      />
+                      {/* 회전 버튼 (분석된 이미지) */}
+                      {!skippedItems.includes(currentItemIndex) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRotateAnalyzedImage();
+                          }}
+                          className="absolute bottom-2 right-2 w-8 h-8 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-md z-10 transition-all text-gray-600 hover:text-gold"
+                          title="90도 회전"
+                        >
+                          <span className="material-symbols-rounded text-lg">rotate_right</span>
+                        </button>
+                      )}
+                    </>
                   ) : (
                     <span className="material-symbols-rounded text-6xl text-gray-300">checkroom</span>
                   )}
@@ -1049,7 +1111,7 @@ const LabelingPage = () => {
 
                 {flattenedImages[currentItemIndex] ? (
                   // 펼쳐진 이미지 표시 + 제외/복구 토글
-                  <div className="relative w-32 h-32 bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+                  <div className="relative w-32 h-32 bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden group">
                     {/* 우측 상단 토글 버튼 - 클릭 시 제외/복구 */}
                     <button
                       onClick={(e) => {
@@ -1068,6 +1130,18 @@ const LabelingPage = () => {
                       <span className="material-symbols-rounded text-xs">
                         {skippedFlattenImages.includes(currentItemIndex) ? 'undo' : 'close'}
                       </span>
+                    </button>
+
+                    {/* 회전 버튼 (우측 하단) */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRotateFlattenedImage();
+                      }}
+                      className="absolute bottom-1 right-1 w-7 h-7 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-sm z-10 transition-all text-gray-600 hover:text-gold"
+                      title="90도 회전"
+                    >
+                      <span className="material-symbols-rounded text-sm">rotate_right</span>
                     </button>
 
                     {/* 제외된 이미지 오버레이 */}

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useVtoStore } from '../stores/vtoStore';
+import { useUserStore } from '../stores/userStore';
 import VtoResultModal from './VtoResultModal';
 import CreditConfirmModal from './CreditConfirmModal';
 
@@ -32,29 +33,11 @@ const SharedHeader = ({
 
     const isAnyVtoLoading = vtoLoadingPosts.size > 0 || partialVtoLoadingSources.size > 0;
 
-
-
-    const [userCredit, setUserCredit] = useState(0);
+    const { userCredit, fetchUser } = useUserStore();
 
     useEffect(() => {
-        const fetchCredit = async () => {
-            try {
-                const token = localStorage.getItem('accessToken');
-                if (!token) return;
-                const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-                const response = await fetch(`${backendUrl}/user/me`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    setUserCredit(data.credit || 0);
-                }
-            } catch (error) {
-                console.error('Failed to fetch credit:', error);
-            }
-        };
-        fetchCredit();
-    }, []);
+        fetchUser();
+    }, [fetchUser]);
 
     const handleBack = () => {
         if (onBackClick) {

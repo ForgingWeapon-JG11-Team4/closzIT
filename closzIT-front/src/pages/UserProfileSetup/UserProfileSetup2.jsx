@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useUserStore } from '../../stores/userStore';
 
 const UserProfileSetup2 = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isEditMode = searchParams.get('edit') === 'true';
+  const { fetchUser } = useUserStore();
   
   // State 관리
   const [hairColor, setHairColor] = useState('');
@@ -23,13 +25,8 @@ const UserProfileSetup2 = () => {
       if (!token) return;
 
       try {
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-        const response = await fetch(`${backendUrl}/user/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-          const userData = await response.json();
+        const userData = await fetchUser();
+        if (userData) {
           if (userData.hairColor) setHairColor(userData.hairColor);
           if (userData.personalColor) setPersonalColor(userData.personalColor);
           if (userData.height) setHeight(String(userData.height));
@@ -45,7 +42,7 @@ const UserProfileSetup2 = () => {
     };
 
     fetchExistingData();
-  }, []);
+  }, [fetchUser]);
 
   // 스타일 토글 핸들러
   const toggleStyle = (style) => {
