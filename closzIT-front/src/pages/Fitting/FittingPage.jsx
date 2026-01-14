@@ -4,14 +4,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import SharedHeader from '../../components/SharedHeader';
 import BottomNav from '../../components/BottomNav';
-import { useVto } from '../../context/VtoContext';
+import { useVtoStore } from '../../stores/vtoStore';
 
 const FittingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { requestPartialVtoByIds, checkPartialVtoLoading } = useVto();
+  const { requestPartialVtoByIds, checkPartialVtoLoading } = useVtoStore();
   const isPartialVtoLoading = checkPartialVtoLoading('fitting');
   const { calendarEvent, isToday, userQuery, keywords } = location.state || {};
+
 
   const [outfits, setOutfits] = useState([]);         // 상위 5개 조합
   const [candidates, setCandidates] = useState(null); // 카테고리별 후보

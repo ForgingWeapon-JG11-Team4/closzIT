@@ -24,7 +24,8 @@
     "workbox-routing": "^6.6.0",
     "workbox-strategies": "^6.6.0",
     "workbox-streams": "^6.6.0",
-    "yaml": "^2.8.2"
+    "yaml": "^2.8.2",
+    "zustand": "^5.0.10"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.16",

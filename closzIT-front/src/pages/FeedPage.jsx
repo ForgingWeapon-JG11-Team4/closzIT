@@ -4,7 +4,7 @@ import SharedHeader from '../components/SharedHeader';
 import CommentBottomSheet from '../components/CommentBottomSheet';
 import BottomNav from '../components/BottomNav';
 import ClothDetailModal from '../components/ClothDetailModal';
-import { useVto } from '../context/VtoContext';
+import { useVtoStore } from '../stores/vtoStore';
 
 const FeedPage = () => {
   const navigate = useNavigate();
@@ -12,7 +12,8 @@ const FeedPage = () => {
     vtoLoadingPosts,
     vtoCompletedPosts,
     requestVto
-  } = useVto();
+  } = useVtoStore();
+
 
   // 탭 상태 ('홈' 또는 '유저피드')
   const [activeTab, setActiveTab] = useState('홈');
