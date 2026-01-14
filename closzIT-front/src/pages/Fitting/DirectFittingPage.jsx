@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useVto } from '../../context/VtoContext';
+import { useVtoStore } from '../../stores/vtoStore';
 import SharedHeader from '../../components/SharedHeader';
 
 const DirectFittingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { requestPartialVtoByIds } = useVto();
+  const { requestPartialVtoByIds } = useVtoStore();
   const { outfit, fromMain } = location.state || {};
+
 
   // 피팅 관련 상태
   const [fittingError, setFittingError] = useState(null);

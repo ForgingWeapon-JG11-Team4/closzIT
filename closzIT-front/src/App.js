@@ -21,42 +21,39 @@ import CreatePostPage from './pages/CreatePostPage';
 import PostDetailPage from './pages/PostDetailPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
-import { VtoProvider } from './context/VtoContext';
 import './App.css';
 
 function App() {
   return (
-    <VtoProvider>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/auth/callback" element={<AuthCallbackPage />} />
-          <Route path="/setup/profile1" element={<UserProfileSetup1 />} />
-          <Route path="/setup/profile2" element={<UserProfileSetup2 />} />
-          <Route path="/setup2" element={<UserProfileSetup2 />} />
-          <Route path="/setup3" element={<UserProfileSetup3 />} />
-          <Route path="/setup/profile3" element={<UserProfileSetup3 />} />
-          <Route path="/main" element={<MainPage2 />} />
+    <Router>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
+        <Route path="/setup/profile1" element={<UserProfileSetup1 />} />
+        <Route path="/setup/profile2" element={<UserProfileSetup2 />} />
+        <Route path="/setup2" element={<UserProfileSetup2 />} />
+        <Route path="/setup3" element={<UserProfileSetup3 />} />
+        <Route path="/setup/profile3" element={<UserProfileSetup3 />} />
+        <Route path="/main" element={<MainPage2 />} />
 
-          <Route path="/mypage" element={<MyPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/labeling" element={<LabelingPage />} />
-          <Route path="/fitting" element={<FittingPage />} />
-          <Route path="/fitting/direct" element={<DirectFittingPage />} />
-          <Route path="/fitting-room" element={<FittingRoomPage />} />
-          <Route path="/batch-tryon" element={<BatchTryOnPage />} />
+        <Route path="/mypage" element={<MyPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/labeling" element={<LabelingPage />} />
+        <Route path="/fitting" element={<FittingPage />} />
+        <Route path="/fitting/direct" element={<DirectFittingPage />} />
+        <Route path="/fitting-room" element={<FittingRoomPage />} />
+        <Route path="/batch-tryon" element={<BatchTryOnPage />} />
 
-          <Route path="/feed" element={<FeedPage />} />
-          <Route path="/create-post" element={<CreatePostPage />} />
-          <Route path="/edit-post/:postId" element={<CreatePostPage />} />
-          <Route path="/post/:postId" element={<PostDetailPage />} />
-          <Route path="/privacy" element={<PrivacyPolicyPage />} />
-          <Route path="/terms" element={<TermsOfServicePage />} />
-          <Route path="/credit-shop" element={<CreditShopPage />} />
-          <Route path="/" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </Router>
-    </VtoProvider>
+        <Route path="/feed" element={<FeedPage />} />
+        <Route path="/create-post" element={<CreatePostPage />} />
+        <Route path="/edit-post/:postId" element={<CreatePostPage />} />
+        <Route path="/post/:postId" element={<PostDetailPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="/credit-shop" element={<CreditShopPage />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </Router>
   );
 }
 

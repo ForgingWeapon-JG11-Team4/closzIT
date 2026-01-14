@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useVto } from '../../context/VtoContext';
+import { useVtoStore } from '../../stores/vtoStore';
 import { useNavigate } from 'react-router-dom';
 
 const FittingResult = ({ 
@@ -9,8 +9,9 @@ const FittingResult = ({
   backendUrl 
 }) => {
   const navigate = useNavigate();
-  const { requestPartialVtoByIds, checkPartialVtoLoading } = useVto();
+  const { requestPartialVtoByIds, checkPartialVtoLoading } = useVtoStore();
   const isPartialVtoLoading = checkPartialVtoLoading('fitting-result');
+
   const { calendarEvent, isToday, userQuery, keywords } = recommendationParams;
 
   const [outfits, setOutfits] = useState([]);         // 상위 5개 조합

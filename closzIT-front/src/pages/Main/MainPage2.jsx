@@ -5,9 +5,9 @@ import OutfitRecommender from './OutfitRecommender';
 import BottomNav from '../../components/BottomNav';
 import ClothDetailModal from '../../components/ClothDetailModal';
 import WardrobeStatus from './WardrobeStatus';
-
 import RecentlyAddedClothes from './RecentlyAddedClothes';
 import FittingResult from './FittingResult';
+import { useAppStore } from '../../stores/appStore';
 import { GiTrousers, GiTShirt, GiMonclerJacket } from 'react-icons/gi';
 
 
@@ -98,16 +98,24 @@ const dummyData = {
 const MainPage2 = () => {
   const navigate = useNavigate();
 
+  // ========== 전역 Store에서 가져오기 ==========
+  const {
+    weather,
+    userLocation,
+    upcomingEvents,
+    userName,
+    userFullBodyImage,
+    fetchWeather,
+    fetchUpcomingEvents,
+    fetchUserInfo,
+  } = useAppStore();
+
   // 검색 및 추천기 상태
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [selectedKeywords, setSelectedKeywords] = useState([]);
   const [searchText, setSearchText] = useState(''); // 자연어 검색어 상태
-  const [userName, setUserName] = useState('');
   const [showGreeting, setShowGreeting] = useState(true);
   const [selectedClothDetail, setSelectedClothDetail] = useState(null); // 의류 상세정보 모달 상태
-  const [isVtoLoading, setIsVtoLoading] = useState(false); // VTO 로딩 상태
-  const [userFullBodyImage, setUserFullBodyImage] = useState(null); // 사용자 전신 사진
-  const [beforeAfterImage, setBeforeAfterImage] = useState(null); // Before & After 이미지 (After)
   
   // 추천 결과 상태
   const [recommendationParams, setRecommendationParams] = useState(null); // 추천 요청 파라미터
@@ -119,13 +127,6 @@ const MainPage2 = () => {
     setIsSearchExpanded(false); // 추천 받기 누르면 검색창 닫고 결과 보여줌
   };
 
-  // 날씨 API 상태
-  const [weather, setWeather] = useState({ temperature: null, condition: '로딩중...' });
-  const [userLocation, setUserLocation] = useState('로딩중...');
-
-  // 다가오는 일정 상태
-  const [upcomingEvents, setUpcomingEvents] = useState([]);
-
   // 옷장 현황 상태
   const [wardrobeStats, setWardrobeStats] = useState({
     outerwear: 0,
@@ -135,27 +136,12 @@ const MainPage2 = () => {
     total: 0,
   });
 
+  // 페이지 진입 시 데이터 갱신 (이미 캐시가 있으면 즉시 표시, 필요 시 백그라운드 갱신)
   useEffect(() => {
-    // 사용자 정보 가져오기
-    const fetchUser = async () => {
-      try {
-        const token = localStorage.getItem('accessToken');
-        if (!token) return;
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-        const response = await fetch(`${backendUrl}/user/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setUserName(data.name || '');
-          setUserFullBodyImage(data.fullBodyImage || null); // 전신 사진 저장
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    fetchUser();
-  }, []);
+    fetchWeather();
+    fetchUpcomingEvents();
+    fetchUserInfo();
+  }, [fetchWeather, fetchUpcomingEvents, fetchUserInfo]);
 
   useEffect(() => {
     if (userName && showGreeting) {
@@ -267,69 +253,7 @@ const MainPage2 = () => {
     }
   }, [expandedCategory]);
 
-  // 날씨 API 호출
-  useEffect(() => {
-    const fetchWeather = async () => {
-      try {
-        const token = localStorage.getItem('accessToken');
-        if (!token) return;
 
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-        const response = await fetch(`${backendUrl}/weather/current`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setWeather({
-            temperature: data.temperature,
-            condition: data.condition || '맑음',
-          });
-          if (data.location) {
-            setUserLocation(data.location);
-          }
-        }
-      } catch (error) {
-        console.error('Weather API error:', error);
-        setWeather({ temperature: 8, condition: '맑음' });
-      }
-    };
-
-    fetchWeather();
-  }, []);
-
-  // 다가오는 일정 API 호출
-  useEffect(() => {
-    const fetchUpcomingEvents = async () => {
-      try {
-        const token = localStorage.getItem('accessToken');
-        if (!token) return;
-
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-        const response = await fetch(`${backendUrl}/calendar/upcoming`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const events = data.events || [];
-
-          // 백엔드에서 이미 { date, time, title, isToday } 형태로 반환
-          const upcoming = events.slice(0, 2).map(event => ({
-            date: event.date,
-            title: event.title,
-            isToday: event.isToday,
-          }));
-
-          setUpcomingEvents(upcoming);
-        }
-      } catch (error) {
-        console.error('Calendar API error:', error);
-      }
-    };
-
-    fetchUpcomingEvents();
-  }, []);
 
   // 옷장 현황 API 호출
   useEffect(() => {
