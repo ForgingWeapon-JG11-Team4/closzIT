@@ -301,7 +301,7 @@ const ItemEditPage = () => {
         onBackClick={() => navigate(-1)}
       />
 
-      <div className="max-w-2xl mx-auto p-6 pt-20">
+      <div className="max-w-2xl mx-auto p-6 pt-6">
         {/* 카테고리 */}
         <div className="mb-6">
           <h3 className="text-lg font-bold text-charcoal dark:text-cream mb-3">카테고리</h3>
@@ -468,16 +468,14 @@ const ItemEditPage = () => {
         </div>
 
         {/* 저장 버튼 */}
-        <div className="fixed bottom-20 left-0 right-0 p-6 bg-gradient-to-t from-cream dark:from-[#1A1918] via-cream dark:via-[#1A1918] to-transparent">
-          <div className="max-w-2xl mx-auto">
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="w-full py-4 bg-gradient-to-r from-gold to-gold-dark text-white rounded-xl font-bold hover:from-gold-dark hover:to-gold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSaving ? '저장 중...' : '수정 완료'}
-            </button>
-          </div>
+        <div className="mt-10 mb-6">
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="w-full py-4 bg-gradient-to-r from-gold to-gold-dark text-white rounded-xl font-bold hover:from-gold-dark hover:to-gold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSaving ? '저장 중...' : '수정 완료'}
+          </button>
         </div>
       </div>
 
