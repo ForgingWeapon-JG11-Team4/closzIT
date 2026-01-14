@@ -1,5 +1,5 @@
 import React, { useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import SharedHeader from '../../components/SharedHeader';
 import BottomNav from '../../components/BottomNav';
 
@@ -41,8 +41,12 @@ const registerOptions = [
 
 const RegisterPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+
+  // FeedPage에서 넘어온 경우 returnTo 정보 가져오기
+  const returnTo = location.state?.returnTo;
 
   // 카메라 존재 여부 확인 및 카메라 실행
   const handleCameraClick = useCallback(async () => {
@@ -151,7 +155,7 @@ const RegisterPage = () => {
       />
 
       {/* Shared Header */}
-      <SharedHeader title="등록하기" showBackButton onBackClick={() => navigate('/main')} />
+      <SharedHeader title="등록하기" showBackButton onBackClick={() => navigate(returnTo || '/main')} />
 
       {/* Main Content */}
       <main className="flex-1 px-6 py-8 flex flex-col items-center justify-center pb-28">
