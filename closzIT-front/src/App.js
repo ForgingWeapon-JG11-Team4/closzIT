@@ -10,6 +10,7 @@ import MultiTabContainer from './components/MultiTabContainer';
 import MyPage from './pages/MyPage/MyPage';
 import RegisterPage from './pages/Register/RegisterPage';
 import LabelingPage from './pages/Labeling/LabelingPage';
+import ItemEditPage from './pages/ItemEdit/ItemEditPage';
 import FittingPage from './pages/Fitting/FittingPage';
 import DirectFittingPage from './pages/Fitting/DirectFittingPage';
 import BatchTryOnPage from './pages/BatchTryOn/BatchTryOnPage';
@@ -51,6 +52,7 @@ const AppContent = () => {
           <Route path="/mypage" element={<MyPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/labeling" element={<LabelingPage />} />
+          <Route path="/item/edit/:itemId" element={<ItemEditPage />} />
           <Route path="/fitting" element={<FittingPage />} />
           <Route path="/fitting/direct" element={<DirectFittingPage />} />
           <Route path="/batch-tryon" element={<BatchTryOnPage />} />

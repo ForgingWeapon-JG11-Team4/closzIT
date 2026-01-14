@@ -997,11 +997,10 @@ const FeedPage = ({ hideHeader = false }) => {
                       <div className="flex justify-center px-4">
                         <button
                           onClick={() => navigate('/register', { state: { returnTo: '/feed' } })}
-                          className={`flex items-center gap-2 rounded-full transition-colors font-bold shadow-sm ${
-                            Object.values(userClothes).every(arr => arr.length === 0)
+                          className={`flex items-center gap-2 rounded-full transition-colors font-bold shadow-sm ${Object.values(userClothes).every(arr => arr.length === 0)
                               ? 'px-6 py-3 text-base bg-gold hover:bg-gold-dark text-white'
                               : 'px-6 py-3 text-base bg-gold/10 hover:bg-gold/20 text-gold-dark dark:text-gold'
-                          }`}
+                            }`}
                         >
                           <span className="material-symbols-rounded text-xl">add</span>
                           옷 추가하기
@@ -1378,8 +1377,12 @@ const FeedPage = ({ hideHeader = false }) => {
             setActiveTab(TAB_KEYS.FITTING_ROOM);
             window.history.replaceState(null, '', '/fitting-room');
           }}
-          showActions={true}
-          onEdit={null}
+          showActions={!isViewingOtherUser}
+          onEdit={!isViewingOtherUser ? () => {
+            const itemId = selectedClothDetail.id;
+            setSelectedClothDetail(null);
+            navigate(`/item/edit/${itemId}`);
+          } : null}
           onDelete={null}
         />
       )}

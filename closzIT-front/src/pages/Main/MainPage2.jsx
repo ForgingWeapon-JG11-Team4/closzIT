@@ -116,7 +116,7 @@ const MainPage2 = ({ hideHeader = false }) => {
   const [searchText, setSearchText] = useState(''); // 자연어 검색어 상태
   const [showGreeting, setShowGreeting] = useState(true);
   const [selectedClothDetail, setSelectedClothDetail] = useState(null); // 의류 상세정보 모달 상태
-  
+
   // 추천 결과 상태
   const [recommendationParams, setRecommendationParams] = useState(null); // 추천 요청 파라미터
   const [showFittingResult, setShowFittingResult] = useState(false);
@@ -469,7 +469,7 @@ const MainPage2 = ({ hideHeader = false }) => {
             {/* AI Fitting Recommendation Result */}
             {showFittingResult && recommendationParams && (
               <div className="px-1">
-                <FittingResult 
+                <FittingResult
                   recommendationParams={recommendationParams}
                   onClose={() => {
                     setShowFittingResult(false);
@@ -516,7 +516,7 @@ const MainPage2 = ({ hideHeader = false }) => {
             }
           `}
             </style>
-            
+
           </main>
         )}
       </div>
@@ -534,7 +534,11 @@ const MainPage2 = ({ hideHeader = false }) => {
             setActiveTab(TAB_KEYS.FITTING_ROOM);
             window.history.replaceState(null, '', '/fitting-room');
           }}
-          onEdit={() => alert('수정 기능은 추후 업데이트 예정입니다.')}
+          onEdit={() => {
+            const itemId = selectedClothDetail.id;
+            setSelectedClothDetail(null);
+            navigate(`/item/edit/${itemId}`);
+          }}
           onDelete={async () => {
             if (window.confirm('정말 이 옷을 삭제하시겠습니까?')) {
               try {
