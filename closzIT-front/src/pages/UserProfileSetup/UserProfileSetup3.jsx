@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useUserStore } from '../../stores/userStore';
 
 const UserProfileSetup3 = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isEditMode = searchParams.get('edit') === 'true';
   const fileInputRef = useRef(null);
+  const { fetchUser } = useUserStore();
 
   // State 관리
   const [fullBodyImage, setFullBodyImage] = useState(null);
@@ -22,17 +24,10 @@ const UserProfileSetup3 = () => {
         if (!token) return;
 
         try {
-          const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-          const response = await fetch(`${backendUrl}/user/me`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-
-          if (response.ok) {
-            const userData = await response.json();
-            if (userData.fullBodyImage) {
-              setFullBodyImage(userData.fullBodyImage);
-              setImagePreview(userData.fullBodyImage);
-            }
+          const userData = await fetchUser();
+          if (userData && userData.fullBodyImage) {
+            setFullBodyImage(userData.fullBodyImage);
+            setImagePreview(userData.fullBodyImage);
           }
         } catch (error) {
           console.error('Failed to fetch user data:', error);
@@ -41,7 +36,7 @@ const UserProfileSetup3 = () => {
 
       fetchExistingImage();
     }
-  }, [isEditMode]);
+  }, [isEditMode, fetchUser]);
 
   // 이미지 압축 함수 - 세로(height) 기준으로 리사이즈
   const compressImage = (file, maxHeight = 1200, quality = 0.8) => {

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import GoogleLoginButton from '../../components/GoogleLoginButton';
+import { useUserStore } from '../../stores/userStore';
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const [isChecking, setIsChecking] = useState(true);
+  const { checkTokenValidity } = useUserStore();
 
   // 토큰이 이미 있고 유효하면 바로 main으로 리다이렉트
   useEffect(() => {
@@ -16,18 +18,10 @@ const LoginPage = () => {
       }
 
       try {
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://api.closzit.shop';
-        const response = await fetch(`${backendUrl}/user/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-          const userData = await response.json();
-          // 토큰 유효 - 프로필 완성 여부에 따라 리다이렉트
-          navigate(userData.isProfileComplete ? '/main' : '/setup/profile1');
+        const { isValid, isProfileComplete } = await checkTokenValidity();
+        if (isValid) {
+          navigate(isProfileComplete ? '/main' : '/setup/profile1');
         } else {
-          // 토큰 무효 - 삭제
-          localStorage.removeItem('accessToken');
           setIsChecking(false);
         }
       } catch (error) {
@@ -37,7 +31,7 @@ const LoginPage = () => {
     };
 
     checkExistingToken();
-  }, [navigate]);
+  }, [navigate, checkTokenValidity]);
 
   // 백엔드 Google OAuth 엔드포인트로 리다이렉트
   const handleGoogleLogin = () => {

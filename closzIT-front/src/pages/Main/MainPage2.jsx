@@ -2,12 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SharedHeader from '../../components/SharedHeader';
 import OutfitRecommender from './OutfitRecommender';
-import BottomNav from '../../components/BottomNav';
 import ClothDetailModal from '../../components/ClothDetailModal';
-import WardrobeStatus from './WardrobeStatus';
 import RecentlyAddedClothes from './RecentlyAddedClothes';
 import FittingResult from './FittingResult';
 import { useAppStore } from '../../stores/appStore';
+import { useTabStore, TAB_KEYS } from '../../stores/tabStore';
 import { GiTrousers, GiTShirt, GiMonclerJacket } from 'react-icons/gi';
 
 
@@ -95,8 +94,9 @@ const dummyData = {
   ],
 };
 
-const MainPage2 = () => {
+const MainPage2 = ({ hideHeader = false }) => {
   const navigate = useNavigate();
+  const { setActiveTab, setPendingTryOnCloth } = useTabStore();
 
   // ========== 전역 Store에서 가져오기 ==========
   const {
@@ -126,15 +126,6 @@ const MainPage2 = () => {
     setShowFittingResult(true);
     setIsSearchExpanded(false); // 추천 받기 누르면 검색창 닫고 결과 보여줌
   };
-
-  // 옷장 현황 상태
-  const [wardrobeStats, setWardrobeStats] = useState({
-    outerwear: 0,
-    tops: 0,
-    bottoms: 0,
-    shoes: 0,
-    total: 0,
-  });
 
   // 페이지 진입 시 데이터 갱신 (이미 캐시가 있으면 즉시 표시, 필요 시 백그라운드 갱신)
   useEffect(() => {
@@ -253,11 +244,9 @@ const MainPage2 = () => {
     }
   }, [expandedCategory]);
 
-
-
-  // 옷장 현황 API 호출
+  // 옷장 데이터 API 호출
   useEffect(() => {
-    const fetchWardrobeStats = async () => {
+    const fetchUserClothes = async () => {
       try {
         const token = localStorage.getItem('accessToken');
         if (!token) return;
@@ -270,17 +259,6 @@ const MainPage2 = () => {
         if (response.ok) {
           const data = await response.json();
 
-          // 카테고리별 카운트
-          const stats = {
-            outerwear: data.outerwear?.length || 0,
-            tops: data.tops?.length || 0,
-            bottoms: data.bottoms?.length || 0,
-            shoes: data.shoes?.length || 0,
-            total: (data.outerwear?.length || 0) + (data.tops?.length || 0) +
-              (data.bottoms?.length || 0) + (data.shoes?.length || 0),
-          };
-
-          setWardrobeStats(stats);
           setUserClothes({
             outerwear: (data.outerwear || []).map(item => ({ ...item, category: 'outerwear' })),
             tops: (data.tops || []).map(item => ({ ...item, category: 'tops' })),
@@ -289,11 +267,11 @@ const MainPage2 = () => {
           });
         }
       } catch (error) {
-        console.error('Wardrobe API error:', error);
+        console.error('User clothes API error:', error);
       }
     };
 
-    fetchWardrobeStats();
+    fetchUserClothes();
   }, []);
 
   const getWeatherIcon = () => {
@@ -314,7 +292,7 @@ const MainPage2 = () => {
 
   return (
     <div className="min-h-screen font-sans pb-24" style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.08) 0%, rgba(255,250,240,0.8) 100%)' }}>
-      <SharedHeader />
+      {!hideHeader && <SharedHeader />}
 
       {/* Search Block - Visible ONLY when expanded (Active State) */}
       {isSearchExpanded && (
@@ -484,10 +462,9 @@ const MainPage2 = () => {
               </div>
             )}
 
-            {/* Content Grid: Recently Added & Wardrobe Status */}
+            {/* Content Grid: Recently Added */}
             <div className="flex w-full items-stretch px-1">
               <RecentlyAddedClothes onClothClick={setSelectedClothDetail} />
-              <WardrobeStatus userClothes={userClothes} />
             </div>
 
 
@@ -526,26 +503,18 @@ const MainPage2 = () => {
         )}
       </div>
 
-      {/* Global Bottom Navigation */}
-      <BottomNav 
-        floatingAction={{
-          icon: 'apparel',
-          onClick: () => navigate('/register')
-        }}
-      />
-
       {/* ========== Cloth Detail Modal ========== */}
       {selectedClothDetail && (
         <ClothDetailModal
           cloth={selectedClothDetail}
           onClose={() => setSelectedClothDetail(null)}
           onTryOn={() => {
-            // FittingRoom으로 이동하면서 옷 정보 전달
+            // FittingRoom 탭으로 전환하면서 옷 정보 전달 (멀티탭)
             const clothToTryOn = { ...selectedClothDetail };
             setSelectedClothDetail(null);
-            navigate('/fitting-room', { 
-              state: { tryOnCloth: clothToTryOn } 
-            });
+            setPendingTryOnCloth(clothToTryOn);
+            setActiveTab(TAB_KEYS.FITTING_ROOM);
+            window.history.replaceState(null, '', '/fitting-room');
           }}
           onEdit={() => alert('수정 기능은 추후 업데이트 예정입니다.')}
           onDelete={async () => {

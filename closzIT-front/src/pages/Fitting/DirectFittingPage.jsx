@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useVtoStore } from '../../stores/vtoStore';
+import { useUserStore } from '../../stores/userStore';
 import SharedHeader from '../../components/SharedHeader';
 
 const DirectFittingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { requestPartialVtoByIds } = useVtoStore();
+  const { userFullBodyImage: storeFullBodyImage, fetchUser } = useUserStore();
   const { outfit, fromMain } = location.state || {};
 
 
@@ -33,13 +35,8 @@ const DirectFittingPage = () => {
           return;
         }
 
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-        const response = await fetch(`${backendUrl}/user/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-          const userData = await response.json();
+        const userData = await fetchUser();
+        if (userData) {
           if (!userData.fullBodyImage) {
             setFittingError('전신 사진이 등록되지 않았습니다.');
           } else {
@@ -55,7 +52,7 @@ const DirectFittingPage = () => {
     };
 
     fetchUserData();
-  }, [outfit, fromMain, navigate, selectedCount]);
+  }, [outfit, fromMain, navigate, selectedCount, fetchUser]);
 
   // base64를 Blob으로 변환
   const base64ToBlob = (base64, mimeType = 'image/jpeg') => {

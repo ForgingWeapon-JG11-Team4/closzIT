@@ -2,17 +2,19 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SharedHeader from '../components/SharedHeader';
 import CommentBottomSheet from '../components/CommentBottomSheet';
-import BottomNav from '../components/BottomNav';
 import ClothDetailModal from '../components/ClothDetailModal';
 import { useVtoStore } from '../stores/vtoStore';
+import { useUserStore } from '../stores/userStore';
+import { useTabStore, TAB_KEYS } from '../stores/tabStore';
 
-const FeedPage = () => {
+const FeedPage = ({ hideHeader = false }) => {
   const navigate = useNavigate();
   const {
     vtoLoadingPosts,
     vtoCompletedPosts,
     requestVto
   } = useVtoStore();
+  const { user: currentUser, fetchUser } = useUserStore();
 
 
   // 탭 상태 ('홈' 또는 '유저피드')
@@ -24,9 +26,6 @@ const FeedPage = () => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-
-  // 현재 로그인한 사용자 정보
-  const [currentUser, setCurrentUser] = useState(null);
 
   // 유저 자신의 게시물 (유저 피드용)
   const [userPosts, setUserPosts] = useState([]);
@@ -62,8 +61,8 @@ const FeedPage = () => {
   };
 
   useEffect(() => {
-    fetchCurrentUser();
-  }, []);
+    fetchUser();
+  }, [fetchUser]);
 
   useEffect(() => {
     fetchFeed();
@@ -95,25 +94,6 @@ const FeedPage = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const fetchCurrentUser = async () => {
-    try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
-
-      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-      const response = await fetch(`${backendUrl}/user/me`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setCurrentUser(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch current user:', error);
-    }
-  };
 
   const handleTryOn = (postId, event) => {
     if (vtoLoadingPosts.has(postId) || vtoCompletedPosts.has(postId)) return;
@@ -305,10 +285,10 @@ const FeedPage = () => {
   return (
     <div className="min-h-screen bg-cream dark:bg-[#1A1918]">
       {/* Shared Header - Fly Animation은 SharedHeader에서 통합 렌더링 */}
-      <SharedHeader />
+      {!hideHeader && <SharedHeader />}
 
       {/* 탭 네비게이션 */}
-      <div className="sticky top-16 z-10 bg-cream dark:bg-[#1A1918] border-b border-gold-light/20">
+      <div className={`sticky ${hideHeader ? 'top-0' : 'top-16'} z-10 bg-cream dark:bg-[#1A1918] border-b border-gold-light/20`}>
         <div className="max-w-2xl mx-auto flex">
           <button
             onClick={() => setActiveTab('홈')}
@@ -1032,14 +1012,6 @@ const FeedPage = () => {
         )}
       </div>
 
-      {/* Global Bottom Navigation */}
-      <BottomNav
-        floatingAction={{
-          icon: 'post_add',
-          onClick: () => navigate('/create-post')
-        }}
-      />
-
       {/* 댓글 바텀시트 */}
       <CommentBottomSheet
         isOpen={isCommentSheetOpen}
@@ -1087,15 +1059,16 @@ const FeedPage = () => {
           }}
           onClose={() => setSelectedClothDetail(null)}
           onTryOn={() => {
-            // FittingRoom으로 이동하면서 옷 정보 전달
+            // FittingRoom 탭으로 전환하면서 옷 정보 전달 (멀티탭)
+            const { setActiveTab, setPendingTryOnCloth } = useTabStore.getState();
             const clothToTryOn = {
               ...selectedClothDetail,
               image: selectedClothDetail.imageUrl,
             };
             setSelectedClothDetail(null);
-            navigate('/fitting-room', {
-              state: { tryOnCloth: clothToTryOn }
-            });
+            setPendingTryOnCloth(clothToTryOn);
+            setActiveTab(TAB_KEYS.FITTING_ROOM);
+            window.history.replaceState(null, '', '/fitting-room');
           }}
           showActions={true}
           onEdit={null}

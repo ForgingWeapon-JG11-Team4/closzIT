@@ -6,6 +6,7 @@ import {
     markAllVtoAsSeen,
     removeVtoResult as removeVtoResultFromStorage,
 } from '../utils/vtoStorage';
+import { useUserStore } from './userStore';
 
 const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
@@ -35,19 +36,11 @@ export const useVtoStore = create((set, get) => ({
     },
 
     fetchUserCredit: async () => {
-        try {
-            const token = getToken();
-            if (!token) return;
-            const response = await fetch(`${backendUrl}/user/me`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                set({ userCredit: data.credit || 0 });
-            }
-        } catch (error) {
-            console.error('Failed to fetch credit:', error);
-        }
+        // userStore에서 크레딧 가져오기
+        const { fetchUser, userCredit } = useUserStore.getState();
+        await fetchUser();
+        const { userCredit: updatedCredit } = useUserStore.getState();
+        set({ userCredit: updatedCredit });
     },
 
     refreshVtoData: () => {

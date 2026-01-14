@@ -1,8 +1,10 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTabStore, TAB_KEYS } from '../stores/tabStore';
 
 /**
  * 공유 하단 네비게이션 컴포넌트
+ * 멀티탭 방식 지원 - 메인 탭들은 탭 전환으로, 다른 페이지는 navigate로 이동
  * @param {Object} props
  * @param {Object} props.floatingAction - 플로팅 액션 버튼 설정 (선택적)
  * @param {string} props.floatingAction.icon - Material Symbols 아이콘 이름
@@ -11,14 +13,38 @@ import { useNavigate, useLocation } from 'react-router-dom';
 const BottomNav = ({ floatingAction }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { activeTab, setActiveTab } = useTabStore();
+
+  // 현재 멀티탭 컨테이너 안에 있는지 확인
+  const isInMultiTab = location.pathname === '/main' || 
+                       location.pathname === '/fitting-room' || 
+                       location.pathname === '/feed';
 
   // 현재 경로에 따라 활성 탭 결정
-  const isClosetActive = location.pathname.includes('/main');
-  const isFittingRoomActive = location.pathname.includes('/fitting-room');
-  const isSnsActive = location.pathname.includes('/feed') || 
-                       location.pathname.includes('/post') || 
-                       location.pathname.includes('/profile') ||
-                       location.pathname.includes('/create-post');
+  const isClosetActive = isInMultiTab 
+    ? activeTab === TAB_KEYS.MAIN 
+    : location.pathname.includes('/main');
+  const isFittingRoomActive = isInMultiTab 
+    ? activeTab === TAB_KEYS.FITTING_ROOM 
+    : location.pathname.includes('/fitting-room');
+  const isSnsActive = isInMultiTab 
+    ? activeTab === TAB_KEYS.FEED 
+    : (location.pathname.includes('/feed') || 
+       location.pathname.includes('/post') || 
+       location.pathname.includes('/profile') ||
+       location.pathname.includes('/create-post'));
+
+  // 탭 클릭 핸들러
+  const handleTabClick = (tabKey, path) => {
+    if (isInMultiTab) {
+      // 멀티탭 컨테이너 안에서는 탭만 전환 (URL도 업데이트)
+      setActiveTab(tabKey);
+      window.history.replaceState(null, '', path);
+    } else {
+      // 멀티탭 컨테이너 밖에서는 navigate로 이동
+      navigate(path);
+    }
+  };
 
   return (
     <>
@@ -36,7 +62,7 @@ const BottomNav = ({ floatingAction }) => {
       <div className="fixed bottom-0 left-0 right-0 h-16 glass-warm border-t border-gold-light/20 flex items-center justify-evenly gap-16 px-4 z-50 safe-area-pb">
         {/* 내 옷장 */}
         <button
-          onClick={() => navigate('/main')}
+          onClick={() => handleTabClick(TAB_KEYS.MAIN, '/main')}
           className={`flex flex-col items-center justify-center gap-0.5 min-w-[70px] transition-colors ${
             isClosetActive
               ? 'text-gold'
@@ -49,7 +75,7 @@ const BottomNav = ({ floatingAction }) => {
 
         {/* 피팅룸 */}
         <button
-          onClick={() => navigate('/fitting-room')}
+          onClick={() => handleTabClick(TAB_KEYS.FITTING_ROOM, '/fitting-room')}
           className={`flex flex-col items-center justify-center gap-0.5 min-w-[70px] transition-colors ${
             isFittingRoomActive
               ? 'text-gold'
@@ -62,7 +88,7 @@ const BottomNav = ({ floatingAction }) => {
 
         {/* SNS */}
         <button
-          onClick={() => navigate('/feed')}
+          onClick={() => handleTabClick(TAB_KEYS.FEED, '/feed')}
           className={`flex flex-col items-center justify-center gap-0.5 min-w-[70px] transition-colors ${
             isSnsActive
               ? 'text-gold'
@@ -78,4 +104,3 @@ const BottomNav = ({ floatingAction }) => {
 };
 
 export default BottomNav;
-
