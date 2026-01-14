@@ -7,6 +7,9 @@ const VtoResultModal = ({ isOpen, onClose, results, onRefresh, onDelete }) => {
     // 모달이 열릴 때 가장 최신 이미지(마지막 인덱스)가 보이도록 초기화
     const [currentIndex, setCurrentIndex] = useState(sortedResults.length > 0 ? sortedResults.length - 1 : 0);
 
+    // 확대된 이미지 상태
+    const [enlargedImage, setEnlargedImage] = useState(null);
+
     // results가 변경되면(새 이미지 추가 시) 최신 이미지로 이동
     useEffect(() => {
         if (isOpen && sortedResults.length > 0) {
@@ -154,23 +157,43 @@ const VtoResultModal = ({ isOpen, onClose, results, onRefresh, onDelete }) => {
                         {sortedResults.map((result, idx) => (
                             <div
                                 key={result.id}
-                                className="relative flex-shrink-0 rounded-2xl overflow-hidden shadow-2xl bg-charcoal"
-                                style={{ width: imageWidth, aspectRatio: '3/4' }}
+                                className="relative flex-shrink-0 rounded-2xl overflow-hidden shadow-2xl bg-charcoal/80 flex items-center justify-center"
+                                style={{ width: imageWidth, height: '70vh', maxHeight: 450 }}
                             >
                                 <img
                                     src={result.imageUrl}
                                     alt="Virtual Try-On Result"
-                                    className="w-full h-full object-cover pointer-events-none"
+                                    className="max-w-full max-h-full object-contain pointer-events-auto cursor-pointer"
                                     draggable={false}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (!isDragging && Math.abs(dragOffset) < 5) {
+                                            setEnlargedImage(result.imageUrl);
+                                        }
+                                    }}
                                 />
 
                                 {idx === currentIndex && (
-                                    <button
-                                        onClick={() => handleRemove(result.id)}
-                                        className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/50 hover:bg-red-500 flex items-center justify-center transition-colors"
-                                    >
-                                        <span className="material-symbols-rounded text-white text-lg">delete</span>
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleRemove(result.id);
+                                            }}
+                                            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/50 hover:bg-red-500 flex items-center justify-center transition-colors"
+                                        >
+                                            <span className="material-symbols-rounded text-white text-lg">delete</span>
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEnlargedImage(result.imageUrl);
+                                            }}
+                                            className="absolute top-3 left-3 w-9 h-9 rounded-full bg-black/50 hover:bg-gold flex items-center justify-center transition-colors"
+                                        >
+                                            <span className="material-symbols-rounded text-white text-lg">fullscreen</span>
+                                        </button>
+                                    </>
                                 )}
 
                                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
@@ -211,6 +234,46 @@ const VtoResultModal = ({ isOpen, onClose, results, onRefresh, onDelete }) => {
                     )}
                 </div>
             )}
+
+            {/* 이미지 확대 라이트박스 */}
+            {enlargedImage && (
+                <div
+                    className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center animate-fadeIn"
+                    onClick={() => setEnlargedImage(null)}
+                >
+                    <div
+                        className="relative animate-scaleIn flex flex-col items-center p-4"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* 닫기 버튼 */}
+                        <button
+                            onClick={() => setEnlargedImage(null)}
+                            className="absolute -top-2 -right-2 w-10 h-10 bg-white hover:bg-gray-100 rounded-full flex items-center justify-center shadow-lg transition-colors z-20"
+                        >
+                            <span className="material-symbols-rounded text-gray-700 text-2xl">close</span>
+                        </button>
+                        {/* 이미지 박스 */}
+                        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden p-2">
+                            <img
+                                src={enlargedImage}
+                                alt="Enlarged VTO Result"
+                                className="max-w-[80vw] max-h-[60vh] object-contain"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 애니메이션 스타일 */}
+            <style>{`
+                @keyframes scaleIn {
+                    from { opacity: 0; transform: scale(0.8); }
+                    to { opacity: 1; transform: scale(1); }
+                }
+                .animate-scaleIn {
+                    animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+                }
+            `}</style>
         </div>
     );
 };

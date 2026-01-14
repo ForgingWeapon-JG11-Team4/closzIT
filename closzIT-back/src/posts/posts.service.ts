@@ -36,6 +36,7 @@ export class PostsService {
                 category: true,
                 subCategory: true,
                 imageUrl: true,
+                flattenImageUrl: true,
                 tpos: true,
                 styleMoods: true,
                 seasons: true,
@@ -78,6 +79,9 @@ export class PostsService {
             clothing: {
               ...pc.clothing,
               imageUrl: await this.s3Service.convertToPresignedUrl(pc.clothing.imageUrl),
+              flattenImageUrl: pc.clothing.flattenImageUrl
+                ? await this.s3Service.convertToPresignedUrl(pc.clothing.flattenImageUrl)
+                : null,
             },
           }))
         );
@@ -126,6 +130,7 @@ export class PostsService {
                 category: true,
                 subCategory: true,
                 imageUrl: true,
+                flattenImageUrl: true,
                 tpos: true,
                 styleMoods: true,
                 seasons: true,
@@ -166,6 +171,9 @@ export class PostsService {
             clothing: {
               ...pc.clothing,
               imageUrl: await this.s3Service.convertToPresignedUrl(pc.clothing.imageUrl),
+              flattenImageUrl: pc.clothing.flattenImageUrl
+                ? await this.s3Service.convertToPresignedUrl(pc.clothing.flattenImageUrl)
+                : null,
             },
           }))
         );
@@ -209,6 +217,7 @@ export class PostsService {
                 category: true,
                 subCategory: true,
                 imageUrl: true,
+                flattenImageUrl: true,
                 tpos: true,
                 styleMoods: true,
                 seasons: true,
@@ -264,6 +273,9 @@ export class PostsService {
         clothing: {
           ...pc.clothing,
           imageUrl: await this.s3Service.convertToPresignedUrl(pc.clothing.imageUrl),
+          flattenImageUrl: pc.clothing.flattenImageUrl
+            ? await this.s3Service.convertToPresignedUrl(pc.clothing.flattenImageUrl)
+            : null,
         },
       }))
     );

@@ -217,6 +217,9 @@ export class FittingController {
         personImageUrl: user.fullBodyImage,
         clothingUrls,
         type: 'partial-try-on-by-ids',
+      }, {
+        removeOnComplete: { age: 300, count: 100 },
+        removeOnFail: { age: 3600 },
       });
 
       this.logger.log(`[VTO Queue] Job ${job.id} queued for user ${userId}`);
@@ -379,6 +382,9 @@ export class FittingController {
         postId: body.postId,
         clothingId: body.clothingId,
         clothingOwnerId, // 옷 주인 ID (캐시용)
+      }, {
+        removeOnComplete: { age: 300, count: 100 },
+        removeOnFail: { age: 3600 },
       });
 
       this.logger.log(`[VTO Queue] Job ${job.id} queued for user ${userId}`);
@@ -483,6 +489,9 @@ export class FittingController {
         clothingUrls,
         type: 'sns-full-try-on',
         postId: body.postId,
+      }, {
+        removeOnComplete: { age: 300, count: 100 }, // 5분간 또는 100개까지 보존
+        removeOnFail: { age: 3600 }, // 실패는 1시간 보존
       });
 
       this.logger.log(`[VTO Queue] Job ${job.id} queued for user ${userId}`);
