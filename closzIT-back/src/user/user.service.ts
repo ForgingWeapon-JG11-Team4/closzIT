@@ -42,6 +42,27 @@ export class UserService {
     };
   }
 
+  async findByIdPublic(id: string): Promise<any> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+
+    if (!user) {
+      return null;
+    }
+
+    // 이미지 URL을 Pre-signed URL로 변환
+    const profileImage = await this.s3Service.convertToPresignedUrl(user.profileImage);
+
+    // 공개 정보만 반환 (민감한 정보 제외)
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      profileImage,
+      followersCount: 0, // TODO: 팔로워 수 구현
+      followingCount: 0, // TODO: 팔로잉 수 구현
+    };
+  }
+
   async findByGoogleId(googleId: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { googleId } });
   }

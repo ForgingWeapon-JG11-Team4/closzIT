@@ -10,6 +10,7 @@ import {
   UseInterceptors,
   UploadedFile,
   Request,
+  Param,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UserService } from './user.service';
@@ -30,6 +31,12 @@ export class UserController {
   @Get('me')
   async getMe(@Request() req) {
     return this.userService.findById(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':userId')
+  async getUserById(@Request() req, @Param('userId') userId: string) {
+    return this.userService.findByIdPublic(userId);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import SharedHeader from '../components/SharedHeader';
 import CommentBottomSheet from '../components/CommentBottomSheet';
 import ClothDetailModal from '../components/ClothDetailModal';
@@ -9,6 +9,7 @@ import { useTabStore, TAB_KEYS } from '../stores/tabStore';
 
 const FeedPage = ({ hideHeader = false }) => {
   const navigate = useNavigate();
+  const { userId: targetUserId } = useParams(); // URL에서 userId 파라미터 받기
   const {
     vtoLoadingPosts,
     vtoCompletedPosts,
@@ -16,9 +17,11 @@ const FeedPage = ({ hideHeader = false }) => {
   } = useVtoStore();
   const { user: currentUser, fetchUser } = useUserStore();
 
+  // 다른 유저 피드를 보고 있는지 여부
+  const isViewingOtherUser = !!targetUserId;
 
   // 탭 상태 ('홈' 또는 '유저피드')
-  const [activeTab, setActiveTab] = useState('홈');
+  const [activeTab, setActiveTab] = useState(isViewingOtherUser ? '유저피드' : '홈');
 
   // 유저 피드 내 서브 탭 ('피드' 또는 '옷장')
   const [userFeedSubTab, setUserFeedSubTab] = useState('피드');
@@ -26,6 +29,9 @@ const FeedPage = ({ hideHeader = false }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+
+  // 보고 있는 유저 정보 (다른 유저 피드일 때)
+  const [targetUser, setTargetUser] = useState(null);
 
   // 유저 자신의 게시물 (유저 피드용)
   const [userPosts, setUserPosts] = useState([]);
@@ -62,27 +68,79 @@ const FeedPage = ({ hideHeader = false }) => {
 
   useEffect(() => {
     fetchUser();
-  }, [fetchUser]);
+
+    // URL 파라미터가 변경될 때마다 상태 초기화
+    if (targetUserId) {
+      setUserPosts([]); // 기존 게시물 초기화
+      setUserClothes({ // 기존 옷장 데이터 초기화
+        outerwear: [],
+        tops: [],
+        bottoms: [],
+        shoes: [],
+      });
+      setTargetUser(null); // 타겟 유저 정보 초기화
+      fetchTargetUser();
+      setActiveTab('유저피드'); // 다른 유저 피드로 이동하면 자동으로 유저피드 탭으로 전환
+    } else {
+      setActiveTab('홈'); // 자기 피드로 돌아가면 홈 탭으로
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetUserId, fetchUser]);
+
+  const fetchTargetUser = async () => {
+    if (!targetUserId) return;
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+      const response = await fetch(`${backendUrl}/user/${targetUserId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTargetUser(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch target user:', error);
+    }
+  };
 
   useEffect(() => {
-    fetchFeed();
-  }, [page]);
+    if (!isViewingOtherUser) {
+      fetchFeed();
+    } else {
+      // 다른 유저 피드를 볼 때는 홈 피드를 가져오지 않으므로 loading false
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, isViewingOtherUser]);
 
   // 탭 변경 시 유저 게시물 가져오기
   useEffect(() => {
-    if (activeTab === '유저피드' && currentUser && userPosts.length === 0) {
-      fetchUserPosts();
+    if (activeTab === '유저피드') {
+      if (isViewingOtherUser && targetUser && userPosts.length === 0) {
+        fetchUserPosts();
+      } else if (!isViewingOtherUser && currentUser && userPosts.length === 0) {
+        fetchUserPosts();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, currentUser]);
+  }, [activeTab, currentUser, targetUser, isViewingOtherUser]);
 
   // 옷장 탭 변경 시 옷 데이터 가져오기
   useEffect(() => {
-    if (userFeedSubTab === '옷장' && currentUser && Object.values(userClothes).every(arr => arr.length === 0)) {
-      fetchUserClothes();
+    if (userFeedSubTab === '옷장' && Object.values(userClothes).every(arr => arr.length === 0)) {
+      if (isViewingOtherUser && targetUser) {
+        fetchUserClothes();
+      } else if (!isViewingOtherUser && currentUser) {
+        fetchUserClothes();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userFeedSubTab, currentUser]);
+  }, [userFeedSubTab, currentUser, targetUser, isViewingOtherUser]);
 
   // 드롭다운 외부 클릭 감지
   useEffect(() => {
@@ -138,16 +196,17 @@ const FeedPage = ({ hideHeader = false }) => {
     }
   };
 
-  // 유저 자신의 게시물 가져오기
+  // 유저 게시물 가져오기 (본인 또는 다른 유저)
   const fetchUserPosts = async () => {
-    if (!currentUser) return;
+    const userId = isViewingOtherUser ? targetUserId : currentUser?.id;
+    if (!userId) return;
 
     setUserPostsLoading(true);
     try {
       const token = localStorage.getItem('accessToken');
       const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
-      const response = await fetch(`${backendUrl}/posts/user/${currentUser.id}`, {
+      const response = await fetch(`${backendUrl}/posts/user/${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -164,24 +223,50 @@ const FeedPage = ({ hideHeader = false }) => {
     }
   };
 
-  // 유저 옷장 데이터 가져오기
+  // 유저 옷장 데이터 가져오기 (본인 또는 다른 유저)
   const fetchUserClothes = async () => {
-    if (!currentUser) return;
+    const userId = isViewingOtherUser ? targetUserId : currentUser?.id;
+    if (!userId) {
+      console.log('[fetchUserClothes] userId가 없어서 리턴');
+      return;
+    }
+
+    console.log('[fetchUserClothes] 시작:', {
+      isViewingOtherUser,
+      targetUserId,
+      currentUserId: currentUser?.id,
+      userId
+    });
 
     setClothesLoading(true);
     try {
       const token = localStorage.getItem('accessToken');
       const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
-      const response = await fetch(`${backendUrl}/items/by-category`, {
+      // 다른 유저의 옷장을 보는 경우 공개 아이템만 가져오기
+      const endpoint = isViewingOtherUser
+        ? `${backendUrl}/items/by-category/${userId}`
+        : `${backendUrl}/items/by-category`;
+
+      console.log('[fetchUserClothes] API 호출:', endpoint);
+
+      const response = await fetch(endpoint, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
 
+      console.log('[fetchUserClothes] 응답 상태:', response.status, response.statusText);
+
       if (response.ok) {
         const data = await response.json();
-        console.log('받아온 옷장 데이터:', data);
+        console.log('[fetchUserClothes] 받아온 옷장 데이터:', data);
+        console.log('[fetchUserClothes] 각 카테고리 길이:', {
+          outerwear: data.outerwear?.length || 0,
+          tops: data.tops?.length || 0,
+          bottoms: data.bottoms?.length || 0,
+          shoes: data.shoes?.length || 0
+        });
 
         // FittingRoomPage와 동일한 방식으로 데이터 설정
         const processedData = {
@@ -190,13 +275,21 @@ const FeedPage = ({ hideHeader = false }) => {
           bottoms: (data.bottoms || []).map(item => ({ ...item, category: 'bottoms', isPublic: item.isPublic ?? true })),
           shoes: (data.shoes || []).map(item => ({ ...item, category: 'shoes', isPublic: item.isPublic ?? true })),
         };
-        console.log('처리된 옷장 데이터:', processedData);
+        console.log('[fetchUserClothes] 처리된 옷장 데이터:', processedData);
         setUserClothes(processedData);
+      } else {
+        const errorText = await response.text();
+        console.error('[fetchUserClothes] API 호출 실패:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText
+        });
       }
     } catch (error) {
-      console.error('Failed to fetch user clothes:', error);
+      console.error('[fetchUserClothes] 에러 발생:', error);
     } finally {
       setClothesLoading(false);
+      console.log('[fetchUserClothes] 완료');
     }
   };
 
@@ -287,45 +380,76 @@ const FeedPage = ({ hideHeader = false }) => {
       {/* Shared Header - Fly Animation은 SharedHeader에서 통합 렌더링 */}
       {!hideHeader && <SharedHeader />}
 
-      {/* 탭 네비게이션 */}
-      <div className={`sticky ${hideHeader ? 'top-0' : 'top-16'} z-10 bg-cream dark:bg-[#1A1918] border-b border-gold-light/20`}>
-        <div className="max-w-2xl mx-auto flex">
-          <button
-            onClick={() => setActiveTab('홈')}
-            className={`flex-1 py-4 flex flex-col items-center justify-center gap-1 transition-all relative ${activeTab === '홈'
-                ? 'text-gold dark:text-gold'
-                : 'text-charcoal-light dark:text-cream-dark'
-              }`}
-          >
-            <span
-              className="material-symbols-rounded text-3xl"
-              style={{ fontVariationSettings: activeTab === '홈' ? "'FILL' 1" : "'FILL' 0" }}
+      {/* 탭 네비게이션 또는 뒤로가기 헤더 */}
+      {isViewingOtherUser ? (
+        <div className={`sticky ${hideHeader ? 'top-0' : 'top-16'} z-10 bg-cream dark:bg-[#1A1918] border-b border-gold-light/20`}>
+          <div className="max-w-2xl mx-auto flex items-center gap-4 py-4 px-4">
+            <button
+              onClick={() => navigate('/feed')}
+              className="w-10 h-10 rounded-full hover:bg-gold-light/20 flex items-center justify-center transition-colors"
             >
-              home
-            </span>
-            {activeTab === '홈' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('유저피드')}
-            className={`flex-1 py-4 flex flex-col items-center justify-center gap-1 transition-all relative ${activeTab === '유저피드'
-                ? 'text-gold dark:text-gold'
-                : 'text-charcoal-light dark:text-cream-dark'
-              }`}
-          >
-            <span
-              className="material-symbols-rounded text-3xl"
-              style={{ fontVariationSettings: activeTab === '유저피드' ? "'FILL' 1" : "'FILL' 0" }}
-            >
-              account_circle
-            </span>
-            {activeTab === '유저피드' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />
-            )}
-          </button>
+              <span className="material-symbols-rounded text-charcoal dark:text-cream">arrow_back</span>
+            </button>
+            <div className="flex items-center gap-3 flex-1">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold to-gold-dark flex items-center justify-center text-warm-white font-bold text-sm overflow-hidden">
+                {targetUser?.profileImage ? (
+                  <img
+                    src={targetUser.profileImage}
+                    alt={`${targetUser.name || targetUser.email} 프로필`}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  targetUser?.name?.[0] || targetUser?.email?.[0]?.toUpperCase() || '?'
+                )}
+              </div>
+              <div>
+                <h2 className="font-bold text-charcoal dark:text-cream">
+                  {targetUser?.name || targetUser?.email || '로딩 중...'}
+                </h2>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className={`sticky ${hideHeader ? 'top-0' : 'top-16'} z-10 bg-cream dark:bg-[#1A1918] border-b border-gold-light/20`}>
+          <div className="max-w-2xl mx-auto flex">
+            <button
+              onClick={() => setActiveTab('홈')}
+              className={`flex-1 py-4 flex flex-col items-center justify-center gap-1 transition-all relative ${activeTab === '홈'
+                  ? 'text-gold dark:text-gold'
+                  : 'text-charcoal-light dark:text-cream-dark'
+                }`}
+            >
+              <span
+                className="material-symbols-rounded text-3xl"
+                style={{ fontVariationSettings: activeTab === '홈' ? "'FILL' 1" : "'FILL' 0" }}
+              >
+                home
+              </span>
+              {activeTab === '홈' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('유저피드')}
+              className={`flex-1 py-4 flex flex-col items-center justify-center gap-1 transition-all relative ${activeTab === '유저피드'
+                  ? 'text-gold dark:text-gold'
+                  : 'text-charcoal-light dark:text-cream-dark'
+                }`}
+            >
+              <span
+                className="material-symbols-rounded text-3xl"
+                style={{ fontVariationSettings: activeTab === '유저피드' ? "'FILL' 1" : "'FILL' 0" }}
+              >
+                account_circle
+              </span>
+              {activeTab === '유저피드' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Feed */}
       <div className="max-w-2xl mx-auto px-4 py-6 pb-28">
@@ -349,7 +473,10 @@ const FeedPage = ({ hideHeader = false }) => {
                   <div key={post.id} className="bg-warm-white dark:bg-charcoal rounded-2xl overflow-hidden shadow-soft border border-gold-light/20">
                     {/* Post Header */}
                     <div className="p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                      <div
+                        className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => navigate(`/feed/${post.user.id}`)}
+                      >
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold to-gold-dark flex items-center justify-center text-warm-white font-bold overflow-hidden">
                           {post.user.profileImage ? (
                             <img
@@ -552,26 +679,26 @@ const FeedPage = ({ hideHeader = false }) => {
         {activeTab === '유저피드' && (
           <>
             {/* 프로필 헤더 */}
-            {currentUser && (
+            {(isViewingOtherUser ? targetUser : currentUser) && (
               <div className="mb-8">
                 <div className="flex items-center gap-6 mb-6">
                   {/* 프로필 사진 */}
                   <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gold to-gold-dark flex items-center justify-center text-warm-white font-bold text-2xl overflow-hidden">
-                    {currentUser.profileImage ? (
+                    {(isViewingOtherUser ? targetUser : currentUser).profileImage ? (
                       <img
-                        src={currentUser.profileImage}
+                        src={(isViewingOtherUser ? targetUser : currentUser).profileImage}
                         alt="프로필 사진"
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      currentUser.name?.[0] || currentUser.email[0].toUpperCase()
+                      (isViewingOtherUser ? targetUser : currentUser).name?.[0] || (isViewingOtherUser ? targetUser : currentUser).email[0].toUpperCase()
                     )}
                   </div>
 
                   {/* 프로필 정보 */}
                   <div className="flex-1">
                     <h2 className="text-xl font-bold text-charcoal dark:text-cream mb-2">
-                      {currentUser.name || currentUser.email}
+                      {(isViewingOtherUser ? targetUser : currentUser).name || (isViewingOtherUser ? targetUser : currentUser).email}
                     </h2>
                     <div className="flex gap-6 text-sm">
                       <div>
@@ -580,13 +707,13 @@ const FeedPage = ({ hideHeader = false }) => {
                       </div>
                       <div>
                         <span className="font-semibold text-charcoal dark:text-cream">
-                          {currentUser.followersCount || 0}
+                          {(isViewingOtherUser ? targetUser : currentUser).followersCount || 0}
                         </span>
                         <span className="text-charcoal-light dark:text-cream-dark ml-1">팔로워</span>
                       </div>
                       <div>
                         <span className="font-semibold text-charcoal dark:text-cream">
-                          {currentUser.followingCount || 0}
+                          {(isViewingOtherUser ? targetUser : currentUser).followingCount || 0}
                         </span>
                         <span className="text-charcoal-light dark:text-cream-dark ml-1">팔로잉</span>
                       </div>
@@ -594,13 +721,15 @@ const FeedPage = ({ hideHeader = false }) => {
                   </div>
                 </div>
 
-                {/* 프로필 편집 버튼 */}
-                <button
-                  onClick={() => navigate('/mypage')}
-                  className="w-full py-2 bg-warm-white dark:bg-charcoal text-charcoal dark:text-cream rounded-lg font-semibold border border-gold-light/30 hover:bg-gold-light/10 transition-colors"
-                >
-                  프로필 편집
-                </button>
+                {/* 프로필 편집 버튼 - 본인 피드일 때만 표시 */}
+                {!isViewingOtherUser && (
+                  <button
+                    onClick={() => navigate('/mypage')}
+                    className="w-full py-2 bg-warm-white dark:bg-charcoal text-charcoal dark:text-cream rounded-lg font-semibold border border-gold-light/30 hover:bg-gold-light/10 transition-colors"
+                  >
+                    프로필 편집
+                  </button>
+                )}
               </div>
             )}
 
@@ -726,8 +855,9 @@ const FeedPage = ({ hideHeader = false }) => {
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                                   onClick={() => setSelectedClothDetail(item)}
                                 />
-                                {/* 공개/비공개 토글 버튼 */}
-                                <button
+                                {/* 공개/비공개 토글 버튼 - 본인 피드일 때만 표시 */}
+                                {!isViewingOtherUser && (
+                                  <button
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     console.log('공개/비공개 토글 클릭:', item.id, '현재 상태:', item.isPublic);
@@ -777,6 +907,7 @@ const FeedPage = ({ hideHeader = false }) => {
                                     {item.isPublic ? 'visibility' : 'visibility_off'}
                                   </span>
                                 </button>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -804,8 +935,9 @@ const FeedPage = ({ hideHeader = false }) => {
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                                   onClick={() => setSelectedClothDetail(item)}
                                 />
-                                {/* 공개/비공개 토글 버튼 */}
-                                <button
+                                {/* 공개/비공개 토글 버튼 - 본인 피드일 때만 표시 */}
+                                {!isViewingOtherUser && (
+                                  <button
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     try {
@@ -846,6 +978,7 @@ const FeedPage = ({ hideHeader = false }) => {
                                     {item.isPublic ? 'visibility' : 'visibility_off'}
                                   </span>
                                 </button>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -873,8 +1006,9 @@ const FeedPage = ({ hideHeader = false }) => {
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                                   onClick={() => setSelectedClothDetail(item)}
                                 />
-                                {/* 공개/비공개 토글 버튼 */}
-                                <button
+                                {/* 공개/비공개 토글 버튼 - 본인 피드일 때만 표시 */}
+                                {!isViewingOtherUser && (
+                                  <button
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     try {
@@ -915,6 +1049,7 @@ const FeedPage = ({ hideHeader = false }) => {
                                     {item.isPublic ? 'visibility' : 'visibility_off'}
                                   </span>
                                 </button>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -942,8 +1077,9 @@ const FeedPage = ({ hideHeader = false }) => {
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                                   onClick={() => setSelectedClothDetail(item)}
                                 />
-                                {/* 공개/비공개 토글 버튼 */}
-                                <button
+                                {/* 공개/비공개 토글 버튼 - 본인 피드일 때만 표시 */}
+                                {!isViewingOtherUser && (
+                                  <button
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     try {
@@ -984,6 +1120,7 @@ const FeedPage = ({ hideHeader = false }) => {
                                     {item.isPublic ? 'visibility' : 'visibility_off'}
                                   </span>
                                 </button>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -997,7 +1134,7 @@ const FeedPage = ({ hideHeader = false }) => {
                         <span className="material-symbols-rounded text-6xl text-gold-light dark:text-charcoal-light">checkroom</span>
                         <p className="mt-4 text-charcoal-light dark:text-cream-dark">옷장이 비어있습니다</p>
                         <button
-                          onClick={() => navigate('/wardrobe')}
+                          onClick={() => navigate('/register')}
                           className="mt-6 px-6 py-3 btn-premium rounded-full"
                         >
                           옷 추가하기

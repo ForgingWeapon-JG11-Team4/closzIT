@@ -22,6 +22,11 @@ export class ItemsController {
     return this.itemsService.getItemsGroupedByCategory(userId);
   }
 
+  @Get('by-category/:userId')
+  async getPublicItemsByCategory(@Param('userId') userId: string) {
+    return this.itemsService.getPublicItemsGroupedByCategory(userId);
+  }
+
   @Patch(':id')
   async updateItem(
     @Request() req,
