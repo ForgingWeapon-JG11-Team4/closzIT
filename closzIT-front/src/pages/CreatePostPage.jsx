@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import SharedHeader from '../components/SharedHeader';
+import { useTabStore, TAB_KEYS } from '../stores/tabStore';
+
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
@@ -20,7 +22,9 @@ const CreatePostPage = () => {
     shoes: [],
   });
   const [activeCategory, setActiveCategory] = useState('tops');
+  const { setShouldRefreshFeed, setActiveTab } = useTabStore();
   const [uploading, setUploading] = useState(false);
+
 
   // 의상 분석 관련 state
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -266,6 +270,8 @@ const CreatePostPage = () => {
         });
 
         if (response.ok) {
+          setShouldRefreshFeed(true);
+          setActiveTab(TAB_KEYS.FEED);
           navigate('/feed');
         } else {
           alert('게시물 수정에 실패했습니다');
@@ -287,6 +293,8 @@ const CreatePostPage = () => {
         });
 
         if (response.ok) {
+          setShouldRefreshFeed(true);
+          setActiveTab(TAB_KEYS.FEED);
           navigate('/feed');
         } else {
           alert('게시물 작성에 실패했습니다');

@@ -15,7 +15,11 @@ const FeedPage = ({ hideHeader = false }) => {
     requestVto
   } = useVtoStore();
   const { user: currentUser, fetchUser } = useUserStore();
-  const { activeTab: globalActiveTab } = useTabStore();
+  const { 
+    activeTab: globalActiveTab, 
+    shouldRefreshFeed, 
+    setShouldRefreshFeed 
+  } = useTabStore();
 
 
   // 탭 상태 ('홈' 또는 '유저피드')
@@ -71,7 +75,7 @@ const FeedPage = ({ hideHeader = false }) => {
 
   // Feed 탭으로 돌아올 때 데이터 새로고침 (게시물 작성 후 등)
   useEffect(() => {
-    if (globalActiveTab === TAB_KEYS.FEED) {
+    if (globalActiveTab === TAB_KEYS.FEED && shouldRefreshFeed) {
       // 피드 데이터 새로고침
       setPage(1);
       setLoading(true);
@@ -81,9 +85,12 @@ const FeedPage = ({ hideHeader = false }) => {
       if (activeTab === '유저피드' && currentUser) {
         fetchUserPosts();
       }
+
+      // 새로고침 플래그 초기화
+      setShouldRefreshFeed(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [globalActiveTab]);
+  }, [globalActiveTab, shouldRefreshFeed]);
 
   // 탭 변경 시 유저 게시물 가져오기
   useEffect(() => {
