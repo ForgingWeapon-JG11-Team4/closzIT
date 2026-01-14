@@ -692,7 +692,7 @@ const FeedPage = () => {
                         <img
                           src={post.imageUrl}
                           alt="Post"
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain"
                         />
                         {/* 호버 오버레이 */}
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
