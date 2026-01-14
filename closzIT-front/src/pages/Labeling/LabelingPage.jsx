@@ -153,11 +153,17 @@ const LabelingPage = () => {
   const { userId, userCredit, fetchUser } = useUserStore();
 
   // RegisterPage에서 전달받은 이미지 정보
-  const { imageUrl: initialImageUrl, imageFile: initialImageFile } = location.state || {};
+  const { imageUrl: initialImageUrl, imageFile: initialImageFile, images: batchImages } = location.state || {};
 
-  // 현재 사용 중인 이미지 (새 이미지 등록 가능)
-  const [currentImageUrl, setCurrentImageUrl] = useState(initialImageUrl);
-  const [currentImageFile, setCurrentImageFile] = useState(initialImageFile);
+  // 배치 이미지 처리 상태
+  const [currentBatchIndex, setCurrentBatchIndex] = useState(0);
+  const [totalBatchImages] = useState(batchImages?.length || 0);
+  const isBatchMode = totalBatchImages > 0;
+
+  // 현재 처리 중인 이미지 (배치 모드일 경우 배치에서 가져오기)
+  const currentBatchImage = isBatchMode ? batchImages[currentBatchIndex] : null;
+  const [currentImageUrl, setCurrentImageUrl] = useState(currentBatchImage?.imageUrl || initialImageUrl);
+  const [currentImageFile, setCurrentImageFile] = useState(currentBatchImage?.imageFile || initialImageFile);
 
   // 분석 상태
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -206,6 +212,15 @@ const LabelingPage = () => {
     }
     fetchUser();
   }, [fetchUser]);
+
+  // 배치 인덱스 변경 시 이미지 업데이트
+  useEffect(() => {
+    if (isBatchMode && batchImages && batchImages[currentBatchIndex]) {
+      const image = batchImages[currentBatchIndex];
+      setCurrentImageUrl(image.imageUrl);
+      setCurrentImageFile(image.imageFile);
+    }
+  }, [currentBatchIndex, isBatchMode, batchImages]);
 
   // 아이템 변경 시 폼 데이터 로드
   useEffect(() => {
@@ -649,7 +664,27 @@ const LabelingPage = () => {
       // 저장 후 사용자 정보(크레딧) 갱신
       await fetchUser(true);
 
-      setShowSuccessPopup(true);
+      // 배치 모드: 다음 이미지로 자동 전환 또는 완료
+      if (isBatchMode && currentBatchIndex < totalBatchImages - 1) {
+        // 다음 이미지로 이동
+        const nextIndex = currentBatchIndex + 1;
+        setCurrentBatchIndex(nextIndex);
+        const nextImage = batchImages[nextIndex];
+        setCurrentImageUrl(nextImage.imageUrl);
+        setCurrentImageFile(nextImage.imageFile);
+
+        // 분석 상태 초기화
+        setIsAnalyzed(false);
+        setAnalysisResults([]);
+        setItemFormData([]);
+        setSkippedItems([]);
+        setCurrentItemIndex(0);
+        setFlattenedImages({});
+        setSkippedFlattenImages([]);
+      } else {
+        // 배치 모드가 아니거나 마지막 이미지인 경우 성공 팝업 표시
+        setShowSuccessPopup(true);
+      }
 
     } catch (error) {
       console.error('[ERROR] Save error:', error);
@@ -887,7 +922,11 @@ const LabelingPage = () => {
       )}
 
       {/* Shared Header - VTO 결과 모달 포함 */}
-      <SharedHeader title="옷 정보 입력" showBackButton onBackClick={() => navigate('/register')} />
+      <SharedHeader
+        title={isBatchMode ? `옷 정보 입력 (${currentBatchIndex + 1}/${totalBatchImages})` : "옷 정보 입력"}
+        showBackButton
+        onBackClick={() => navigate('/register')}
+      />
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto px-6 pb-28">
