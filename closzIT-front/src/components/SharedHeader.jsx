@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useVto } from '../context/VtoContext';
+import { useVtoStore } from '../stores/vtoStore';
 import VtoResultModal from './VtoResultModal';
+import CreditConfirmModal from './CreditConfirmModal';
 
 const SharedHeader = ({
     title,
@@ -11,7 +12,8 @@ const SharedHeader = ({
 }) => {
     const navigate = useNavigate();
     const {
-        isAnyVtoLoading,
+        vtoLoadingPosts,
+        partialVtoLoadingSources,
         unseenCount,
         toastMessage,
         isVtoModalOpen,
@@ -20,8 +22,17 @@ const SharedHeader = ({
         closeVtoModal,
         vtoResults,
         refreshVtoData,
-        deleteVtoResult
-    } = useVto();
+        deleteVtoResult,
+        showCreditModal,
+        userCredit: storeCredit,
+        handleCreditConfirm,
+        handleCreditCancel,
+        isCreditLoading
+    } = useVtoStore();
+
+    const isAnyVtoLoading = vtoLoadingPosts.size > 0 || partialVtoLoadingSources.size > 0;
+
+
 
     const [userCredit, setUserCredit] = useState(0);
 
@@ -172,6 +183,16 @@ const SharedHeader = ({
                 results={vtoResults}
                 onRefresh={refreshVtoData}
                 onDelete={deleteVtoResult}
+            />
+
+            {/* Credit Confirm Modal */}
+            <CreditConfirmModal
+                isOpen={showCreditModal}
+                onClose={handleCreditCancel}
+                onConfirm={handleCreditConfirm}
+                currentCredit={storeCredit}
+                requiredCredit={3}
+                isLoading={isCreditLoading}
             />
         </>
     );

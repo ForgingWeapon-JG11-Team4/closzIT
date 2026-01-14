@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/static/css/main.c9b5fadd.css",
-    "main.js": "/static/js/main.2d2adf48.js",
+    "main.css": "/static/css/main.a068efc1.css",
+    "main.js": "/static/js/main.884ccad8.js",
     "static/js/453.ba6a45c6.chunk.js": "/static/js/453.ba6a45c6.chunk.js",
     "static/media/둥근형.png": "/static/media/둥근형.5e96e02076507cf4c528.png",
     "static/media/삼각형.png": "/static/media/삼각형.2614f72b1f88aa536d17.png",
@@ -11,12 +11,12 @@
     "static/media/잘모르겠어요.png": "/static/media/잘모르겠어요.751ec3432ced24f1cda6.png",
     "service-worker.js": "/service-worker.js",
     "index.html": "/index.html",
-    "main.c9b5fadd.css.map": "/static/css/main.c9b5fadd.css.map",
-    "main.2d2adf48.js.map": "/static/js/main.2d2adf48.js.map",
+    "main.a068efc1.css.map": "/static/css/main.a068efc1.css.map",
+    "main.884ccad8.js.map": "/static/js/main.884ccad8.js.map",
     "453.ba6a45c6.chunk.js.map": "/static/js/453.ba6a45c6.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.c9b5fadd.css",
-    "static/js/main.2d2adf48.js"
+    "static/css/main.a068efc1.css",
+    "static/js/main.884ccad8.js"
   ]
 }
