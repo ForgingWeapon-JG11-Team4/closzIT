@@ -5,7 +5,7 @@ import OutfitRecommender from './OutfitRecommender';
 import BottomNav from '../../components/BottomNav';
 import ClothDetailModal from '../../components/ClothDetailModal';
 import WardrobeStatus from './WardrobeStatus';
-import RecentFeeds from './RecentFeeds';
+
 import RecentlyAddedClothes from './RecentlyAddedClothes';
 import FittingResult from './FittingResult';
 import { GiTrousers, GiTShirt, GiMonclerJacket } from 'react-icons/gi';
@@ -566,8 +566,7 @@ const MainPage2 = () => {
               <WardrobeStatus userClothes={userClothes} />
             </div>
 
-            {/* Recent Feeds Section */}
-            <RecentFeeds />
+
 
 
             {/* 슬라이드 인 + 흔들흔들 애니메이션 */}
