@@ -180,7 +180,67 @@ export class ItemsService {
     return grouped;
   }
 
+  async getItemById(userId: string, itemId: string) {
+    // 해당 아이템이 사용자의 것인지 확인
+    const item = await this.prisma.clothing.findFirst({
+      where: { id: itemId, userId },
+      select: {
+        id: true,
+        imageUrl: true,
+        flattenImageUrl: true,
+        category: true,
+        subCategory: true,
+        colors: true,
+        patterns: true,
+        details: true,
+        styleMoods: true,
+        tpos: true,
+        seasons: true,
+        userRating: true,
+        note: true,
+        isPublic: true,
+        wearCount: true,
+        lastWorn: true,
+        createdAt: true,
+      },
+    });
+
+    if (!item) {
+      throw new Error('아이템을 찾을 수 없습니다.');
+    }
+
+    // 이미지 URL을 Pre-signed URL로 변환
+    const [imageUrl, flattenImageUrl] = await Promise.all([
+      this.s3Service.convertToPresignedUrl(item.imageUrl),
+      this.s3Service.convertToPresignedUrl(item.flattenImageUrl),
+    ]);
+
+    return {
+      id: item.id,
+      name: item.subCategory,
+      image: flattenImageUrl || imageUrl,
+      originalImage: imageUrl,
+      flattenImage: flattenImageUrl,
+      category: item.category,
+      subCategory: item.subCategory,
+      colors: item.colors,
+      patterns: item.patterns,
+      details: item.details,
+      styleMoods: item.styleMoods,
+      tpos: item.tpos,
+      seasons: item.seasons,
+      userRating: item.userRating,
+      note: item.note,
+      isPublic: item.isPublic,
+      wearCount: item.wearCount,
+      lastWorn: item.lastWorn,
+      createdAt: item.createdAt,
+    };
+  }
+
   async updateItem(userId: string, itemId: string, data: {
+    category?: any;
+    subCategory?: string;
     colors?: string[];
     patterns?: string[];
     details?: string[];
@@ -201,6 +261,8 @@ export class ItemsService {
     return this.prisma.clothing.update({
       where: { id: itemId },
       data: {
+        category: data.category,
+        subCategory: data.subCategory,
         colors: data.colors as any,
         patterns: data.patterns as any,
         details: data.details as any,

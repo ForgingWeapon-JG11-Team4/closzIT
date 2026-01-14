@@ -227,14 +227,14 @@ const FittingRoomPage = ({ hideHeader = false }) => {
 
   // 사용자 정보 및 전신 사진 가져오기
   const { userFullBodyImage: storeFullBodyImage, fetchUser } = useUserStore();
-  
+
   useEffect(() => {
     const loadUserImage = async () => {
       await fetchUser();
     };
     loadUserImage();
   }, [fetchUser]);
-  
+
   useEffect(() => {
     if (storeFullBodyImage) {
       setUserFullBodyImage(storeFullBodyImage);
@@ -617,7 +617,11 @@ const FittingRoomPage = ({ hideHeader = false }) => {
               setIsVtoLoading(false);
             }
           }}
-          onEdit={() => alert('수정 기능은 추후 업데이트 예정입니다.')}
+          onEdit={() => {
+            const itemId = selectedClothDetail.id;
+            setSelectedClothDetail(null);
+            navigate(`/item/edit/${itemId}`);
+          }}
           onDelete={async () => {
             if (window.confirm('정말 이 옷을 삭제하시겠습니까?')) {
               try {
