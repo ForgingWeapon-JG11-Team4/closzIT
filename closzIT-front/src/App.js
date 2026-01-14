@@ -15,6 +15,7 @@ import DirectFittingPage from './pages/Fitting/DirectFittingPage';
 import BatchTryOnPage from './pages/BatchTryOn/BatchTryOnPage';
 import CreditShopPage from './pages/Credit/CreditShopPage';
 
+import FeedPage from './pages/FeedPage';
 import CreatePostPage from './pages/CreatePostPage';
 import PostDetailPage from './pages/PostDetailPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
@@ -54,6 +55,7 @@ const AppContent = () => {
           <Route path="/fitting/direct" element={<DirectFittingPage />} />
           <Route path="/batch-tryon" element={<BatchTryOnPage />} />
 
+          <Route path="/feed/:userId" element={<FeedPage />} />
           <Route path="/create-post" element={<CreatePostPage />} />
           <Route path="/edit-post/:postId" element={<CreatePostPage />} />
           <Route path="/post/:postId" element={<PostDetailPage />} />
