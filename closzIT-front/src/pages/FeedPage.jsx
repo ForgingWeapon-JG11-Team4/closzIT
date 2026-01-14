@@ -311,11 +311,10 @@ const FeedPage = () => {
         <div className="max-w-2xl mx-auto flex">
           <button
             onClick={() => setActiveTab('홈')}
-            className={`flex-1 py-4 flex flex-col items-center justify-center gap-1 transition-all relative ${
-              activeTab === '홈'
+            className={`flex-1 py-4 flex flex-col items-center justify-center gap-1 transition-all relative ${activeTab === '홈'
                 ? 'text-gold dark:text-gold'
                 : 'text-charcoal-light dark:text-cream-dark'
-            }`}
+              }`}
           >
             <span
               className="material-symbols-rounded text-3xl"
@@ -329,11 +328,10 @@ const FeedPage = () => {
           </button>
           <button
             onClick={() => setActiveTab('유저피드')}
-            className={`flex-1 py-4 flex flex-col items-center justify-center gap-1 transition-all relative ${
-              activeTab === '유저피드'
+            className={`flex-1 py-4 flex flex-col items-center justify-center gap-1 transition-all relative ${activeTab === '유저피드'
                 ? 'text-gold dark:text-gold'
                 : 'text-charcoal-light dark:text-cream-dark'
-            }`}
+              }`}
           >
             <span
               className="material-symbols-rounded text-3xl"
@@ -366,191 +364,191 @@ const FeedPage = () => {
               </div>
             ) : (
               <div className="space-y-6">
-            {posts.map((post) => (
-              <div key={post.id} className="bg-warm-white dark:bg-charcoal rounded-2xl overflow-hidden shadow-soft border border-gold-light/20">
-                {/* Post Header */}
-                <div className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold to-gold-dark flex items-center justify-center text-warm-white font-bold overflow-hidden">
-                      {post.user.profileImage ? (
-                        <img
-                          src={post.user.profileImage}
-                          alt={`${post.user.name || post.user.email} 프로필`}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        post.user.name?.[0] || post.user.email[0].toUpperCase()
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-charcoal dark:text-cream">{post.user.name || post.user.email}</p>
-                      <p className="text-xs text-charcoal-light dark:text-cream-dark">
-                        {new Date(post.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="relative" ref={openMenuPostId === post.id ? menuRef : null}>
-                    <button
-                      onClick={() => toggleMenu(post.id)}
-                      className="w-8 h-8 rounded-full hover:bg-gold-light/20 flex items-center justify-center transition-colors"
-                    >
-                      <span className="material-symbols-rounded text-charcoal-light dark:text-cream-dark">more_vert</span>
-                    </button>
-
-                    {/* 드롭다운 메뉴 - 본인 글일 경우만 */}
-                    {openMenuPostId === post.id && currentUser && post.user.id === currentUser.id && (
-                      <div className="absolute right-0 top-10 w-32 bg-warm-white dark:bg-charcoal rounded-xl shadow-lg border border-gold-light/20 overflow-hidden z-20">
-                        <button
-                          onClick={() => handleEditPost(post.id)}
-                          className="w-full px-4 py-3 text-left text-sm text-charcoal dark:text-cream hover:bg-gold-light/10 flex items-center gap-2 transition-colors"
-                        >
-                          <span className="material-symbols-rounded text-lg">edit</span>
-                          수정
-                        </button>
-                        <button
-                          onClick={() => handleDeletePost(post.id)}
-                          className="w-full px-4 py-3 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors"
-                        >
-                          <span className="material-symbols-rounded text-lg">delete</span>
-                          삭제
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Post Image */}
-                <div
-                  className="relative w-full aspect-square bg-cream-dark dark:bg-charcoal-light cursor-pointer"
-                  onClick={() => navigate(`/post/${post.id}`)}
-                >
-                  <img
-                    src={post.imageUrl}
-                    alt="Post"
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-
-                {/* Post Actions */}
-                <div className="p-4">
-                  <div className="flex items-center gap-4 mb-3">
-                    <button
-                      onClick={() => handleLike(post.id)}
-                      className="flex items-center gap-1 group"
-                    >
-                      <span className={`material-symbols-rounded text-2xl transition-all ${post.isLiked
-                        ? 'text-red-500'
-                        : 'text-charcoal dark:text-cream group-hover:text-red-500'
-                        }`}
-                        style={{ fontVariationSettings: post.isLiked ? "'FILL' 1" : "'FILL' 0" }}
-                      >
-                        favorite
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => handleOpenComments(post.id)}
-                      className="flex items-center gap-1 group"
-                    >
-                      <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream group-hover:text-gold">
-                        chat_bubble_outline
-                      </span>
-                    </button>
-                    <button className="flex items-center gap-1 group ml-auto">
-                      <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream group-hover:text-gold">
-                        bookmark_border
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* Likes Count */}
-                  <p className="font-semibold text-sm text-charcoal dark:text-cream mb-2">
-                    좋아요 {post.likesCount}개
-                  </p>
-
-                  {/* Caption */}
-                  {post.caption && (
-                    <p className="text-charcoal dark:text-cream mb-2">
-                      <span className="font-semibold mr-2">{post.user.name || post.user.email}</span>
-                      {post.caption}
-                    </p>
-                  )}
-
-                  {/* Tagged Clothes */}
-                  {post.postClothes && post.postClothes.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-gold-light/20">
-                      <p className="text-xs text-charcoal-light dark:text-cream-dark mb-2">태그된 의상:</p>
-                      <div className="flex gap-2 overflow-x-auto pb-2">
-                        {post.postClothes.map((pc) => (
-                          <div
-                            key={pc.id}
-                            className="group/cloth-card relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-cream-dark dark:bg-charcoal-light border border-gold-light/30 hover:border-gold transition-all"
-                          >
+                {posts.map((post) => (
+                  <div key={post.id} className="bg-warm-white dark:bg-charcoal rounded-2xl overflow-hidden shadow-soft border border-gold-light/20">
+                    {/* Post Header */}
+                    <div className="p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold to-gold-dark flex items-center justify-center text-warm-white font-bold overflow-hidden">
+                          {post.user.profileImage ? (
                             <img
-                              src={pc.clothing.imageUrl}
-                              alt={pc.clothing.subCategory}
+                              src={post.user.profileImage}
+                              alt={`${post.user.name || post.user.email} 프로필`}
                               className="w-full h-full object-cover"
                             />
+                          ) : (
+                            post.user.name?.[0] || post.user.email[0].toUpperCase()
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-charcoal dark:text-cream">{post.user.name || post.user.email}</p>
+                          <p className="text-xs text-charcoal-light dark:text-cream-dark">
+                            {new Date(post.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="relative" ref={openMenuPostId === post.id ? menuRef : null}>
+                        <button
+                          onClick={() => toggleMenu(post.id)}
+                          className="w-8 h-8 rounded-full hover:bg-gold-light/20 flex items-center justify-center transition-colors"
+                        >
+                          <span className="material-symbols-rounded text-charcoal-light dark:text-cream-dark">more_vert</span>
+                        </button>
 
+                        {/* 드롭다운 메뉴 - 본인 글일 경우만 */}
+                        {openMenuPostId === post.id && currentUser && post.user.id === currentUser.id && (
+                          <div className="absolute right-0 top-10 w-32 bg-warm-white dark:bg-charcoal rounded-xl shadow-lg border border-gold-light/20 overflow-hidden z-20">
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedClothDetail({ ...pc.clothing, postId: post.id });
-                              }}
-                              className="absolute bottom-1 right-1 w-6 h-6 bg-white/90 dark:bg-charcoal/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover/cloth-card:opacity-100 transition-all duration-200 hover:scale-110 hover:bg-white dark:hover:bg-charcoal"
+                              onClick={() => handleEditPost(post.id)}
+                              className="w-full px-4 py-3 text-left text-sm text-charcoal dark:text-cream hover:bg-gold-light/10 flex items-center gap-2 transition-colors"
                             >
-                              <span className="material-symbols-rounded text-gold text-xs">info</span>
+                              <span className="material-symbols-rounded text-lg">edit</span>
+                              수정
+                            </button>
+                            <button
+                              onClick={() => handleDeletePost(post.id)}
+                              className="w-full px-4 py-3 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors"
+                            >
+                              <span className="material-symbols-rounded text-lg">delete</span>
+                              삭제
                             </button>
                           </div>
+                        )}
+                      </div>
+                    </div>
 
-                        ))}
+                    {/* Post Image */}
+                    <div
+                      className="relative w-full aspect-square bg-cream-dark dark:bg-charcoal-light cursor-pointer"
+                      onClick={() => navigate(`/post/${post.id}`)}
+                    >
+                      <img
+                        src={post.imageUrl}
+                        alt="Post"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
 
+                    {/* Post Actions */}
+                    <div className="p-4">
+                      <div className="flex items-center gap-4 mb-3">
+                        <button
+                          onClick={() => handleLike(post.id)}
+                          className="flex items-center gap-1 group"
+                        >
+                          <span className={`material-symbols-rounded text-2xl transition-all ${post.isLiked
+                            ? 'text-red-500'
+                            : 'text-charcoal dark:text-cream group-hover:text-red-500'
+                            }`}
+                            style={{ fontVariationSettings: post.isLiked ? "'FILL' 1" : "'FILL' 0" }}
+                          >
+                            favorite
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => handleOpenComments(post.id)}
+                          className="flex items-center gap-1 group"
+                        >
+                          <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream group-hover:text-gold">
+                            chat_bubble_outline
+                          </span>
+                        </button>
+                        <button className="flex items-center gap-1 group ml-auto">
+                          <span className="material-symbols-rounded text-2xl text-charcoal dark:text-cream group-hover:text-gold">
+                            bookmark_border
+                          </span>
+                        </button>
                       </div>
 
-                      {/* 입어보기 버튼 */}
-                      < button
-                        onClick={(e) => handleTryOn(post.id, e)}
-                        disabled={vtoLoadingPosts.has(post.id) || vtoCompletedPosts.has(post.id)}
-                        className={`mt-2 w-full py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 transition-all ${vtoCompletedPosts.has(post.id)
-                          ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                          : vtoLoadingPosts.has(post.id)
-                            ? 'bg-gold-light/50 text-charcoal cursor-wait'
-                            : 'btn-premium hover:scale-[1.02]'
-                          }`}
-                      >
-                        {vtoLoadingPosts.has(post.id) ? (
-                          <>
-                            <span className="material-symbols-rounded text-base animate-spin">progress_activity</span>
-                            생성 중...
-                          </>
-                        ) : vtoCompletedPosts.has(post.id) ? (
-                          <>
-                            <span className="material-symbols-rounded text-base">check_circle</span>
-                            생성 완료
-                          </>
-                        ) : (
-                          <>
-                            <span className="material-symbols-rounded text-base">checkroom</span>
-                            전부 입어보기
-                          </>
-                        )}
-                      </button>
+                      {/* Likes Count */}
+                      <p className="font-semibold text-sm text-charcoal dark:text-cream mb-2">
+                        좋아요 {post.likesCount}개
+                      </p>
+
+                      {/* Caption */}
+                      {post.caption && (
+                        <p className="text-charcoal dark:text-cream mb-2">
+                          <span className="font-semibold mr-2">{post.user.name || post.user.email}</span>
+                          {post.caption}
+                        </p>
+                      )}
+
+                      {/* Tagged Clothes */}
+                      {post.postClothes && post.postClothes.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gold-light/20">
+                          <p className="text-xs text-charcoal-light dark:text-cream-dark mb-2">태그된 의상:</p>
+                          <div className="flex gap-2 overflow-x-auto pb-2">
+                            {post.postClothes.map((pc) => (
+                              <div
+                                key={pc.id}
+                                className="group/cloth-card relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-cream-dark dark:bg-charcoal-light border border-gold-light/30 hover:border-gold transition-all"
+                              >
+                                <img
+                                  src={pc.clothing.flattenImageUrl || pc.clothing.imageUrl}
+                                  alt={pc.clothing.subCategory}
+                                  className="w-full h-full object-cover"
+                                />
+
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedClothDetail({ ...pc.clothing, postId: post.id });
+                                  }}
+                                  className="absolute bottom-1 right-1 w-6 h-6 bg-white/90 dark:bg-charcoal/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover/cloth-card:opacity-100 transition-all duration-200 hover:scale-110 hover:bg-white dark:hover:bg-charcoal"
+                                >
+                                  <span className="material-symbols-rounded text-gold text-xs">info</span>
+                                </button>
+                              </div>
+
+                            ))}
+
+                          </div>
+
+                          {/* 입어보기 버튼 */}
+                          < button
+                            onClick={(e) => handleTryOn(post.id, e)}
+                            disabled={vtoLoadingPosts.has(post.id) || vtoCompletedPosts.has(post.id)}
+                            className={`mt-2 w-full py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 transition-all ${vtoCompletedPosts.has(post.id)
+                              ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                              : vtoLoadingPosts.has(post.id)
+                                ? 'bg-gold-light/50 text-charcoal cursor-wait'
+                                : 'btn-premium hover:scale-[1.02]'
+                              }`}
+                          >
+                            {vtoLoadingPosts.has(post.id) ? (
+                              <>
+                                <span className="material-symbols-rounded text-base animate-spin">progress_activity</span>
+                                생성 중...
+                              </>
+                            ) : vtoCompletedPosts.has(post.id) ? (
+                              <>
+                                <span className="material-symbols-rounded text-base">check_circle</span>
+                                생성 완료
+                              </>
+                            ) : (
+                              <>
+                                <span className="material-symbols-rounded text-base">checkroom</span>
+                                전부 입어보기
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* View Comments */}
+                      {post.commentsCount > 0 && (
+                        <button
+                          onClick={() => handleOpenComments(post.id)}
+                          className="text-sm text-charcoal-light dark:text-cream-dark hover:text-gold mt-2"
+                        >
+                          댓글 {post.commentsCount}개 모두 보기
+                        </button>
+                      )}
+
+
                     </div>
-                  )}
-
-                  {/* View Comments */}
-                  {post.commentsCount > 0 && (
-                    <button
-                      onClick={() => handleOpenComments(post.id)}
-                      className="text-sm text-charcoal-light dark:text-cream-dark hover:text-gold mt-2"
-                    >
-                      댓글 {post.commentsCount}개 모두 보기
-                    </button>
-                  )}
-
-
-                </div>
-              </div>
-            ))}
+                  </div>
+                ))}
               </div>
             )}
 
@@ -630,11 +628,10 @@ const FeedPage = () => {
               <div className="flex">
                 <button
                   onClick={() => setUserFeedSubTab('피드')}
-                  className={`flex-1 py-4 flex flex-col items-center justify-center gap-1 transition-all relative ${
-                    userFeedSubTab === '피드'
+                  className={`flex-1 py-4 flex flex-col items-center justify-center gap-1 transition-all relative ${userFeedSubTab === '피드'
                       ? 'text-gold dark:text-gold'
                       : 'text-charcoal-light dark:text-cream-dark'
-                  }`}
+                    }`}
                 >
                   <span
                     className="material-symbols-rounded text-2xl"
@@ -648,11 +645,10 @@ const FeedPage = () => {
                 </button>
                 <button
                   onClick={() => setUserFeedSubTab('옷장')}
-                  className={`flex-1 py-4 flex flex-col items-center justify-center gap-1 transition-all relative ${
-                    userFeedSubTab === '옷장'
+                  className={`flex-1 py-4 flex flex-col items-center justify-center gap-1 transition-all relative ${userFeedSubTab === '옷장'
                       ? 'text-gold dark:text-gold'
                       : 'text-charcoal-light dark:text-cream-dark'
-                  }`}
+                    }`}
                 >
                   <span
                     className="material-symbols-rounded text-2xl"
@@ -787,16 +783,14 @@ const FeedPage = () => {
                                       console.error('Failed to toggle visibility:', error);
                                     }
                                   }}
-                                  className={`absolute top-2 right-2 w-7 h-7 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 z-10 ${
-                                    item.isPublic
+                                  className={`absolute top-2 right-2 w-7 h-7 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 z-10 ${item.isPublic
                                       ? 'bg-gold dark:bg-gold'
                                       : 'bg-gray-400/80 dark:bg-gray-600/80'
-                                  }`}
+                                    }`}
                                 >
                                   <span
-                                    className={`material-symbols-rounded text-sm ${
-                                      item.isPublic ? 'text-white' : 'text-gray-700 dark:text-gray-300'
-                                    }`}
+                                    className={`material-symbols-rounded text-sm ${item.isPublic ? 'text-white' : 'text-gray-700 dark:text-gray-300'
+                                      }`}
                                     style={{ fontVariationSettings: item.isPublic ? "'FILL' 1" : "'FILL' 0" }}
                                   >
                                     {item.isPublic ? 'visibility' : 'visibility_off'}
@@ -858,16 +852,14 @@ const FeedPage = () => {
                                       console.error('Failed to toggle visibility:', error);
                                     }
                                   }}
-                                  className={`absolute top-2 right-2 w-7 h-7 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 z-10 ${
-                                    item.isPublic
+                                  className={`absolute top-2 right-2 w-7 h-7 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 z-10 ${item.isPublic
                                       ? 'bg-gold dark:bg-gold'
                                       : 'bg-gray-400/80 dark:bg-gray-600/80'
-                                  }`}
+                                    }`}
                                 >
                                   <span
-                                    className={`material-symbols-rounded text-sm ${
-                                      item.isPublic ? 'text-white' : 'text-gray-700 dark:text-gray-300'
-                                    }`}
+                                    className={`material-symbols-rounded text-sm ${item.isPublic ? 'text-white' : 'text-gray-700 dark:text-gray-300'
+                                      }`}
                                     style={{ fontVariationSettings: item.isPublic ? "'FILL' 1" : "'FILL' 0" }}
                                   >
                                     {item.isPublic ? 'visibility' : 'visibility_off'}
@@ -929,16 +921,14 @@ const FeedPage = () => {
                                       console.error('Failed to toggle visibility:', error);
                                     }
                                   }}
-                                  className={`absolute top-2 right-2 w-7 h-7 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 z-10 ${
-                                    item.isPublic
+                                  className={`absolute top-2 right-2 w-7 h-7 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 z-10 ${item.isPublic
                                       ? 'bg-gold dark:bg-gold'
                                       : 'bg-gray-400/80 dark:bg-gray-600/80'
-                                  }`}
+                                    }`}
                                 >
                                   <span
-                                    className={`material-symbols-rounded text-sm ${
-                                      item.isPublic ? 'text-white' : 'text-gray-700 dark:text-gray-300'
-                                    }`}
+                                    className={`material-symbols-rounded text-sm ${item.isPublic ? 'text-white' : 'text-gray-700 dark:text-gray-300'
+                                      }`}
                                     style={{ fontVariationSettings: item.isPublic ? "'FILL' 1" : "'FILL' 0" }}
                                   >
                                     {item.isPublic ? 'visibility' : 'visibility_off'}
@@ -1000,16 +990,14 @@ const FeedPage = () => {
                                       console.error('Failed to toggle visibility:', error);
                                     }
                                   }}
-                                  className={`absolute top-2 right-2 w-7 h-7 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 z-10 ${
-                                    item.isPublic
+                                  className={`absolute top-2 right-2 w-7 h-7 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 z-10 ${item.isPublic
                                       ? 'bg-gold dark:bg-gold'
                                       : 'bg-gray-400/80 dark:bg-gray-600/80'
-                                  }`}
+                                    }`}
                                 >
                                   <span
-                                    className={`material-symbols-rounded text-sm ${
-                                      item.isPublic ? 'text-white' : 'text-gray-700 dark:text-gray-300'
-                                    }`}
+                                    className={`material-symbols-rounded text-sm ${item.isPublic ? 'text-white' : 'text-gray-700 dark:text-gray-300'
+                                      }`}
                                     style={{ fontVariationSettings: item.isPublic ? "'FILL' 1" : "'FILL' 0" }}
                                   >
                                     {item.isPublic ? 'visibility' : 'visibility_off'}
