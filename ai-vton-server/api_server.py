@@ -59,6 +59,9 @@ import boto3
 from botocore.exceptions import ClientError
 import asyncio
 
+# 2단계 캐시 매니저 (Production-Ready V2)
+from cache_manager import TwoLevelCacheV2
+
 # .env 파일 로드
 try:
     from dotenv import load_dotenv
@@ -104,14 +107,14 @@ request_queue_size = 0
 # GPU 최적화 플래그
 GPU_OPTIMIZATIONS_ENABLED = False
 
-# 🚀 메모리 캐시 (S3 다운로드 제거 - test.py처럼 빠르게!)
-memory_cache = {
-    "human_upper": {},  # user_id -> {human_img, mask, mask_gray, pose_tensor} for upper_body
-    "human_lower": {},  # user_id -> {human_img, mask, mask_gray, pose_tensor} for lower_body
-    "human_dresses": {},
-    "garment": {},  # clothing_id -> {garm_img, garm_tensor, category}
-    "text": {},  # clothing_id -> {prompt_embeds, ..., category}
-}
+# 🚀 Production 2단계 캐시 매니저 초기화 (L1: Memory LRU, L2: SSD)
+cache_manager = TwoLevelCacheV2(
+    ssd_root="/opt/dlami/nvme/vton-cache",
+    l1_max_users=10,  # 메모리에 최대 10명의 사용자
+    l1_max_garments=100,  # 메모리에 최대 100개의 옷
+    ttl_hours=24,  # 24시간 후 만료 (Adaptive TTL)
+    max_disk_usage_gb=50.0,  # L2 최대 50GB
+)
 
 # CORS 설정
 app.add_middleware(
@@ -628,15 +631,18 @@ def root():
 @app.get("/health")
 def health_check():
     """서버 상태 확인"""
+    stats = cache_manager.get_stats()
     return {
         "status": "healthy",
         "models_loaded": True,
-        "caching": "Memory + S3 (Upper/Lower separated)",
-        "cached_humans_upper": len(memory_cache["human_upper"]),
-        "cached_humans_lower": len(memory_cache["human_lower"]),
-        "cached_humans_dresses": len(memory_cache["human_dresses"]),
-        "cached_garments": len(memory_cache["garment"]),
-        "cached_texts": len(memory_cache["text"]),
+        "caching": "Production 2-Level (L1: Memory LRU + Adaptive TTL, L2: SSD)",
+        "cache_stats": stats,
+        "features": [
+            "Async Lock (동시성 제어)",
+            "Cache Stampede Prevention",
+            "Adaptive TTL (사용 빈도 기반)",
+            "Auto Disk Management",
+        ],
     }
 
 
@@ -803,40 +809,36 @@ async def generate_tryon(request: VtonGenerateRequestV2):
             clothing_id = request.clothing_id
             category = request.category  # "upper_body" or "lower_body"
 
-            # 🚀 메모리 캐시 확인
+            # 🚀 Production 2단계 캐시 조회 (L1 → L2 → S3, 동시성 안전)
             cache_data = {}
             download_start = time.time()
 
-            # Human 캐시 확인 (category에 따라 upper 또는 lower)
-            cache_key = "human_upper"
-            if category == "lower_body":
-                cache_key = "human_lower"
-            if category == "dresses":
-                cache_key = "human_dresses"
-
-            if user_id in memory_cache[cache_key]:
-                logger.info(f"✅ Human {category} cache HIT for user {user_id}")
-                cache_data.update(memory_cache[cache_key][user_id])
+            # Human 캐시 조회 (async, Lock 제어)
+            human_data = await cache_manager.get_human_cache(user_id, category)
+            if human_data:
+                cache_data.update(human_data)
                 human_cached = True
             else:
                 human_cached = False
-                logger.info(f"❌ Human {category} cache MISS for user {user_id}")
+                cache_manager.stats["l3_hits"] += 1
 
-            # Garment 캐시 확인
-            if clothing_id in memory_cache["garment"]:
-                logger.info(f"✅ Garment cache HIT for clothing {clothing_id}")
-                cache_data.update(memory_cache["garment"][clothing_id])
+            # Garment 캐시 조회 (async, Cache Stampede 방지)
+            garment_data = await cache_manager.get_garment_cache(clothing_id)
+            if garment_data:
+                cache_data.update(garment_data)
                 garment_cached = True
             else:
                 garment_cached = False
+                cache_manager.stats["l3_hits"] += 1
 
-            # Text 캐시 확인
-            if clothing_id in memory_cache["text"]:
-                logger.info(f"✅ Text cache HIT for clothing {clothing_id}")
-                cache_data.update(memory_cache["text"][clothing_id])
+            # Text 캐시 조회 (async)
+            text_data = await cache_manager.get_text_cache(clothing_id)
+            if text_data:
+                cache_data.update(text_data)
                 text_cached = True
             else:
                 text_cached = False
+                cache_manager.stats["l3_hits"] += 1
 
             # S3에서 누락된 데이터만 다운로드
             if not (human_cached and garment_cached and text_cached):
@@ -846,7 +848,7 @@ async def generate_tryon(request: VtonGenerateRequestV2):
                 with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
                     futures = {}
 
-                    # Human 데이터 다운로드 (캐시 미스 시) - category에 따라 upper/lower 선택
+                    # Human 데이터 다운로드 (캐시 미스 시)
                     if not human_cached:
                         category_path = "upper"
                         if category == "lower_body":
@@ -930,29 +932,25 @@ async def generate_tryon(request: VtonGenerateRequestV2):
                     }
                     cache_data.update(downloaded_data)
 
-                    # 메모리 캐시에 저장 (category별로 분리)
+                    # 2단계 캐시에 저장 (L1 + L2)
                     if not human_cached:
-                        memory_cache[cache_key][user_id] = {
+                        human_cache_data = {
                             "human_img": downloaded_data["human_img"],
                             "mask": downloaded_data["mask"],
                             "mask_gray": downloaded_data["mask_gray"],
                             "pose_tensor": downloaded_data["pose_tensor"],
                         }
-                        logger.info(
-                            f"💾 Human {category} cache saved for user {user_id}"
-                        )
+                        cache_manager.put_human_cache(user_id, human_cache_data, category)
 
                     if not garment_cached:
-                        memory_cache["garment"][clothing_id] = {
+                        garment_cache_data = {
                             "garm_img": downloaded_data["garm_img"],
                             "garm_tensor": downloaded_data["garm_tensor"],
                         }
-                        logger.info(
-                            f"💾 Garment cache saved for clothing {clothing_id}"
-                        )
+                        cache_manager.put_garment_cache(clothing_id, garment_cache_data)
 
                     if not text_cached:
-                        memory_cache["text"][clothing_id] = {
+                        text_cache_data = {
                             "prompt_embeds": downloaded_data["prompt_embeds"],
                             "negative_prompt_embeds": downloaded_data[
                                 "negative_prompt_embeds"
@@ -965,10 +963,10 @@ async def generate_tryon(request: VtonGenerateRequestV2):
                             ],
                             "prompt_embeds_c": downloaded_data["prompt_embeds_c"],
                         }
-                        logger.info(f"💾 Text cache saved for clothing {clothing_id}")
+                        cache_manager.put_text_cache(clothing_id, text_cache_data)
 
             download_elapsed = time.time() - download_start
-            logger.info(f"✅ S3 download completed in {download_elapsed:.2f}s")
+            logger.info(f"✅ Cache load completed in {download_elapsed:.2f}s")
 
             # Diffusion 생성
             result_img, diffusion_elapsed = generate_tryon_internal(
@@ -1312,72 +1310,46 @@ async def warmup_user_cache(request: dict):
 
 @app.delete("/cache/human/{user_id}")
 def clear_human_cache(user_id: str):
-    """특정 사용자의 human 캐시 삭제 (upper & lower)"""
-    cleared = False
-
-    # upper_body 캐시 삭제
-    if "human_upper" in memory_cache and user_id in memory_cache["human_upper"]:
-        del memory_cache["human_upper"][user_id]
-        logger.info(f"✅ Cleared human_upper cache for {user_id}")
-        cleared = True
-
-    # lower_body 캐시 삭제
-    if "human_lower" in memory_cache and user_id in memory_cache["human_lower"]:
-        del memory_cache["human_lower"][user_id]
-        logger.info(f"✅ Cleared human_lower cache for {user_id}")
-        cleared = True
-
-    if "human_dresses" in memory_cache and user_id in memory_cache["human_dresses"]:
-        del memory_cache["human_dresses"][user_id]
-        logger.info(f"✅ Cleared legacy human_dresses cache for {user_id}")
-        cleared = True
-
-    # 구버전 캐시도 확인 (있다면 삭제)
-    if "human" in memory_cache and user_id in memory_cache["human"]:
-        del memory_cache["human"][user_id]
-        logger.info(f"✅ Cleared legacy human cache for {user_id}")
-        cleared = True
-
-    if cleared:
-        return {
-            "success": True,
-            "message": f"Human cache (upper & lower & dresses) cleared for {user_id}",
-        }
-    return {"success": False, "message": "Cache not found"}
+    """특정 사용자의 human 캐시 삭제 (L1 + L2)"""
+    cache_manager.clear_user_cache(user_id)
+    return {
+        "success": True,
+        "message": f"Human cache (L1 + L2) cleared for {user_id}",
+    }
 
 
 @app.delete("/cache/garment/{clothing_id}")
 def clear_garment_cache(clothing_id: str):
-    """특정 옷의 garment 캐시 삭제"""
-    if clothing_id in memory_cache["garment"]:
-        del memory_cache["garment"][clothing_id]
-    if clothing_id in memory_cache["text"]:
-        del memory_cache["text"][clothing_id]
+    """특정 옷의 garment 캐시 삭제 (L1 + L2)"""
+    cache_manager.clear_garment_cache(clothing_id)
     return {
         "success": True,
-        "message": f"Garment & text cache cleared for {clothing_id}",
+        "message": f"Garment & text cache (L1 + L2) cleared for {clothing_id}",
     }
 
 
 @app.delete("/cache/all")
 def clear_all_cache():
-    """모든 캐시 삭제"""
-    memory_cache["human_upper"].clear()
-    memory_cache["human_lower"].clear()
-    memory_cache["human_dresses"].clear()
-    memory_cache["garment"].clear()
-    memory_cache["text"].clear()
-    # 구버전 캐시도 삭제
-    if "human" in memory_cache:
-        memory_cache["human"].clear()
+    """모든 캐시 삭제 (L1 + L2)"""
+    # L1 삭제
+    cache_manager.l1_human_upper.clear()
+    cache_manager.l1_human_lower.clear()
+    cache_manager.l1_human_dresses.clear()
+    cache_manager.l1_garment.clear()
+    cache_manager.l1_text.clear()
+
+    # L2 삭제
+    import shutil
+    if cache_manager.ssd_root.exists():
+        shutil.rmtree(cache_manager.ssd_root)
+        cache_manager.ssd_root.mkdir(parents=True, exist_ok=True)
+
+    logger.info("🗑️  All cache (L1 + L2) cleared")
+
     return {
         "success": True,
-        "message": "All cache cleared (upper, lower, garment, text)",
-        "cached_humans_upper": 0,
-        "cached_humans_lower": 0,
-        "cached_humans_dresses": 0,
-        "cached_garments": 0,
-        "cached_texts": 0,
+        "message": "All cache (L1 + L2) cleared",
+        **cache_manager.get_stats(),
     }
 
 
