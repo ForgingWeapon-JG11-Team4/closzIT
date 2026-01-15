@@ -343,7 +343,7 @@ const LabelingPage = () => {
         console.log(`${i + 1}번째 이미지 분석 중...`);
 
         // 2. fetch는 반드시 이 블록 안에서 singleFormData를 사용해야 합니다.
-        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/analysis`, {
+        const response = await fetch(`${API_BASE_URL}/analysis`, {
           method: 'POST',
           body: singleFormData, // 여기서 사용
         });
@@ -399,7 +399,7 @@ const LabelingPage = () => {
 
       // 2. 작업 요청 (분석 api/analysis가 아니라 옷펴기용 endpoint 확인 필요)
       // 원래 잘 작동하던 주소가 `${process.env.REACT_APP_BACKEND_URL}/flatten` 식이라면 아래와 같이 수정
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/queue/job/flatten`, {
+      const response = await fetch(`${API_BASE_URL}/api/queue/job/flatten`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}` // 토큰 필요시
