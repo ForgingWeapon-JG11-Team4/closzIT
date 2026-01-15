@@ -73,7 +73,9 @@ export class AnalysisService {
                     return {
                         tempId: index, // Temporary ID for frontend key
                         label: labelData,
-                        image: item.image_base64,
+                        image: item.sam2_image_base64 || item.image_base64,
+                        yoloImage: item.yolo_image_base64,
+                        sam2Image: item.sam2_image_base64 || item.image_base64,
                         embedding: item.embedding, // Pass embedding to frontend (to send back later)
                     };
                 }),

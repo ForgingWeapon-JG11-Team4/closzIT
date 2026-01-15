@@ -185,7 +185,11 @@ async def analyze_all_images(file: UploadFile = File(...)):
             full_box = np.array([0, 0, w, h])
 
             # 2. SAM2로 여러 포인트 기준 세그멘테이션
+            # CLIP fallback의 경우 원본 이미지가 YOLO 크롭 역할
+            yolo_image_base64 = utils.encode_image_to_base64(image)
+            sam2_image_base64 = None
             processed_image = image
+
             if USE_SAM2:
                 try:
                     sam_start = time.time()
@@ -199,6 +203,7 @@ async def analyze_all_images(file: UploadFile = File(...)):
                         processed_image = utils.apply_mask_and_crop(
                             image, mask, full_box
                         )
+                        sam2_image_base64 = utils.encode_image_to_base64(processed_image)
                         logger.info("[YOLO FALLBACK] SAM2 마스크 적용 성공 (3-points)")
                     else:
                         logger.warning(
@@ -207,8 +212,8 @@ async def analyze_all_images(file: UploadFile = File(...)):
                 except Exception as e:
                     logger.error(f"[YOLO FALLBACK] SAM2 실패: {e}")
 
-            # 3. Base64 인코딩
-            image_base64 = utils.encode_image_to_base64(processed_image)
+            # 3. Base64 인코딩 (SAM2 우선, 없으면 YOLO)
+            image_base64 = sam2_image_base64 if sam2_image_base64 else yolo_image_base64
 
             # 4. FashionSigLIP 임베딩 추출
             embed_start = time.time()
@@ -223,7 +228,9 @@ async def analyze_all_images(file: UploadFile = File(...)):
                     "label": item_type,  # 'shoes' 또는 'clothing' - Bedrock 힌트
                     "confidence": clip_result["confidence"],
                     "box": full_box.tolist(),
-                    "image_base64": image_base64,
+                    "yolo_image_base64": yolo_image_base64,      # 원본 이미지 (YOLO 역할)
+                    "sam2_image_base64": sam2_image_base64,      # SAM2 배경 제거 (없으면 None)
+                    "image_base64": image_base64,                # 기존 호환용
                     "embedding": embedding,
                 }
             ]
@@ -254,18 +261,25 @@ async def analyze_all_images(file: UploadFile = File(...)):
             confidence = detection["confidence"]
             box = detection["box"]
 
-            # 마스크 처리 및 크롭
+            # YOLO 바운딩박스 크롭 이미지 (항상 생성)
+            x1, y1, x2, y2 = map(int, box)
+            yolo_cropped_image = image[y1:y2, x1:x2]
+            yolo_image_base64 = utils.encode_image_to_base64(yolo_cropped_image)
+
+            # SAM2 마스킹 이미지 (마스크가 있을 때만 생성)
+            sam2_image_base64 = None
             if USE_SAM2 and masks and len(masks) > i:
                 mask = masks[i]
-                processed_image = utils.apply_mask_and_crop(image, mask, box)
+                sam2_masked_image = utils.apply_mask_and_crop(image, mask, box)
+                sam2_image_base64 = utils.encode_image_to_base64(sam2_masked_image)
+                processed_image = sam2_masked_image  # 임베딩용
             else:
-                x1, y1, x2, y2 = map(int, box)
-                processed_image = image[y1:y2, x1:x2]
+                processed_image = yolo_cropped_image  # 임베딩용
                 logger.warning(f"마스크 생성 실패, 단순 크롭 사용: {label}")
 
-            # 5. Base64 인코딩
+            # 5. Base64 인코딩 (기존 호환용 - SAM2 우선, 없으면 YOLO)
             encode_start = time.time()
-            image_base64 = utils.encode_image_to_base64(processed_image)
+            image_base64 = sam2_image_base64 if sam2_image_base64 else yolo_image_base64
             logger.info(
                 f"[TIMING] Item {i} base64 encode: {(time.time() - encode_start)*1000:.1f}ms, size={len(image_base64)} chars"
             )
@@ -286,7 +300,9 @@ async def analyze_all_images(file: UploadFile = File(...)):
                     "label": label,
                     "confidence": confidence,
                     "box": box.tolist(),
-                    "image_base64": image_base64,
+                    "yolo_image_base64": yolo_image_base64,      # YOLO 바운딩박스 크롭
+                    "sam2_image_base64": sam2_image_base64,      # SAM2 배경 제거 (없으면 None)
+                    "image_base64": image_base64,                # 기존 호환용
                     "embedding": embedding,
                 }
             )
