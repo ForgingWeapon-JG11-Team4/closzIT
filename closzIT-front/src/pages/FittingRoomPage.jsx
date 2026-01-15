@@ -132,6 +132,7 @@ const FittingRoomPage = ({ hideHeader = false }) => {
           },
           body: JSON.stringify({
             clothingId: clothingId,
+            clothingOwnerId: tryOnCloth.userId, // 다른 사람 옷 입어보기 지원
             category: category,
             denoiseSteps: 10,
             seed: 42,
@@ -625,6 +626,7 @@ const FittingRoomPage = ({ hideHeader = false }) => {
                 },
                 body: JSON.stringify({
                   clothingId: clothingId,
+                  clothingOwnerId: selectedClothDetail.userId, // 다른 사람 옷 입어보기 지원
                   category: category,
                   denoiseSteps: 10,
                   seed: 42,
