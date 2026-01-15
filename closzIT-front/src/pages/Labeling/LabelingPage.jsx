@@ -570,18 +570,28 @@ const LabelingPage = () => {
 
   // 분석된 의상 이미지 회전 (90도)
   const handleRotateAnalyzedImage = async () => {
-    if (!analysisResults[currentItemIndex] || !analysisResults[currentItemIndex].image) return;
+    const item = analysisResults[currentItemIndex];
+    if (!item) return;
+
+    // 현재 체크박스 상태에 따라 올바른 이미지 선택
+    const useSam2 = useSam2Images[currentItemIndex];
+    const currentImage = useSam2
+      ? (item.sam2Image || item.image)
+      : (item.yoloImage || item.image);
+
+    if (!currentImage) return;
 
     try {
-      const currentImage = analysisResults[currentItemIndex].image;
       const rotatedImage = await rotateImageBase64(currentImage, 90);
 
       setAnalysisResults(prev => {
         const newData = [...prev];
-        newData[currentItemIndex] = {
-          ...newData[currentItemIndex],
-          image: rotatedImage
-        };
+        // 회전된 이미지를 올바른 필드에 저장
+        if (useSam2) {
+          newData[currentItemIndex] = { ...newData[currentItemIndex], sam2Image: rotatedImage };
+        } else {
+          newData[currentItemIndex] = { ...newData[currentItemIndex], yoloImage: rotatedImage };
+        }
         return newData;
       });
     } catch (e) {
