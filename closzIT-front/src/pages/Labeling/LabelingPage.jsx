@@ -124,7 +124,7 @@ const rotateImageBase64 = (base64Data, degrees) => {
     img.onload = () => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      
+
       // 90도, 270도 회전 시 width/height 교체
       if (degrees === 90 || degrees === 270) {
         canvas.width = img.height;
@@ -133,12 +133,12 @@ const rotateImageBase64 = (base64Data, degrees) => {
         canvas.width = img.width;
         canvas.height = img.height;
       }
-      
+
       // 중앙 기준 회전
       ctx.translate(canvas.width / 2, canvas.height / 2);
       ctx.rotate((degrees * Math.PI) / 180);
       ctx.drawImage(img, -img.width / 2, -img.height / 2);
-      
+
       // Data URL에서 Base64 부분만 추출
       resolve(canvas.toDataURL('image/png').split(',')[1]);
     };
@@ -194,7 +194,9 @@ const LabelingPage = () => {
   // 각 아이템별 수정된 폼 데이터 저장
   const [itemFormData, setItemFormData] = useState([]);
 
-  // 현재 선택된 아이템의 폼 상태
+  // 각 아이템별 SAM2 이미지 사용 여부 (체크박스 상태)
+  // true: SAM2 배경 제거 이미지 사용, false: YOLO 크롭 이미지 사용
+  const [useSam2Images, setUseSam2Images] = useState({});  // 현재 선택된 아이템의 폼 상태
   const currentFormData = itemFormData[currentItemIndex] || {};
 
   // 현재 아이템이 신발인지 확인 (패턴/디테일 UI 숨김용)
@@ -358,6 +360,13 @@ const LabelingPage = () => {
 
       setAnalysisResults(results);
 
+      // 디버그: yoloImage, sam2Image 필드 확인
+      console.log('[DEBUG] Analysis results with image fields:', results.map((item, idx) => ({
+        idx,
+        hasYoloImage: !!item.yoloImage,
+        hasSam2Image: !!item.sam2Image,
+        hasImage: !!item.image,
+      })));
       // 각 아이템별 폼 데이터 초기화
       const initialFormData = results.map((item, idx) => {
         const labelData = item.label || {};
@@ -378,6 +387,12 @@ const LabelingPage = () => {
         };
       });
       setItemFormData(initialFormData);
+
+      // SAM2 이미지 사용 여부 초기화 (기본값: true - SAM2 배경 제거 이미지 사용)
+      const initialUseSam2 = {};
+      results.forEach((_, idx) => { initialUseSam2[idx] = true; });
+      setUseSam2Images(initialUseSam2);
+
       setCurrentItemIndex(0);
       setSkippedItems([]);
       setIsAnalyzed(true);
@@ -551,11 +566,11 @@ const LabelingPage = () => {
   // 분석된 의상 이미지 회전 (90도)
   const handleRotateAnalyzedImage = async () => {
     if (!analysisResults[currentItemIndex] || !analysisResults[currentItemIndex].image) return;
-    
+
     try {
       const currentImage = analysisResults[currentItemIndex].image;
       const rotatedImage = await rotateImageBase64(currentImage, 90);
-      
+
       setAnalysisResults(prev => {
         const newData = [...prev];
         newData[currentItemIndex] = {
@@ -572,11 +587,11 @@ const LabelingPage = () => {
   // 펼쳐진 의상 이미지 회전 (90도)
   const handleRotateFlattenedImage = async () => {
     if (!flattenedImages[currentItemIndex]) return;
-    
+
     try {
       const currentImage = flattenedImages[currentItemIndex];
       const rotatedImage = await rotateImageBase64(currentImage, 90);
-      
+
       setFlattenedImages(prev => ({
         ...prev,
         [currentItemIndex]: rotatedImage
@@ -597,7 +612,10 @@ const LabelingPage = () => {
           analysisItem?.label?.category?.toLowerCase() === 'shoes';
 
         return {
-          image_base64: analysisItem.image, // Backend expects image_base64
+          // 체크박스 상태에 따라 이미지 선택: 체크됨=SAM2, 미체크=YOLO
+          image_base64: useSam2Images[index]
+            ? (analysisItem.sam2Image || analysisItem.image)
+            : (analysisItem.yoloImage || analysisItem.image),
           // 펼쳐진 이미지: 있고 제외되지 않았으면 전송
           flatten_image_base64: (flattenedImages[index] && !skippedFlattenImages.includes(index))
             ? flattenedImages[index]
@@ -694,9 +712,12 @@ const LabelingPage = () => {
     }
   };
 
-  // 현재 표시할 분석 이미지
-  const currentAnalyzedImage = isAnalyzed && analysisResults[currentItemIndex]?.image
-    ? `data:image/png;base64,${analysisResults[currentItemIndex].image}`
+  // 현재 표시할 분석 이미지 (체크박스 상태에 따라 SAM2/YOLO 선택)
+  const currentAnalyzedImage = isAnalyzed && analysisResults[currentItemIndex]
+    ? `data:image/png;base64,${useSam2Images[currentItemIndex]
+      ? (analysisResults[currentItemIndex].sam2Image || analysisResults[currentItemIndex].image)
+      : (analysisResults[currentItemIndex].yoloImage || analysisResults[currentItemIndex].image)
+    }`
     : null;
 
   return (
@@ -1070,6 +1091,24 @@ const LabelingPage = () => {
                   )}
                 </div>
 
+                {/* SAM2/YOLO 이미지 선택 체크박스 */}
+                {currentAnalyzedImage && !skippedItems.includes(currentItemIndex) && (
+                  <label className="mt-2 flex items-center justify-center gap-2 text-xs cursor-pointer select-none group">
+                    <input
+                      type="checkbox"
+                      checked={useSam2Images[currentItemIndex] ?? true}
+                      onChange={(e) => setUseSam2Images(prev => ({
+                        ...prev,
+                        [currentItemIndex]: e.target.checked
+                      }))}
+                      className="w-4 h-4 rounded border-gray-300 text-gold focus:ring-gold cursor-pointer"
+                    />
+                    <span className={`transition-colors ${useSam2Images[currentItemIndex] ? 'text-gold font-medium' : 'text-gray-500'}`}>
+                      배경 제거 적용
+                    </span>
+                  </label>
+                )}
+
                 {/* 아이템 네비게이션 */}
                 {analysisResults.length > 1 && (
                   <div className="mt-3 flex flex-col items-center gap-3">
@@ -1120,8 +1159,8 @@ const LabelingPage = () => {
                           onClick={handleFlattenAll}
                           disabled={remainingTargets === 0}
                           className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${remainingTargets > 0
-                              ? 'bg-white border border-gold text-gold hover:bg-gold hover:text-white'
-                              : 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed'
+                            ? 'bg-white border border-gold text-gold hover:bg-gold hover:text-white'
+                            : 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed'
                             }`}
                         >
                           {remainingTargets > 0 ? (
