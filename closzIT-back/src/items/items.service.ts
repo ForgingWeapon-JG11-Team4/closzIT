@@ -91,7 +91,156 @@ export class ItemsService {
     return grouped;
   }
 
+  async getPublicItemsGroupedByCategory(userId: string) {
+    console.log('[getPublicItemsGroupedByCategory] 시작, userId:', userId);
+
+    // 공개된 아이템만 가져오기
+    const items = await this.prisma.clothing.findMany({
+      where: {
+        userId,
+        isPublic: true, // 공개된 아이템만 필터링
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      select: {
+        id: true,
+        imageUrl: true,
+        flattenImageUrl: true,
+        category: true,
+        subCategory: true,
+        colors: true,
+        patterns: true,
+        details: true,
+        styleMoods: true,
+        tpos: true,
+        seasons: true,
+        userRating: true,
+        note: true,
+        isPublic: true,
+        wearCount: true,
+        lastWorn: true,
+        createdAt: true,
+      },
+    });
+
+    console.log('[getPublicItemsGroupedByCategory] DB에서 가져온 공개 아이템 수:', items.length);
+    console.log('[getPublicItemsGroupedByCategory] 아이템 카테고리 분포:', {
+      categories: items.map(item => item.category),
+      uniqueCategories: [...new Set(items.map(item => item.category))]
+    });
+
+    // 모든 이미지 URL을 Pre-signed URL로 변환
+    const itemsWithPresignedUrls = await Promise.all(
+      items.map(async (item) => {
+        const [imageUrl, flattenImageUrl] = await Promise.all([
+          this.s3Service.convertToPresignedUrl(item.imageUrl),
+          this.s3Service.convertToPresignedUrl(item.flattenImageUrl),
+        ]);
+
+        return {
+          id: item.id,
+          name: item.subCategory,
+          image: flattenImageUrl || imageUrl,
+          originalImage: imageUrl,
+          flattenImage: flattenImageUrl,
+          category: item.category,
+          subCategory: item.subCategory,
+          colors: item.colors,
+          patterns: item.patterns,
+          details: item.details,
+          styleMoods: item.styleMoods,
+          tpos: item.tpos,
+          seasons: item.seasons,
+          userRating: item.userRating,
+          note: item.note,
+          isPublic: item.isPublic,
+          wearCount: item.wearCount,
+          lastWorn: item.lastWorn,
+          createdAt: item.createdAt,
+        };
+      })
+    );
+
+    // 카테고리별로 그룹화
+    const grouped = {
+      outerwear: itemsWithPresignedUrls.filter(item => item.category === 'Outer'),
+      tops: itemsWithPresignedUrls.filter(item => item.category === 'Top'),
+      bottoms: itemsWithPresignedUrls.filter(item => item.category === 'Bottom'),
+      shoes: itemsWithPresignedUrls.filter(item => item.category === 'Shoes'),
+    };
+
+    console.log('[getPublicItemsGroupedByCategory] 그룹화 결과:', {
+      outerwear: grouped.outerwear.length,
+      tops: grouped.tops.length,
+      bottoms: grouped.bottoms.length,
+      shoes: grouped.shoes.length
+    });
+
+    return grouped;
+  }
+
+  async getItemById(userId: string, itemId: string) {
+    // 해당 아이템이 사용자의 것인지 확인
+    const item = await this.prisma.clothing.findFirst({
+      where: { id: itemId, userId },
+      select: {
+        id: true,
+        imageUrl: true,
+        flattenImageUrl: true,
+        category: true,
+        subCategory: true,
+        colors: true,
+        patterns: true,
+        details: true,
+        styleMoods: true,
+        tpos: true,
+        seasons: true,
+        userRating: true,
+        note: true,
+        isPublic: true,
+        wearCount: true,
+        lastWorn: true,
+        createdAt: true,
+      },
+    });
+
+    if (!item) {
+      throw new Error('아이템을 찾을 수 없습니다.');
+    }
+
+    // 이미지 URL을 Pre-signed URL로 변환
+    const [imageUrl, flattenImageUrl] = await Promise.all([
+      this.s3Service.convertToPresignedUrl(item.imageUrl),
+      this.s3Service.convertToPresignedUrl(item.flattenImageUrl),
+    ]);
+
+    return {
+      id: item.id,
+      name: item.subCategory,
+      image: flattenImageUrl || imageUrl,
+      originalImage: imageUrl,
+      flattenImage: flattenImageUrl,
+      category: item.category,
+      subCategory: item.subCategory,
+      colors: item.colors,
+      patterns: item.patterns,
+      details: item.details,
+      styleMoods: item.styleMoods,
+      tpos: item.tpos,
+      seasons: item.seasons,
+      userRating: item.userRating,
+      note: item.note,
+      isPublic: item.isPublic,
+      wearCount: item.wearCount,
+      lastWorn: item.lastWorn,
+      createdAt: item.createdAt,
+    };
+  }
+
   async updateItem(userId: string, itemId: string, data: {
+    category?: any;
+    subCategory?: string;
     colors?: string[];
     patterns?: string[];
     details?: string[];
@@ -112,6 +261,8 @@ export class ItemsService {
     return this.prisma.clothing.update({
       where: { id: itemId },
       data: {
+        category: data.category,
+        subCategory: data.subCategory,
         colors: data.colors as any,
         patterns: data.patterns as any,
         details: data.details as any,

@@ -5,11 +5,13 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import SharedHeader from '../../components/SharedHeader';
 import BottomNav from '../../components/BottomNav';
 import { useVtoStore } from '../../stores/vtoStore';
+import { useUserStore } from '../../stores/userStore';
 
 const FittingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { requestPartialVtoByIds, checkPartialVtoLoading } = useVtoStore();
+  const { userFullBodyImage: storeFullBodyImage, fetchUser } = useUserStore();
   const isPartialVtoLoading = checkPartialVtoLoading('fitting');
   const { calendarEvent, isToday, userQuery, keywords } = location.state || {};
 
@@ -47,12 +49,8 @@ const FittingPage = () => {
         const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
         // 사용자 정보 가져오기 (전신 사진 포함)
-        const userResponse = await fetch(`${backendUrl}/user/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (userResponse.ok) {
-          const userData = await userResponse.json();
+        const userData = await fetchUser();
+        if (userData) {
           setUserFullBodyImage(userData.fullBodyImage);
         }
 

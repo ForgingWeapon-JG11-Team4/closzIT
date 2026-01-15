@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useUserStore } from './userStore';
 
 const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 const getToken = () => localStorage.getItem('accessToken');
@@ -128,23 +129,14 @@ export const useAppStore = create((set, get) => ({
 
     // ========== 사용자 정보 Actions ==========
     fetchUserInfo: async () => {
-        try {
-            const token = getToken();
-            if (!token) return;
-
-            const response = await fetch(`${backendUrl}/user/me`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+        // userStore에서 사용자 정보 가져오기
+        const { fetchUser } = useUserStore.getState();
+        const user = await fetchUser();
+        if (user) {
+            set({
+                userName: user.name || '',
+                userFullBodyImage: user.fullBodyImage || null,
             });
-
-            if (response.ok) {
-                const data = await response.json();
-                set({
-                    userName: data.name || '',
-                    userFullBodyImage: data.fullBodyImage || null,
-                });
-            }
-        } catch (error) {
-            console.error('User info error:', error);
         }
     },
 

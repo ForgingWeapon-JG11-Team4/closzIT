@@ -149,6 +149,17 @@ const ClothDetailModal = ({
             {isExpanded ? '상세 정보 닫기' : '상세 정보 보기'}
           </button>
 
+          {/* 옷 정보 수정하기 버튼 */}
+          {showActions && onEdit && (
+            <button
+              onClick={onEdit}
+              className="w-full py-3 flex items-center justify-center gap-2 text-gold-dark font-medium hover:bg-gold/10 transition-colors border-b border-gold-light/20"
+            >
+              <span className="material-symbols-rounded text-lg">edit</span>
+              옷 정보 수정하기
+            </button>
+          )}
+
           {/* 상세 정보 콘텐츠 (토글) */}
           <div 
             className={`overflow-hidden transition-all duration-300 ease-out ${isExpanded ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}

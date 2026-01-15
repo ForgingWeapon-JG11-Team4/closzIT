@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProfileEditModal from '../../components/ProfileEditModal';
 import FullBodyImageModal from '../../components/FullBodyImageModal';
+import { useUserStore } from '../../stores/userStore';
 
 const MyPage = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, fetchUser, isUserLoading, invalidateUser } = useUserStore();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [imageCacheBuster, setImageCacheBuster] = useState(Date.now());
@@ -24,92 +24,64 @@ const MyPage = () => {
   }, [imageBlobUrl]);
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const token = localStorage.getItem('accessToken');
-        if (!token) {
-          navigate('/login');
-          return;
-        }
+    const loadUser = async () => {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
 
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-        const response = await fetch(`${backendUrl}/user/me`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
+      const userData = await fetchUser();
+      if (!userData) {
+        navigate('/login');
+        return;
+      }
+
+      // Presigned URL에서 이미지 fetch하여 blob URL 생성
+      if (userData.fullBodyImage) {
+        try {
+          const imgResponse = await fetch(userData.fullBodyImage);
+          if (imgResponse.ok) {
+            const blob = await imgResponse.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            setImageBlobUrl(blobUrl);
+            console.log('[MyPage] Initial image blob URL created:', blobUrl);
+          } else {
+            console.error('[MyPage] Failed to fetch initial image:', imgResponse.status, imgResponse.statusText);
           }
-        });
-
-        if (response.ok) {
-          const userData = await response.json();
-          console.log('[MyPage] Initial user data loaded:', userData);
-          console.log('[MyPage] Initial fullBodyImage URL:', userData.fullBodyImage);
-          setUser(userData);
-
-          // Presigned URL에서 이미지 fetch하여 blob URL 생성
-          if (userData.fullBodyImage) {
-            try {
-              const imgResponse = await fetch(userData.fullBodyImage);
-              if (imgResponse.ok) {
-                const blob = await imgResponse.blob();
-                const blobUrl = URL.createObjectURL(blob);
-                setImageBlobUrl(blobUrl);
-                console.log('[MyPage] Initial image blob URL created:', blobUrl);
-              } else {
-                console.error('[MyPage] Failed to fetch initial image:', imgResponse.status, imgResponse.statusText);
-              }
-            } catch (imgError) {
-              console.error('[MyPage] Error fetching initial image:', imgError);
-            }
-          }
-        } else if (response.status === 401) {
-          localStorage.removeItem('accessToken');
-          navigate('/login');
+        } catch (imgError) {
+          console.error('[MyPage] Error fetching initial image:', imgError);
         }
-      } catch (error) {
-        console.error('Failed to fetch user profile:', error);
-      } finally {
-        setIsLoading(false);
       }
     };
 
-    fetchUserProfile();
-  }, [navigate]);
+    loadUser();
+  }, [navigate, fetchUser]);
 
   const refreshUserData = async () => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) return;
+    invalidateUser(); // 캐시 무효화
+    const userData = await fetchUser(true); // 강제 갱신
+    if (!userData) return;
 
-    try {
-      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-      const response = await fetch(`${backendUrl}/user/me`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const userData = await response.json();
-        console.log('[MyPage] User data loaded:', userData);
-        console.log('[MyPage] fullBodyImage URL:', userData.fullBodyImage);
-        setUser(userData);
-        setImageCacheBuster(Date.now()); // 이미지 캐시 갱신
+    console.log('[MyPage] User data loaded:', userData);
+    console.log('[MyPage] fullBodyImage URL:', userData.fullBodyImage);
+    setImageCacheBuster(Date.now()); // 이미지 캐시 갱신
 
-        // Presigned URL에서 이미지 fetch하여 blob URL 생성
-        if (userData.fullBodyImage) {
-          try {
-            const imgResponse = await fetch(userData.fullBodyImage);
-            if (imgResponse.ok) {
-              const blob = await imgResponse.blob();
-              const blobUrl = URL.createObjectURL(blob);
-              setImageBlobUrl(blobUrl);
-              console.log('[MyPage] Image blob URL created:', blobUrl);
-            } else {
-              console.error('[MyPage] Failed to fetch image:', imgResponse.status, imgResponse.statusText);
-            }
-          } catch (imgError) {
-            console.error('[MyPage] Error fetching image:', imgError);
-          }
+    // Presigned URL에서 이미지 fetch하여 blob URL 생성
+    if (userData.fullBodyImage) {
+      try {
+        const imgResponse = await fetch(userData.fullBodyImage);
+        if (imgResponse.ok) {
+          const blob = await imgResponse.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          setImageBlobUrl(blobUrl);
+          console.log('[MyPage] Image blob URL created:', blobUrl);
+        } else {
+          console.error('[MyPage] Failed to fetch image:', imgResponse.status, imgResponse.statusText);
         }
+      } catch (imgError) {
+        console.error('[MyPage] Error fetching image:', imgError);
       }
-    } catch (error) {
-      console.error('Failed to refresh user data:', error);
     }
   };
 
@@ -227,7 +199,7 @@ const MyPage = () => {
     }
   };
 
-  if (isLoading) {
+  if (isUserLoading && !user) {
     return (
       <div className="bg-cream dark:bg-[#1A1918] min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gold"></div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import WheelDatePicker from '../../components/WheelDatePicker';
+import { useUserStore } from '../../stores/userStore';
 
 // 도/시 데이터
 const locationData = {
@@ -29,6 +30,7 @@ const UserProfileSetup1 = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isEditMode = searchParams.get('edit') === 'true';
+  const { user, fetchUser } = useUserStore();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -52,14 +54,8 @@ const UserProfileSetup1 = () => {
       }
 
       try {
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-        const response = await fetch(`${backendUrl}/user/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-          const userData = await response.json();
-          
+        const userData = await fetchUser();
+        if (userData) {
           let birthday = null;
           if (userData.birthday) {
             const date = new Date(userData.birthday);
@@ -90,7 +86,7 @@ const UserProfileSetup1 = () => {
     };
 
     fetchExistingData();
-  }, []);
+  }, [fetchUser]);
 
   useEffect(() => {
     const { name, gender, birthday, province, city } = formData;
