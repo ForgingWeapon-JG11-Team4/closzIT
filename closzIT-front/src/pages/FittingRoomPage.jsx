@@ -16,6 +16,23 @@ const categoryMap = {
   shoes: { name: '신발', icon: 'steps', color: '#DAA520' },
 };
 
+const saveToHistory = (imageUrl, clothDetail) => {
+  const newHistoryItem = {
+    id: Date.now(),
+    imageUrl: imageUrl, // resultUrl 대신 전달받은 imageUrl 사용
+    clothName: clothDetail?.name || 'Unknown Item',
+    timestamp: new Date().toLocaleString(),
+  };
+
+  const saved = JSON.parse(localStorage.getItem('vto_history') || '[]');
+  const updated = [newHistoryItem, ...saved].slice(0, 20); // 최신 20개만 유지
+
+  localStorage.setItem('vto_history', JSON.stringify(updated));
+
+  // ⭐ 저장 직후 바로 신호를 보냅니다.
+  window.dispatchEvent(new Event('historyUpdate'));
+};
+
 // 키워드 필터 옵션 (백엔드 필드명과 일치: tpos, styleMoods, seasons, colors)
 const keywordGroups = [
   {
@@ -72,8 +89,22 @@ const FittingRoomPage = ({ hideHeader = false }) => {
   const [userFullBodyImage, setUserFullBodyImage] = useState(null);
   const [beforeAfterImage, setBeforeAfterImage] = useState(null);
   const [selectedClothDetail, setSelectedClothDetail] = useState(null);
+  const [history, setHistory] = useState([]);
 
-  // 다른 탭에서 전달받은 옷 정보로 자동 VTO 실행
+  useEffect(() => {
+    const loadHistory = () => {
+      const saved = JSON.parse(localStorage.getItem('vto_history') || '[]');
+      setHistory(saved);
+    };
+    loadHistory();
+  }, [beforeAfterImage]);
+
+  const deleteHistoryItem = (id) => {
+    const updated = history.filter(item => item.id !== id);
+    localStorage.setItem('vto_history', JSON.stringify(updated));
+    setHistory(updated);
+  };
+
   useEffect(() => {
     // FittingRoom 탭이 활성화될 때만 실행
     if (activeTab !== TAB_KEYS.FITTING_ROOM) return;
@@ -116,6 +147,7 @@ const FittingRoomPage = ({ hideHeader = false }) => {
 
         if (result.success && result.imageUrl) {
           setBeforeAfterImage(result.imageUrl);
+          saveToHistory(result.imageUrl, tryOnCloth || selectedClothDetail);
         } else {
           throw new Error('결과 이미지를 받지 못했습니다.');
         }
@@ -565,6 +597,7 @@ const FittingRoomPage = ({ hideHeader = false }) => {
             }
           `}
         </style>
+
       </main>
 
       {/* 옷 상세 모달 */}
@@ -607,6 +640,8 @@ const FittingRoomPage = ({ hideHeader = false }) => {
 
               if (result.success && result.imageUrl) {
                 setBeforeAfterImage(result.imageUrl);
+                saveToHistory(result.imageUrl, selectedClothDetail);
+
               } else {
                 throw new Error('결과 이미지를 받지 못했습니다.');
               }
@@ -651,6 +686,7 @@ const FittingRoomPage = ({ hideHeader = false }) => {
           }}
         />
       )}
+
 
       {/* 키워드 필터 모달 */}
       {isKeywordModalOpen && (
