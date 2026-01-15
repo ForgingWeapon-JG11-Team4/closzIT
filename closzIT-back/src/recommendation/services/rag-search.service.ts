@@ -44,6 +44,9 @@ export class RagSearchService {
 
     const season = this.getSeasonFromTemp(context.weather?.temp ?? null);
 
+    // 스타일 매핑 (한글 → 영문)
+    const styleMood = context.style ? this.mapStyleKeyword(context.style) : null;
+
     const categories: Category[] = ['Outer', 'Top', 'Bottom', 'Shoes'];
     const candidates: CategorySearchResults = {
       outer: [],
@@ -60,6 +63,7 @@ export class RagSearchService {
           category,
           tpo: context.tpo,
           season,
+          styleMood: styleMood || undefined,
           limit: 15,
         },
       );
@@ -89,6 +93,7 @@ export class RagSearchService {
       appliedFilters: {
         tpo: context.tpo,
         season,
+        style: context.style || null,  // 적용된 스타일 추가
       },
     };
 
@@ -107,20 +112,50 @@ export class RagSearchService {
   ): string {
     const parts: string[] = [];
 
+    // 1. 사용자 자연어 쿼리 (있으면 추가)
+    if (context.query) {
+      parts.push(context.query);
+    }
+
+    // 2. 사용자가 선택한 스타일 (있으면 추가)
+    if (context.style) {
+      parts.push(context.style);
+    }
+
+    // 3. TPO (항상 추가 - 필터링에도 사용되지만 임베딩 유사도에도 반영)
     parts.push(context.tpo);
 
+    // 4. 계절 (항상 추가)
     const season = this.getSeasonFromTemp(context.weather?.temp ?? null);
     parts.push(season);
 
+    // 5. 비 올 확률
     if (context.weather && context.weather.rain_probability > 50) {
       parts.push('비');
     }
 
-    if (preference.preferred_styles?.length > 0) {
+    // 6. 사용자 선호 스타일 (스타일 선택이 없을 때만)
+    if (!context.style && preference.preferred_styles?.length > 0) {
       parts.push(...preference.preferred_styles);
     }
 
     return parts.join(' ');
+  }
+
+  // 스타일 한글 → 영문 매핑
+  private mapStyleKeyword(style: string): string | null {
+    const mapping: Record<string, string> = {
+      '캐주얼': 'Casual',
+      '힙': 'Street',
+      '모던': 'Minimal',
+      '스트릿': 'Street',
+      '빈티지': 'Vintage',
+      '미니멀': 'Minimal',
+      '클래식': 'Formal',
+      '스포티': 'Sporty',
+      '고프코어': 'Gorpcore',
+    };
+    return mapping[style] || null;
   }
 
   private getSeasonFromTemp(temp: number | null): Season {

@@ -13,7 +13,7 @@ const FittingPage = () => {
   const { requestPartialVtoByIds, checkPartialVtoLoading } = useVtoStore();
   const { userFullBodyImage: storeFullBodyImage, fetchUser } = useUserStore();
   const isPartialVtoLoading = checkPartialVtoLoading('fitting');
-  const { calendarEvent, isToday, userQuery, keywords } = location.state || {};
+  const { calendarEvent, isToday, userQuery, tpo, style } = location.state || {};
 
 
   const [outfits, setOutfits] = useState([]);         // 상위 5개 조합
@@ -32,8 +32,7 @@ const FittingPage = () => {
 
   // API에서 추천 받아오기 + 사용자 전신 사진 가져오기
   useEffect(() => {
-    // calendarEvent 또는 userQuery 또는 keywords 중 하나라도 있어야 함
-    if (!calendarEvent && !userQuery && (!keywords || keywords.length === 0)) {
+    if (!calendarEvent && !userQuery && !tpo && !style) {
       navigate('/');
       return;
     }
@@ -48,9 +47,13 @@ const FittingPage = () => {
 
         const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
-        // 사용자 정보 가져오기 (전신 사진 포함)
-        const userData = await fetchUser();
-        if (userData) {
+        // 사용자 정보 가져오기
+        const userResponse = await fetch(`${backendUrl}/user/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
           setUserFullBodyImage(userData.fullBodyImage);
         }
 
@@ -62,18 +65,17 @@ const FittingPage = () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            calendarEvent,
-            calendarEvent,
-            isToday,
-            query: userQuery,
-            keywords,
+            calendarEvent: calendarEvent || null,
+            isToday: isToday || false,
+            query: userQuery || null,
+            tpo: tpo || null,
+            style: style || null,
           }),
         });
 
         if (response.ok) {
           const data = await response.json();
 
-          // 새로운 응답 구조: outfits (조합 배열) + candidates (카테고리별 후보) + meta
           if (data.outfits && data.outfits.length > 0) {
             setOutfits(data.outfits);
           }
@@ -99,7 +101,7 @@ const FittingPage = () => {
     };
 
     fetchData();
-  }, [calendarEvent, isToday, navigate]);
+  }, [calendarEvent, isToday, userQuery, tpo, style, navigate]);
 
   // base64를 Blob으로 변환
   const base64ToBlob = (base64, mimeType = 'image/jpeg') => {

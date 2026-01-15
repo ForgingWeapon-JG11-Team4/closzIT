@@ -112,7 +112,8 @@ const MainPage2 = ({ hideHeader = false }) => {
 
   // 검색 및 추천기 상태
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
-  const [selectedKeywords, setSelectedKeywords] = useState([]);
+  const [selectedTpo, setSelectedTpo] = useState(null);
+  const [selectedStyle, setSelectedStyle] = useState(null);
   const [searchText, setSearchText] = useState(''); // 자연어 검색어 상태
   const [showGreeting, setShowGreeting] = useState(true);
   const [selectedClothDetail, setSelectedClothDetail] = useState(null); // 의류 상세정보 모달 상태
@@ -323,26 +324,37 @@ const MainPage2 = ({ hideHeader = false }) => {
           </button>
 
           <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gold/10 border-2 border-gold shadow-glow-gold min-h-[44px]">
-            {/* 선택된 키워드 칩 */}{/* Expanded State UI */}
-            {selectedKeywords.length > 0 ? (
+            {/* 선택된 키워드 칩 */}
+            {(selectedTpo || selectedStyle) ? (
               <div className="flex flex-wrap gap-1.5 flex-1">
-                {selectedKeywords.map((keyword) => (
-                  <span
-                    key={keyword}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-gold/20 text-gold text-xs font-semibold rounded-full border border-gold/30"
-                  >
-                    {keyword}
+                {selectedTpo && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gold/20 text-gold text-xs font-semibold rounded-full border border-gold/30">
+                    {selectedTpo}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSelectedKeywords(selectedKeywords.filter(k => k !== keyword));
+                        setSelectedTpo(null);
                       }}
                       className="w-3.5 h-3.5 flex items-center justify-center hover:bg-white/20 rounded-full"
                     >
                       <span className="material-symbols-rounded text-xs">close</span>
                     </button>
                   </span>
-                ))}
+                )}
+                {selectedStyle && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gold/20 text-gold text-xs font-semibold rounded-full border border-gold/30">
+                    {selectedStyle}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedStyle(null);
+                      }}
+                      className="w-3.5 h-3.5 flex items-center justify-center hover:bg-white/20 rounded-full"
+                    >
+                      <span className="material-symbols-rounded text-xs">close</span>
+                    </button>
+                  </span>
+                )}
               </div>
             ) : (
               <div className="relative flex-1 h-5 overflow-hidden flex items-center">
@@ -364,8 +376,10 @@ const MainPage2 = ({ hideHeader = false }) => {
         {isSearchExpanded ? (
           <div className="animate-slideDown">
             <OutfitRecommender
-              selectedKeywords={selectedKeywords}
-              onKeywordsChange={setSelectedKeywords}
+              selectedTpo={selectedTpo}
+              onTpoChange={setSelectedTpo}
+              selectedStyle={selectedStyle}
+              onStyleChange={setSelectedStyle}
               searchText={searchText}
               onGenerate={handleRecommendRequest}
             />

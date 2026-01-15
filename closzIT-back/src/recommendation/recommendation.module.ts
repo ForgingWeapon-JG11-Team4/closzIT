@@ -14,6 +14,9 @@ import { UserModule } from '../user/user.module';
 import { CalendarModule } from '../calendar/calendar.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { S3Module } from '../s3/s3.module';
+import { BedrockService } from 'src/ai/bedrock.service';
+import { WeatherService } from 'src/weather/weather.service';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Module({
   imports: [
@@ -30,6 +33,9 @@ import { S3Module } from '../s3/s3.module';
     EmbeddingService,
     ScoringService,
     FeedbackService,
+    BedrockService,
+    WeatherService,
+    PrismaService,
   ],
   exports: [VectorDBService, FeedbackService],
 })

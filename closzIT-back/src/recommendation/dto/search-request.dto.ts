@@ -3,8 +3,9 @@
 import { IsOptional, IsString, IsBoolean } from 'class-validator';
 
 export class SearchRequestDto {
+  @IsOptional()
   @IsString()
-  calendarEvent: string;  // 캘린더 일정 제목 (필수)
+  calendarEvent?: string;  // 캘린더 일정 제목
 
   @IsOptional()
   @IsBoolean()
@@ -12,5 +13,17 @@ export class SearchRequestDto {
 
   @IsOptional()
   @IsString()
-  date?: string;  // 날짜 (YYYY-MM-DD), 없으면 오늘/내일 자동 판단
+  date?: string;  // 날짜 (YYYY-MM-DD)
+
+  @IsOptional()
+  @IsString()
+  query?: string;  // 사용자 자연어 검색어
+
+  @IsOptional()
+  @IsString()
+  tpo?: string;  // TPO 선택 (데일리, 데이트, 면접 등)
+
+  @IsOptional()
+  @IsString()
+  style?: string;  // 스타일 선택 (캐주얼, 미니멀 등)
 }
