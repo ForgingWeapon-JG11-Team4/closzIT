@@ -35,6 +35,8 @@ const FeedPage = ({ hideHeader = false }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const sentinelRef = useRef(null);
 
   // 보고 있는 유저 정보 (다른 유저 피드일 때)
   const [targetUser, setTargetUser] = useState(null);
@@ -273,6 +275,29 @@ const FeedPage = ({ hideHeader = false }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userFeedSubTab, currentUser, targetUser, isViewingOtherUser]);
 
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    // 홈 피드 탭이 아니면 무시
+    if (activeTab !== '홈') return;
+    if (!sentinelRef.current) return;
+    if (loading || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          setPage(prevPage => prevPage + 1);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(sentinelRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [activeTab, loading, hasMore]);
+
   // 드롭다운 외부 클릭 감지
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -311,7 +336,7 @@ const FeedPage = ({ hideHeader = false }) => {
       }
 
       const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-      const response = await fetch(`${backendUrl}/posts/feed?page=${page}&limit=10`, {
+      const response = await fetch(`${backendUrl}/posts/feed?page=${page}&limit=5`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -320,6 +345,8 @@ const FeedPage = ({ hideHeader = false }) => {
       if (response.ok) {
         const data = await response.json();
         setPosts(prev => page === 1 ? data : [...prev, ...data]);
+        // 받아온 데이터가 5개 미만이면 더 이상 로드할 게시물이 없음
+        setHasMore(data.length === 5);
       }
     } catch (error) {
       console.error('Failed to fetch feed:', error);
@@ -514,7 +541,7 @@ const FeedPage = ({ hideHeader = false }) => {
 
       {/* 탭 네비게이션 또는 뒤로가기 헤더 */}
       {isViewingOtherUser ? (
-        <div className={`sticky ${hideHeader ? 'top-0' : 'top-16'} z-10 bg-cream dark:bg-[#1A1918] border-b border-gold-light/20`}>
+        <div className={`sticky ${hideHeader ? 'top-0' : 'top-16'} z-30 bg-cream dark:bg-[#1A1918] border-b border-gold-light/20`}>
           <div className="max-w-2xl mx-auto flex items-center gap-4 py-4 px-4">
             <button
               onClick={() => navigate('/feed')}
@@ -543,7 +570,7 @@ const FeedPage = ({ hideHeader = false }) => {
           </div>
         </div>
       ) : (
-        <div className={`sticky ${hideHeader ? 'top-0' : 'top-16'} z-10 bg-cream dark:bg-[#1A1918] border-b border-gold-light/20`}>
+        <div className={`sticky ${hideHeader ? 'top-0' : 'top-16'} z-30 bg-cream dark:bg-[#1A1918] border-b border-gold-light/20`}>
           <div className="max-w-2xl mx-auto flex">
             <button
               onClick={() => setActiveTab('홈')}
@@ -739,7 +766,7 @@ const FeedPage = ({ hideHeader = false }) => {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setSelectedClothDetail({ ...pc.clothing, postId: post.id });
+                                    setSelectedClothDetail({ ...pc.clothing, postId: post.id, ownerId: post.user.id });
                                   }}
                                   className="absolute bottom-1 right-1 w-6 h-6 bg-white/90 dark:bg-charcoal/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover/cloth-card:opacity-100 transition-all duration-200 hover:scale-110 hover:bg-white dark:hover:bg-charcoal"
                                 >
@@ -799,16 +826,20 @@ const FeedPage = ({ hideHeader = false }) => {
               </div>
             )}
 
-            {/* Load More */}
+            {/* Infinite Scroll Sentinel */}
             {posts.length > 0 && (
-              <div className="mt-6 text-center">
-                <button
-                  onClick={() => setPage(page + 1)}
-                  disabled={loading}
-                  className="px-6 py-3 bg-warm-white dark:bg-charcoal text-charcoal dark:text-cream rounded-full shadow-soft border border-gold-light/30 hover:shadow-lg transition-all disabled:opacity-50"
-                >
-                  {loading ? '로딩 중...' : '더 보기'}
-                </button>
+              <div ref={sentinelRef} className="mt-6 text-center py-4">
+                {loading && hasMore && (
+                  <div className="flex items-center justify-center gap-2 text-charcoal-light dark:text-cream-dark">
+                    <span className="material-symbols-rounded animate-spin">progress_activity</span>
+                    <span>로딩 중...</span>
+                  </div>
+                )}
+                {!hasMore && (
+                  <p className="text-charcoal-light dark:text-cream-dark text-sm">
+                    모든 게시물을 불러왔습니다.
+                  </p>
+                )}
               </div>
             )}
           </>
@@ -891,7 +922,7 @@ const FeedPage = ({ hideHeader = false }) => {
             )}
 
             {/* 서브 탭 네비게이션 */}
-            <div className="border-b border-gold-light/20 mb-6">
+            <div className={`sticky ${hideHeader ? 'top-[64px]' : 'top-[132px]'} z-20 bg-cream dark:bg-[#1A1918] border-b border-gold-light/20 mb-6 -mx-4 px-4`}>
               <div className="flex">
                 <button
                   onClick={() => setUserFeedSubTab('피드')}
@@ -1025,7 +1056,7 @@ const FeedPage = ({ hideHeader = false }) => {
                                   src={item.image || item.imageUrl}
                                   alt={item.name || '외투'}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                  onClick={() => setSelectedClothDetail(item)}
+                                  onClick={() => setSelectedClothDetail({ ...item, ownerId: isViewingOtherUser ? targetUserId : currentUser?.id })}
                                 />
                                 {/* 공개/비공개 토글 버튼 - 본인 피드일 때만 표시 */}
                                 {!isViewingOtherUser && (
@@ -1105,7 +1136,7 @@ const FeedPage = ({ hideHeader = false }) => {
                                   src={item.image || item.imageUrl}
                                   alt={item.name || '상의'}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                  onClick={() => setSelectedClothDetail(item)}
+                                  onClick={() => setSelectedClothDetail({ ...item, ownerId: isViewingOtherUser ? targetUserId : currentUser?.id })}
                                 />
                                 {/* 공개/비공개 토글 버튼 - 본인 피드일 때만 표시 */}
                                 {!isViewingOtherUser && (
@@ -1176,7 +1207,7 @@ const FeedPage = ({ hideHeader = false }) => {
                                   src={item.image || item.imageUrl}
                                   alt={item.name || '하의'}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                  onClick={() => setSelectedClothDetail(item)}
+                                  onClick={() => setSelectedClothDetail({ ...item, ownerId: isViewingOtherUser ? targetUserId : currentUser?.id })}
                                 />
                                 {/* 공개/비공개 토글 버튼 - 본인 피드일 때만 표시 */}
                                 {!isViewingOtherUser && (
@@ -1247,7 +1278,7 @@ const FeedPage = ({ hideHeader = false }) => {
                                   src={item.image || item.imageUrl}
                                   alt={item.name || '신발'}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                  onClick={() => setSelectedClothDetail(item)}
+                                  onClick={() => setSelectedClothDetail({ ...item, ownerId: isViewingOtherUser ? targetUserId : currentUser?.id })}
                                 />
                                 {/* 공개/비공개 토글 버튼 - 본인 피드일 때만 표시 */}
                                 {!isViewingOtherUser && (
@@ -1370,15 +1401,15 @@ const FeedPage = ({ hideHeader = false }) => {
             const { setActiveTab, setPendingTryOnCloth } = useTabStore.getState();
             const clothToTryOn = {
               ...selectedClothDetail,
-              image: selectedClothDetail.imageUrl,
+              image: selectedClothDetail.image || selectedClothDetail.imageUrl || selectedClothDetail.flattenImageUrl,
             };
             setSelectedClothDetail(null);
             setPendingTryOnCloth(clothToTryOn);
             setActiveTab(TAB_KEYS.FITTING_ROOM);
             window.history.replaceState(null, '', '/fitting-room');
           }}
-          showActions={!isViewingOtherUser}
-          onEdit={!isViewingOtherUser ? () => {
+          showActions={true}
+          onEdit={(!selectedClothDetail.ownerId || selectedClothDetail.ownerId === currentUser?.id) ? () => {
             const itemId = selectedClothDetail.id;
             setSelectedClothDetail(null);
             navigate(`/item/edit/${itemId}`);
