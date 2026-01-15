@@ -25,7 +25,7 @@ const saveToHistory = (imageUrl, clothDetail) => {
   };
 
   const saved = JSON.parse(localStorage.getItem('vto_history') || '[]');
-  const updated = [newHistoryItem, ...saved].slice(0, 20); // 최신 20개만 유지
+  const updated = [newHistoryItem, ...saved].slice(0, 5); // 최신 20개만 유지
 
   localStorage.setItem('vto_history', JSON.stringify(updated));
 
