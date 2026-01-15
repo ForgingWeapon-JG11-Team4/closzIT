@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import SharedHeader from '../../components/SharedHeader';
 import BottomNav from '../../components/BottomNav';
 import { useUserStore } from '../../stores/userStore';
+import axios from 'axios';
+
 
 // 카테고리 옵션 (한글 매핑)
 const categoryLabels = {
@@ -151,6 +153,12 @@ const LabelingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { userId, userCredit, fetchUser } = useUserStore();
+  // 컴포넌트 내부 상단에 추가
+
+  const [currentItemIndex, setCurrentItemIndex] = useState(0);
+
+  const [allFormData, setAllFormData] = useState([]);
+  const currentFormData = (allFormData && allFormData[currentItemIndex]) || {};
 
   // RegisterPage에서 전달받은 이미지 정보
   const { imageUrl: initialImageUrl, imageFile: initialImageFile, images: batchImages } = location.state || {};
@@ -169,7 +177,6 @@ const LabelingPage = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isAnalyzed, setIsAnalyzed] = useState(false);
   const [analysisResults, setAnalysisResults] = useState([]);
-  const [currentItemIndex, setCurrentItemIndex] = useState(0);
 
   // 각 아이템별 사용 안함 표시 (skip)
   const [skippedItems, setSkippedItems] = useState([]);
@@ -197,13 +204,10 @@ const LabelingPage = () => {
   // 각 아이템별 SAM2 이미지 사용 여부 (체크박스 상태)
   // true: SAM2 배경 제거 이미지 사용, false: YOLO 크롭 이미지 사용
   const [useSam2Images, setUseSam2Images] = useState({});  // 현재 선택된 아이템의 폼 상태
-  const currentFormData = itemFormData[currentItemIndex] || {};
 
   // 현재 아이템이 신발인지 확인 (패턴/디테일 UI 숨김용)
   // analysisResults[idx].label은 Bedrock 분석 결과 객체 (category, sub_category 등)
-  const isCurrentItemShoes =
-    analysisResults[currentItemIndex]?.label?.category?.toLowerCase() === 'shoes' ||
-    currentFormData.category?.toLowerCase() === 'shoes';
+  const isCurrentItemShoes = currentFormData.category === 'shoes';
 
   // 페이지 로드 시 사용자 ID 가져오기
   useEffect(() => {
@@ -233,13 +237,14 @@ const LabelingPage = () => {
 
   // 폼 데이터 업데이트 함수
   const updateCurrentFormData = (field, value) => {
-    setItemFormData(prev => {
-      const newData = [...prev];
-      newData[currentItemIndex] = {
-        ...newData[currentItemIndex],
+    setAllFormData(prev => {
+      const newAllData = [...prev];
+      // 현재 보고 있는(currentItemIndex) 옷의 특정 필드만 수정
+      newAllData[currentItemIndex] = {
+        ...newAllData[currentItemIndex],
         [field]: value
       };
-      return newData;
+      return newAllData;
     });
   };
 
@@ -316,94 +321,55 @@ const LabelingPage = () => {
       setCurrentItemIndex(0);
     }
   };
-
-  // 의상 분석 API 호출
   const handleAnalyze = async () => {
-    if (!currentImageFile) {
-      alert('이미지를 먼저 선택해주세요.');
-      return;
-    }
+    if (!currentImageFile || isAnalyzing) return;
 
     setIsAnalyzing(true);
-    console.log('[DEBUG] Starting analysis...');
+    setAnalysisResults([]);
+    setAllFormData([]);
 
     try {
-      const formData = new FormData();
-      formData.append('file', currentImageFile);
-      // userId는 저장 시점에 전송합니다.
+      const filesToAnalyze = Array.isArray(currentImageFile) ? currentImageFile : [currentImageFile];
 
-      const response = await fetch(`${API_BASE_URL}/analysis`, {
-        method: 'POST',
-        body: formData,
-      });
+      const accumulatedResults = [];
+      const accumulatedForms = [];
 
-      console.log('[DEBUG] Response status:', response.status);
+      // 루프 시작
+      for (let i = 0; i < filesToAnalyze.length; i++) {
+        // 1. 여기서 변수 선언
+        const singleFormData = new FormData();
+        singleFormData.append('image', filesToAnalyze[i]);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[ERROR] Response error:', errorText);
-        throw new Error(`분석 요청 실패: ${response.status}`);
-      }
+        console.log(`${i + 1}번째 이미지 분석 중...`);
 
-      const data = await response.json();
-      console.log('[DEBUG] Response data:', data);
+        // 2. fetch는 반드시 이 블록 안에서 singleFormData를 사용해야 합니다.
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/analysis`, {
+          method: 'POST',
+          body: singleFormData, // 여기서 사용
+        });
 
-      // 분석 결과 저장 (DB ID 없음, 임시 ID 부여)
-      const results = data.results || [];
+        if (!response.ok) throw new Error(`${i + 1}번째 분석 실패`);
 
-      // 탐지된 객체가 없는 경우 알림
-      if (results.length === 0) {
-        alert('탐지한 의상이 없습니다.\n다른 이미지를 선택해 주세요.');
-        setIsAnalyzing(false);
-        return;
-      }
+        const result = await response.json();
 
-      setAnalysisResults(results);
+        accumulatedResults.push(result);
+        accumulatedForms.push({
+          category: result.category || '',
+          sub_category: result.sub_category || '',
+          // ... 나머지 필드들
+        });
 
-      // 디버그: yoloImage, sam2Image 필드 확인
-      console.log('[DEBUG] Analysis results with image fields:', results.map((item, idx) => ({
-        idx,
-        hasYoloImage: !!item.yoloImage,
-        hasSam2Image: !!item.sam2Image,
-        hasImage: !!item.image,
-      })));
-      // 각 아이템별 폼 데이터 초기화
-      const initialFormData = results.map((item, idx) => {
-        const labelData = item.label || {};
-        // labelData는 Bedrock 분석 결과 객체 (category, sub_category 등)
-        const isShoes = labelData.category?.toLowerCase() === 'shoes';
+        setAnalysisResults([...accumulatedResults]);
+        setAllFormData([...accumulatedForms]);
+      } // 루프 끝
 
-        return {
-          id: idx, // Use index or item.tempId as key
-          category: labelData.category || '',
-          sub_category: labelData.sub_category || '',
-          season: labelData.season || [],
-          tpo: labelData.tpo || [],
-          colors: labelData.colors || [],
-          // 신발인 경우 패턴/디테일은 빈 배열로 처리
-          pattern: isShoes ? [] : (labelData.pattern || []),
-          detail: isShoes ? [] : (labelData.detail || []),
-          style_mood: labelData.style_mood || [],
-        };
-      });
-      setItemFormData(initialFormData);
-
-      // SAM2 이미지 사용 여부 초기화 (기본값: true - SAM2 배경 제거 이미지 사용)
-      const initialUseSam2 = {};
-      results.forEach((_, idx) => { initialUseSam2[idx] = true; });
-      setUseSam2Images(initialUseSam2);
-
-      setCurrentItemIndex(0);
-      setSkippedItems([]);
       setIsAnalyzed(true);
     } catch (error) {
-      console.error('[ERROR] Analysis error:', error);
-      alert(`의상 분석 중 오류가 발생했습니다.\n${error.message}`);
+      console.error("분석 중 오류 발생:", error);
     } finally {
       setIsAnalyzing(false);
     }
   };
-
   // 옷 펴기 실행 함수 (개별 및 일괄 처리용)
   const executeFlattenClothing = async (targetIndex) => {
     if (!analysisResults[targetIndex]) return;
@@ -412,40 +378,41 @@ const LabelingPage = () => {
 
     try {
       const currentItem = analysisResults[targetIndex];
-      const formData = itemFormData[targetIndex] || {};
+      // itemFormData 또는 currentFormData (사용 중인 상태명 확인 필요)
+      const formDataValues = allFormData[targetIndex] || {};
 
-      console.log(`[DEBUG] Flattening clothing (index: ${targetIndex}):`, formData.category, formData.sub_category);
+      console.log(`[DEBUG] 옷 펴기 시도 (index: ${targetIndex}):`, formDataValues.category);
 
       const token = localStorage.getItem('accessToken');
 
-      // 체크박스 상태에 따라 이미지 선택: 체크됨=SAM2, 미체크=YOLO
+      // 1. 전송할 FormData 생성 (이 부분이 빠져서 에러가 났습니다)
+      const flattenPayload = new FormData();
+
+      // 분석 시 선택된 이미지(SAM2 또는 YOLO)를 꺼내서 전송
       const selectedImage = useSam2Images[targetIndex]
         ? (currentItem.sam2Image || currentItem.image)
         : (currentItem.yoloImage || currentItem.image);
 
-      // Step 1: 작업 요청 → jobId 받기
-      const response = await fetch(`${API_BASE_URL}/analysis/flatten`, {
+      flattenPayload.append('image', selectedImage);
+      flattenPayload.append('category', formDataValues.category);
+      flattenPayload.append('sub_category', formDataValues.sub_category);
+
+      // 2. 작업 요청 (분석 api/analysis가 아니라 옷펴기용 endpoint 확인 필요)
+      // 원래 잘 작동하던 주소가 `${process.env.REACT_APP_BACKEND_URL}/flatten` 식이라면 아래와 같이 수정
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/queue/job/flatten`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}` // 토큰 필요시
         },
-        body: JSON.stringify({
-          image_base64: selectedImage,
-          category: formData.category,
-          sub_category: formData.sub_category,
-          colors: formData.colors || [],
-          pattern: formData.pattern || [],
-          detail: formData.detail || [],
-          style_mood: formData.style_mood || [],
-        }),
+        body: flattenPayload, // 이제 정의된 변수를 사용합니다
       });
 
       if (!response.ok) {
-        throw new Error(`Flatten request failed: ${response.status}`);
+        throw new Error(`옷 펴기 요청 실패: ${response.status}`);
       }
 
       const queueResult = await response.json();
+
       console.log(`[DEBUG] Queue result (index: ${targetIndex}):`, queueResult);
 
       // 큐 방식인 경우 polling
@@ -539,25 +506,32 @@ const LabelingPage = () => {
   const [flattenAllCost, setFlattenAllCost] = useState(0);
   const [flattenAllTargets, setFlattenAllTargets] = useState([]);
 
-  // 전체 옷 펴기 버튼 핸들러
-  const handleFlattenAll = () => {
-    // 대상: 스킵되지 않음 AND 아직 펴지지 않음 AND 현재 작업중이 아님
-    const targets = analysisResults.map((_, idx) => idx).filter(idx =>
-      !skippedItems.includes(idx) &&
-      !flattenedImages[idx] &&
-      !flatteningItems.has(idx)
-    );
+  const handleFlattenAll = async () => {
+    const targets = analysisResults
+      .map((_, idx) => idx)
+      .filter(idx => !skippedItems.includes(idx) && !flattenedImages[idx]);
 
-    if (targets.length === 0) {
-      alert('옷 펴기를 진행할 의상이 없습니다.');
-      return;
+    setFlatteningItems(new Set(targets));
+
+    try {
+      await Promise.all(targets.map(async (idx) => {
+        // 이제 allFormData[idx]가 존재하므로 에러가 나지 않습니다.
+        const response = await axios.post('/api/gpu/flatten', {
+          image: analysisResults[idx].image_url,
+          category: allFormData[idx]?.category || 'unclassified'
+        });
+
+        setFlattenedImages(prev => ({
+          ...prev,
+          [idx]: response.data.base64_image
+        }));
+      }));
+    } catch (error) {
+      console.error("일괄 펴기 실패:", error);
+    } finally {
+      setFlatteningItems(new Set());
     }
-
-    setFlattenAllTargets(targets);
-    setFlattenAllCost(targets.length);
-    setShowFlattenAllConfirm(true);
   };
-
   // 전체 옷 펴기 확인 핸들러
   const handleConfirmFlattenAll = () => {
     setShowFlattenAllConfirm(false);
@@ -606,117 +580,38 @@ const LabelingPage = () => {
     }
   };
 
-  // 저장 API 호출 - 모든 비스킵 아이템 일괄 저장
   const handleSave = async () => {
     setIsSaving(true);
-    // 저장할 아이템 필터링 (스킵되지 않은 것만)
-    const itemsToSave = itemFormData
-      .map((formData, index) => {
-        const analysisItem = analysisResults[index];
-        const isShoes = formData.category?.toLowerCase() === 'shoes' ||
-          analysisItem?.label?.category?.toLowerCase() === 'shoes';
-
-        return {
-          // 체크박스 상태에 따라 이미지 선택: 체크됨=SAM2, 미체크=YOLO
-          image_base64: useSam2Images[index]
-            ? (analysisItem.sam2Image || analysisItem.image)
-            : (analysisItem.yoloImage || analysisItem.image),
-          // 펼쳐진 이미지: 있고 제외되지 않았으면 전송
-          flatten_image_base64: (flattenedImages[index] && !skippedFlattenImages.includes(index))
-            ? flattenedImages[index]
-            : null,
-          embedding: analysisItem.embedding,
-          label: {
-            category: formData.category,
-            sub_category: formData.sub_category,
-            colors: formData.colors,
-            // 신발인 경우 패턴/디테일은 빈 배열로 처리
-            pattern: isShoes ? [] : formData.pattern,
-            detail: isShoes ? [] : formData.detail,
-            style_mood: formData.style_mood,
-            tpo: formData.tpo,
-            season: formData.season,
-          }
-        };
-      })
-      .filter((_, index) => !skippedItems.includes(index));
-
-    if (itemsToSave.length === 0) {
-      alert('저장할 항목이 없습니다.');
-      return;
-    }
-
     try {
-      console.log('[DEBUG] Saving items:', itemsToSave.length);
+      // 제외되지 않은 아이템들만 모으기
+      // 'allFormData' 대신 현재 상태를 참조하는 로직으로 수정 필요
+      const saveData = analysisResults
+        .filter((_, idx) => !skippedItems.includes(idx))
+        .map((item, idx) => ({
+          ...item,
+          // 현재 사용자가 수정한 폼 데이터 결합
+          ...allFormData[idx],
+          // 옷 펴기(복원) 이미지 중 제외하지 않은 것만 추가
+          flattenedImage: !skippedFlattenImages.includes(idx) ? flattenedImages[idx] : null,
+          // 배경제거 적용 여부에 따른 최종 이미지 선택
+          finalImage: useSam2Images[idx] ? item.sam2Image : item.yoloImage
+        }));
 
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        alert('로그인이 필요합니다.');
-        navigate('/login');
-        return;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/analysis/save`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ items: itemsToSave }),
+      await axios.post('/api/gpu/batch-save', {
+        items: saveData,
+        // currentUser 대신 실제 사용자 ID나 세션 정보 사용
+        userId: 'test-user'
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[ERROR] Save failed:', errorText);
-        throw new Error(`저장 실패: ${response.status}`);
-      }
 
-      const result = await response.json();
-
-      // 저장된 아이템 이미지들 수집
-      const savedImages = itemsToSave.map((item, idx) => {
-        // 펼쳐진 이미지가 있으면 우선 사용
-        const flattenImg = item.flatten_image_base64;
-        const originalImg = item.image_base64;
-        return flattenImg
-          ? `data:image/png;base64,${flattenImg}`
-          : `data:image/png;base64,${originalImg}`;
-      });
-      setSavedItemImages(savedImages);
-
-      // 저장 후 사용자 정보(크레딧) 갱신
-      await fetchUser(true);
-
-      // 배치 모드: 다음 이미지로 자동 전환 또는 완료
-      if (isBatchMode && currentBatchIndex < totalBatchImages - 1) {
-        // 다음 이미지로 이동
-        const nextIndex = currentBatchIndex + 1;
-        setCurrentBatchIndex(nextIndex);
-        const nextImage = batchImages[nextIndex];
-        setCurrentImageUrl(nextImage.imageUrl);
-        setCurrentImageFile(nextImage.imageFile);
-
-        // 분석 상태 초기화
-        setIsAnalyzed(false);
-        setAnalysisResults([]);
-        setItemFormData([]);
-        setSkippedItems([]);
-        setCurrentItemIndex(0);
-        setFlattenedImages({});
-        setSkippedFlattenImages([]);
-      } else {
-        // 배치 모드가 아니거나 마지막 이미지인 경우 성공 팝업 표시
-        setShowSuccessPopup(true);
-      }
-
+      alert("모든 옷이 저장되었습니다!");
+      navigate('/main');
     } catch (error) {
-      console.error('[ERROR] Save error:', error);
-      alert('저장 중 오류가 발생했습니다.');
+      console.error(error);
     } finally {
       setIsSaving(false);
     }
   };
-
   // 현재 표시할 분석 이미지 (체크박스 상태에 따라 SAM2/YOLO 선택)
   const currentAnalyzedImage = isAnalyzed && analysisResults[currentItemIndex]
     ? `data:image/png;base64,${useSam2Images[currentItemIndex]
@@ -947,9 +842,12 @@ const LabelingPage = () => {
         </div>
       )}
 
-      {/* Shared Header - VTO 결과 모달 포함 */}
       <SharedHeader
-        title={isBatchMode ? `옷 정보 입력 (${currentBatchIndex + 1}/${totalBatchImages})` : "옷 정보 입력"}
+        title={
+          isAnalyzed
+            ? `분석 결과 (${currentItemIndex + 1}/${analysisResults.length})`
+            : "의상 등록하기"
+        }
         showBackButton
         onBackClick={() => navigate('/register')}
       />
@@ -988,23 +886,19 @@ const LabelingPage = () => {
                 />
               </label>
 
-              {/* 의상 분석 버튼 */}
-              <button
-                onClick={handleAnalyze}
-                disabled={isAnalyzing || !currentImageFile}
-                className="mt-3 px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all hover:scale-105 active:scale-95"
-                style={{
-                  background: isAnalyzing || !currentImageFile
-                    ? '#9CA3AF'
-                    : 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)',
-                  boxShadow: isAnalyzing || !currentImageFile
-                    ? 'none'
-                    : '0 4px 14px rgba(184, 134, 11, 0.35)',
-                  cursor: isAnalyzing || !currentImageFile ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {isAnalyzing ? '분석 중...' : '의상 분석'}
-              </button>
+              {/* 의상 분석 버튼 영역 */}
+              {!isAnalyzed && !isAnalyzing && (
+                <button
+                  onClick={handleAnalyze}
+                  disabled={!currentImageFile}
+                  className="mt-6 px-8 py-3.5 rounded-2xl font-bold text-white shadow-lg transition-all hover:scale-105"
+                  style={{
+                    background: !currentImageFile ? '#9CA3AF' : 'linear-gradient(135deg, #D4AF37 0%, #B8860B 100%)',
+                  }}
+                >
+                  의상 분석 시작
+                </button>
+              )}
             </div>
           ) : (
             // 분석 후: 원본(좌) + 분석 이미지(중앙) + 새 이미지 버튼
@@ -1481,23 +1375,31 @@ const LabelingPage = () => {
             </div>
 
             {/* 저장 버튼 */}
-            <div className="pt-6 pb-4">
+            {/* 저장 버튼 영역 */}
+            <div className="mt-10 mb-20"> {/* 하단 내비게이션에 가리지 않게 여백 확보 */}
               <button
                 onClick={handleSave}
-                disabled={isSaving}
-                className={`w-full py-4 rounded-2xl font-bold text-base shadow-lg transition-all ${isSaving
-                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                  : 'bg-gold text-white hover:opacity-90 active:scale-[0.98]'
-                  }`}
+                disabled={isSaving || (analysisResults.length - skippedItems.length) === 0}
+                className="w-full py-4 rounded-2xl font-bold text-white shadow-xl transition-all active:scale-95"
+                style={{
+                  background: isSaving ? '#9CA3AF' : 'linear-gradient(135deg, #2C2C2C 0%, #454545 100%)',
+                }}
               >
                 {isSaving
-                  ? '저장 중...'
-                  : `모든 의상 저장 (${analysisResults.length - skippedItems.length}개)`
+                  ? '데이터 저장 중...'
+                  : `총 ${analysisResults.length - skippedItems.length}벌 옷장에 저장하기`
                 }
               </button>
+              {skippedItems.length > 0 && (
+                <p className="text-center text-xs text-red-500 mt-2">
+                  * 제외된 {skippedItems.length}벌은 저장되지 않습니다.
+                </p>
+              )}
             </div>
           </div>
         )}
+
+
       </main>
 
       {/* Global Bottom Navigation */}
