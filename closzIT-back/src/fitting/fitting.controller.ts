@@ -17,11 +17,14 @@ import { VtonCacheService } from '../vton-cache/vton-cache.service';
 import { S3Service } from '../s3/s3.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { Readable } from 'stream';
 
 @Controller('api/fitting')
 @UseGuards(JwtAuthGuard)
 export class FittingController {
   private readonly logger = new Logger(FittingController.name);
+  private readonly s3Client: S3Client;
 
   constructor(
     private readonly fittingService: FittingService,
@@ -29,7 +32,16 @@ export class FittingController {
     private readonly vtonCacheService: VtonCacheService,
     private readonly s3Service: S3Service,
     @InjectQueue('vto-queue') private readonly vtoQueue: Queue,
-  ) {}
+  ) {
+    // S3 Client 초기화
+    this.s3Client = new S3Client({
+      region: process.env.AWS_REGION || 'ap-northeast-2',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    });
+  }
 
   @Post('virtual-try-on')
   @UseInterceptors(
@@ -698,7 +710,7 @@ export class FittingController {
   }
 
   /**
-   * URL에서 이미지를 Base64로 변환
+   * URL에서 이미지를 Base64로 변환 (AWS SDK 사용)
    */
   private async fetchImageAsBase64(url: string): Promise<string> {
     try {
@@ -707,8 +719,35 @@ export class FittingController {
         return url.split(',')[1];
       }
 
-      // S3 URL인 경우 Pre-signed URL로 변환 후 fetch
-      // (FittingService의 fetchImageAsBuffer 로직 참고)
+      // S3 URL인 경우 AWS SDK로 직접 다운로드
+      const s3UrlPattern = /https?:\/\/([^.]+)\.s3\.([^.]+)\.amazonaws\.com\/(.+)/;
+      const s3Match = url.match(s3UrlPattern);
+
+      if (s3Match) {
+        const bucket = s3Match[1];
+        const key = decodeURIComponent(s3Match[3].split('?')[0]); // Query string 제거
+
+        this.logger.log(`[fetchImageAsBase64] Using AWS SDK - Bucket: ${bucket}, Key: ${key}`);
+
+        const command = new GetObjectCommand({
+          Bucket: bucket,
+          Key: key,
+        });
+
+        const response = await this.s3Client.send(command);
+        const stream = response.Body as Readable;
+        const chunks: Buffer[] = [];
+
+        for await (const chunk of stream) {
+          chunks.push(Buffer.from(chunk));
+        }
+
+        const buffer = Buffer.concat(chunks);
+        return buffer.toString('base64');
+      }
+
+      // S3 URL이 아닌 경우 fetch 사용
+      this.logger.log(`[fetchImageAsBase64] Using fetch for non-S3 URL: ${url}`);
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`Failed to fetch image: ${response.status}`);
@@ -717,7 +756,7 @@ export class FittingController {
       const buffer = Buffer.from(arrayBuffer);
       return buffer.toString('base64');
     } catch (error) {
-      console.error(`Error fetching image from ${url}:`, error);
+      this.logger.error(`Error fetching image from ${url}:`, error);
       throw error;
     }
   }
