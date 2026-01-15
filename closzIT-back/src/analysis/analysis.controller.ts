@@ -82,6 +82,8 @@ export class AnalysisController {
                     type: 'exponential',
                     delay: 1000,
                 },
+                removeOnComplete: { age: 300, count: 100 }, // 5분간 또는 100개까지 보존
+                removeOnFail: { age: 3600 }, // 실패는 1시간 보존
             });
 
             this.logger.log(`[flattenClothing] Job ${job.id} queued for userId: ${userId}`);
