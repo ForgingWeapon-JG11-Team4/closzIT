@@ -520,9 +520,10 @@ export class FittingController {
    */
   @Post('single-item-tryon')
   @UseGuards(JwtAuthGuard)
-  async singleItemTryOn(@Request() req, @Body() body: { clothingId: string; category?: string; denoiseSteps?: number; seed?: number }) {
+  async singleItemTryOn(@Request() req, @Body() body: { clothingId: string; clothingOwnerId?: string; category?: string; denoiseSteps?: number; seed?: number }) {
     const userId = req.user.id;
-    console.log('[singleItemTryOn] Starting - userId:', userId, 'clothingId:', body.clothingId, 'category:', body.category);
+    const clothingOwnerId = body.clothingOwnerId || userId; // 없으면 본인 의류
+    console.log('[singleItemTryOn] Starting - userId:', userId, 'clothingId:', body.clothingId, 'clothingOwnerId:', clothingOwnerId, 'category:', body.category);
 
     if (!body.clothingId) {
       throw new BadRequestException({
@@ -531,10 +532,10 @@ export class FittingController {
       });
     }
 
-    // 캐시 존재 확인
+    // 캐시 존재 확인 (garment/text 캐시는 의류 소유자 기준)
     const humanCacheExists = await this.vtonCacheService.checkHumanCacheExists(userId);
-    const garmentCacheExists = await this.vtonCacheService.checkGarmentCacheExists(userId, body.clothingId);
-    const textCacheExists = await this.vtonCacheService.checkTextCacheExists(userId, body.clothingId);
+    const garmentCacheExists = await this.vtonCacheService.checkGarmentCacheExists(clothingOwnerId, body.clothingId);
+    const textCacheExists = await this.vtonCacheService.checkTextCacheExists(clothingOwnerId, body.clothingId);
 
     console.log(`[Cache Check] human=${humanCacheExists}, garment=${garmentCacheExists}, text=${textCacheExists}`);
 
@@ -561,7 +562,7 @@ export class FittingController {
     // 2. Garment & Text 캐시 생성 (필요시)
     if (!garmentCacheExists || !textCacheExists) {
       const clothing = await this.prisma.clothing.findUnique({
-        where: { id: body.clothingId, userId },
+        where: { id: body.clothingId }, // userId 필터 제거 - 다른 사람 옷도 조회 가능
         select: {
           flattenImageUrl: true,
           imageUrl: true,
@@ -580,15 +581,15 @@ export class FittingController {
         });
       }
 
-      // Garment 캐시
+      // Garment 캐시 (의류 소유자 기준으로 저장)
       if (!garmentCacheExists) {
         const imageUrl = clothing.flattenImageUrl || clothing.imageUrl;
         const imageBase64 = await this.fetchImageAsBase64(imageUrl);
-        await this.vtonCacheService.preprocessAndCacheGarment(userId, body.clothingId, imageBase64);
-        console.log('[Cache] Garment cache created');
+        await this.vtonCacheService.preprocessAndCacheGarment(clothingOwnerId, body.clothingId, imageBase64);
+        console.log('[Cache] Garment cache created for owner:', clothingOwnerId);
       }
 
-      // Text 캐시
+      // Text 캐시 (의류 소유자 기준으로 저장)
       if (!textCacheExists) {
         const description = [
           clothing.category || '',
@@ -598,8 +599,8 @@ export class FittingController {
           ...(clothing.details || []),
         ].filter(Boolean).join(' ');
 
-        await this.vtonCacheService.preprocessAndCacheText(userId, body.clothingId, description);
-        console.log('[Cache] Text cache created');
+        await this.vtonCacheService.preprocessAndCacheText(clothingOwnerId, body.clothingId, description);
+        console.log('[Cache] Text cache created for owner:', clothingOwnerId);
       }
     }
 
@@ -612,7 +613,7 @@ export class FittingController {
     let clothingSubCategory: string | undefined;
 
     const clothing = await this.prisma.clothing.findUnique({
-      where: { id: body.clothingId, userId },
+      where: { id: body.clothingId }, // userId 필터 제거 - 다른 사람 옷도 조회 가능
       select: { category: true, subCategory: true },
     });
 
@@ -656,6 +657,7 @@ export class FittingController {
       vtonCategory,  // ⚡ category 전달
       body.denoiseSteps ?? 10,
       body.seed ?? 42,
+      clothingOwnerId,  // 의류 소유자 ID 전달
     );
 
     return {
