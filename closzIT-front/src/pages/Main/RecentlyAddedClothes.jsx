@@ -1,9 +1,50 @@
 // src/pages/Main/RecentlyAddedClothes.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+
+// 개별 옷 아이템 컴포넌트
+const ClothItem = ({ cloth, onClick }) => (
+  <div
+    onClick={() => onClick && onClick(cloth)}
+    className="flex-shrink-0 flex flex-col items-center cursor-pointer group w-20"
+  >
+    {cloth.category !== 'shoes' ? (
+      <>
+        <div className="w-12 h-12 -mb-5 relative z-20 transition-transform duration-300 group-hover:-translate-y-1">
+          <img src="/assets/hook.png" alt="hook" className="w-full h-full object-contain drop-shadow-sm" />
+        </div>
+        <div className="w-20 h-24 rounded-lg overflow-hidden border border-gold-light/20 shadow-md relative bg-white z-10 group-hover:shadow-lg transition-all duration-300">
+          <img
+            src={cloth.imageUrl || cloth.image}
+            alt={cloth.name}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
+        </div>
+      </>
+    ) : (
+      <div className="mt-5 w-20 h-20 rounded-xl overflow-hidden border border-gold-light/20 shadow-sm relative bg-white group-hover:shadow-md transition-all duration-300">
+        <img
+          src={cloth.imageUrl || cloth.image}
+          alt={cloth.name}
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute top-1 right-1 w-4 h-4 bg-gold/90 rounded-full flex items-center justify-center shadow-sm z-10">
+          <span className="material-symbols-rounded text-white text-[8px]">steps</span>
+        </div>
+      </div>
+    )}
+  </div>
+);
 
 const RecentlyAddedClothes = ({ onClothClick }) => {
   const [recentClothes, setRecentClothes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [shouldAnimate, setShouldAnimate] = useState(false);
+  const containerRef = useRef(null);
+
+  // 아이템 크기 상수 (w-20 = 80px, gap-4 = 16px)
+  const ITEM_WIDTH = 80;
+  const GAP = 16;
 
   useEffect(() => {
     const fetchRecentClothes = async () => {
@@ -12,12 +53,6 @@ const RecentlyAddedClothes = ({ onClothClick }) => {
         if (!token) return;
 
         const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-        // 전체 옷 목록을 가져와서 날짜순 정렬 (백엔드 API에 따라 최적화 가능)
-        // 여기서는 items/by-category로 가져온 후 합쳐서 정렬한다고 가정하거나, 
-        // 전체 아이템을 가져오는 API가 있다면 그것을 사용.
-        // items/by-category는 이미 상위 컴포넌트에서 호출되므로, 
-        // 최적화를 위해 props로 받을 수도 있지만, 
-        // "최근 등록" 전용 API가 없다면 여기서 전체를 받아 정렬하는 로직을 구현합니다.
 
         const response = await fetch(`${backendUrl}/items/by-category`, {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -32,7 +67,6 @@ const RecentlyAddedClothes = ({ onClothClick }) => {
             ...(data.shoes || []),
           ];
 
-          // createdAt 기준으로 내림차순 정렬 후 상위 5개
           const sorted = allClothes.sort((a, b) => {
             return new Date(b.createdAt) - new Date(a.createdAt);
           }).slice(0, 5);
@@ -48,6 +82,36 @@ const RecentlyAddedClothes = ({ onClothClick }) => {
 
     fetchRecentClothes();
   }, []);
+
+  // 컨테이너 크기 vs 아이템 총 너비 비교
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (!containerRef.current || recentClothes.length === 0) return;
+
+      const containerWidth = containerRef.current.offsetWidth;
+      const totalItemsWidth = recentClothes.length * ITEM_WIDTH + (recentClothes.length - 1) * GAP;
+
+      setShouldAnimate(totalItemsWidth > containerWidth);
+    };
+
+    checkOverflow();
+
+    window.addEventListener('resize', checkOverflow);
+    return () => window.removeEventListener('resize', checkOverflow);
+  }, [recentClothes]);
+
+  // 첫 번째 세트의 정확한 너비 (픽셀)
+  const setWidth = useMemo(() => {
+    const itemsWidth = recentClothes.length * ITEM_WIDTH;
+    const gapsWidth = recentClothes.length * GAP; // 마지막 아이템 뒤 gap 포함
+    return itemsWidth + gapsWidth;
+  }, [recentClothes.length]);
+
+  // 애니메이션 속도 동적 계산 (아이템 수에 비례)
+  const animationDuration = useMemo(() => {
+    const baseDuration = 5;
+    return recentClothes.length * baseDuration;
+  }, [recentClothes.length]);
 
   if (isLoading || recentClothes.length === 0) return null;
 
@@ -70,56 +134,65 @@ const RecentlyAddedClothes = ({ onClothClick }) => {
           }}
         />
 
-        {/* Infinite Scroll Container */}
-        <div className="flex-1 flex items-start overflow-hidden w-full relative -mx-1 px-1 z-10 pt-0">
-          <div className="flex gap-4 animate-infinite-scroll hover:[animation-play-state:paused] w-max items-start">
-            {/* Loop mainly for visual effect - duplicate items */}
-            {[...recentClothes, ...recentClothes].map((cloth, index) => (
-              <div
-                key={`${cloth.id}-${index}`}
-                onClick={() => onClothClick && onClothClick(cloth)}
-                className="flex-shrink-0 flex flex-col items-center cursor-pointer group w-20"
-              >
-                {/* 옷걸이 (신발 제외) */}
-                {cloth.category !== 'shoes' ? (
-                  <>
-                    <div className="w-12 h-12 -mb-5 relative z-20 transition-transform duration-300 group-hover:-translate-y-1">
-                      <img src="/assets/hook.png" alt="hook" className="w-full h-full object-contain drop-shadow-sm" />
-                    </div>
-                    <div className="w-20 h-24 rounded-lg overflow-hidden border border-gold-light/20 shadow-md relative bg-white z-10 group-hover:shadow-lg transition-all duration-300">
-                      <img
-                        src={cloth.imageUrl || cloth.image}
-                        alt={cloth.name}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
-                    </div>
-                  </>
-                ) : (
-                  /* 신발은 옷걸이 없이 아래쪽에 배치 (marginTop으로 높이 맞춤) */
-                  <div className="mt-5 w-20 h-20 rounded-xl overflow-hidden border border-gold-light/20 shadow-sm relative bg-white group-hover:shadow-md transition-all duration-300">
-                    <img
-                      src={cloth.imageUrl || cloth.image}
-                      alt={cloth.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-1 right-1 w-4 h-4 bg-gold/90 rounded-full flex items-center justify-center shadow-sm z-10">
-                      <span className="material-symbols-rounded text-white text-[8px]">steps</span>
-                    </div>
-                  </div>
-                )}
+        {/* Scroll Container */}
+        <div 
+          ref={containerRef}
+          className="flex-1 flex items-start overflow-hidden w-full relative -mx-1 px-1 z-10 pt-0"
+        >
+          {shouldAnimate ? (
+            <div 
+              className="flex items-start infinite-scroll-container hover:[animation-play-state:paused]"
+              style={{ 
+                '--set-width': `${setWidth}px`,
+                '--duration': `${animationDuration}s`,
+              }}
+            >
+              {/* 첫 번째 세트 */}
+              <div className="flex items-start" style={{ gap: `${GAP}px`, paddingRight: `${GAP}px` }}>
+                {recentClothes.map((cloth, index) => (
+                  <ClothItem 
+                    key={`set1-${cloth.id}-${index}`}
+                    cloth={cloth}
+                    onClick={onClothClick}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
+              {/* 두 번째 세트 (복제) */}
+              <div className="flex items-start" style={{ gap: `${GAP}px` }}>
+                {recentClothes.map((cloth, index) => (
+                  <ClothItem 
+                    key={`set2-${cloth.id}-${index}`}
+                    cloth={cloth}
+                    onClick={onClothClick}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-4 items-start justify-center w-full">
+              {recentClothes.map((cloth, index) => (
+                <ClothItem 
+                  key={`static-${cloth.id}-${index}`}
+                  cloth={cloth}
+                  onClick={onClothClick}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         <style>{`
-          @keyframes infinite-scroll {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
+          @keyframes infinite-scroll-exact {
+            0% { 
+              transform: translateX(0); 
+            }
+            100% { 
+              transform: translateX(calc(var(--set-width) * -1)); 
+            }
           }
-          .animate-infinite-scroll {
-            animation: infinite-scroll 30s linear infinite;
+          .infinite-scroll-container {
+            animation: infinite-scroll-exact var(--duration) linear infinite;
+            will-change: transform;
           }
         `}</style>
       </div>
