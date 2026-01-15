@@ -418,6 +418,11 @@ const LabelingPage = () => {
 
       const token = localStorage.getItem('accessToken');
 
+      // 체크박스 상태에 따라 이미지 선택: 체크됨=SAM2, 미체크=YOLO
+      const selectedImage = useSam2Images[targetIndex]
+        ? (currentItem.sam2Image || currentItem.image)
+        : (currentItem.yoloImage || currentItem.image);
+
       // Step 1: 작업 요청 → jobId 받기
       const response = await fetch(`${API_BASE_URL}/analysis/flatten`, {
         method: 'POST',
@@ -426,7 +431,7 @@ const LabelingPage = () => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          image_base64: currentItem.image,
+          image_base64: selectedImage,
           category: formData.category,
           sub_category: formData.sub_category,
           colors: formData.colors || [],
