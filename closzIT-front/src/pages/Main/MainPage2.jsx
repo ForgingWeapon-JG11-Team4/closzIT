@@ -482,7 +482,10 @@ const MainPage2 = ({ hideHeader = false }) => {
 
             {/* Content Grid: Recently Added */}
             <div className="flex w-full items-stretch px-1">
-              <RecentlyAddedClothes onClothClick={setSelectedClothDetail} />
+              <RecentlyAddedClothes 
+                userClothes={userClothes}
+                onClothClick={setSelectedClothDetail} 
+                />
             </div>
 
 
