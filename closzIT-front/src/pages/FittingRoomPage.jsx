@@ -84,6 +84,8 @@ const FittingRoomPage = ({ hideHeader = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { activeTab, consumePendingTryOnCloth } = useTabStore();
+  const { requestPartialVtoByIds, checkPartialVtoLoading } = useVtoStore();
+  const isFullOutfitLoading = checkPartialVtoLoading('fitting-room');
 
   // VTO 상태
   const [isVtoLoading, setIsVtoLoading] = useState(false);
@@ -190,6 +192,58 @@ const FittingRoomPage = ({ hideHeader = false }) => {
     seasons: [],
     colors: [],
   });
+
+  // 선택된 옷 상태 (카테고리별 1개씩)
+  const [selectedOutfit, setSelectedOutfit] = useState({
+    outerwear: null,
+    tops: null,
+    bottoms: null,
+    shoes: null,
+  });
+
+  // 선택된 옷이 있는지 확인
+  const hasSelectedItems = Object.values(selectedOutfit).some(item => item !== null);
+
+  // 옷 선택/해제 토글
+  const toggleClothSelection = (cloth, category) => {
+    setSelectedOutfit(prev => {
+      // 이미 선택된 옷이면 해제
+      if (prev[category]?.id === cloth.id) {
+        return { ...prev, [category]: null };
+      }
+      // 새로운 옷 선택
+      return { ...prev, [category]: cloth };
+    });
+  };
+
+  // 선택 해제 (X 버튼)
+  const removeSelection = (category) => {
+    setSelectedOutfit(prev => ({ ...prev, [category]: null }));
+  };
+
+  // 전체 착장 입어보기 요청
+  const handleFullOutfitTryOn = (e) => {
+    if (!hasSelectedItems || isFullOutfitLoading) return;
+
+    // 버튼 위치 계산 (애니메이션 시작점)
+    let buttonPosition = null;
+    if (e?.currentTarget) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      buttonPosition = {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2
+      };
+    }
+
+    const clothingIds = {
+      outerId: selectedOutfit.outerwear?.id,
+      topId: selectedOutfit.tops?.id,
+      bottomId: selectedOutfit.bottoms?.id,
+      shoesId: selectedOutfit.shoes?.id,
+    };
+
+    requestPartialVtoByIds(clothingIds, buttonPosition, 'fitting-room');
+  };
 
   // 필터링된 옷 목록 계산
   const filteredClothes = React.useMemo(() => {
@@ -434,9 +488,12 @@ const FittingRoomPage = ({ hideHeader = false }) => {
                 onScroll={handleClothesScroll}
                 className="flex gap-3 overflow-x-auto pb-3 hide-scrollbar relative z-10"
               >
-                {expandedCategory && filteredClothes[expandedCategory]?.map((cloth, idx) => (
+                {expandedCategory && filteredClothes[expandedCategory]?.map((cloth, idx) => {
+                  const isSelected = selectedOutfit[expandedCategory]?.id === cloth.id;
+                  return (
                   <div
                     key={cloth.id}
+                    onClick={() => toggleClothSelection(cloth, expandedCategory)}
                     className="flex-shrink-0 cursor-pointer group/card"
                     style={{
                       willChange: 'transform',
@@ -472,11 +529,13 @@ const FittingRoomPage = ({ hideHeader = false }) => {
                     )}
                     {/* 옷 카드 */}
                     <div
-                      className={`w-20 h-24 rounded-xl overflow-hidden relative backdrop-blur-sm ${expandedCategory !== 'shoes' ? '-mt-4' : 'mt-2'}`}
+                      className={`w-20 h-24 rounded-xl overflow-hidden relative backdrop-blur-sm transition-all duration-200 ${expandedCategory !== 'shoes' ? '-mt-4' : 'mt-2'} ${isSelected ? 'ring-2 ring-gold scale-105' : ''}`}
                       style={{
                         background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.6) 100%)',
-                        border: '1.5px solid rgba(212,175,55,0.4)',
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(255,255,255,0.5) inset, 0 2px 4px rgba(212,175,55,0.15)',
+                        border: isSelected ? '2px solid #D4AF37' : '1.5px solid rgba(212,175,55,0.4)',
+                        boxShadow: isSelected 
+                          ? '0 4px 20px rgba(212,175,55,0.4), 0 0 0 1px rgba(255,255,255,0.5) inset'
+                          : '0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(255,255,255,0.5) inset, 0 2px 4px rgba(212,175,55,0.15)',
                       }}
                     >
                       <img
@@ -484,6 +543,12 @@ const FittingRoomPage = ({ hideHeader = false }) => {
                         className="w-full h-full object-cover"
                         src={cloth.image || cloth.imageUrl}
                       />
+                      {/* 선택됨 체크 표시 */}
+                      {isSelected && (
+                        <div className="absolute top-1 left-1 w-5 h-5 bg-gold rounded-full flex items-center justify-center shadow-md">
+                          <span className="material-symbols-rounded text-white text-xs">check</span>
+                        </div>
+                      )}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -495,7 +560,8 @@ const FittingRoomPage = ({ hideHeader = false }) => {
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
 
                 {/* 빈 상태 */}
                 {expandedCategory && (!filteredClothes[expandedCategory] || filteredClothes[expandedCategory].length === 0) && (
@@ -509,6 +575,130 @@ const FittingRoomPage = ({ hideHeader = false }) => {
                     </p>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 선택된 옷봉 섹션 */}
+        <div
+          className={`overflow-hidden transition-all duration-500 ease-out ${
+            hasSelectedItems ? 'max-h-[220px] opacity-100' : 'max-h-0 opacity-0'
+          }`}
+        >
+          <div
+            className="rounded-3xl p-4 shadow-soft border border-gold-light/20"
+            style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(250,248,245,0.98) 100%)' }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-charcoal dark:text-cream flex items-center gap-2">
+                <span className="material-symbols-rounded text-gold text-base">checkroom</span>
+                선택한 코디
+              </h3>
+              <div className="flex items-center gap-2">
+                {/* 전체 입어보기 버튼 */}
+                <button
+                  onClick={handleFullOutfitTryOn}
+                  disabled={isFullOutfitLoading}
+                  className={`px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-bold transition-all shadow-sm ${
+                    isFullOutfitLoading
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-gold text-white hover:bg-gold-dark hover:shadow-md'
+                  }`}
+                >
+                  {isFullOutfitLoading ? (
+                    <>
+                      <span className="material-symbols-rounded text-sm animate-spin">progress_activity</span>
+                      입어보는 중...
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-rounded text-sm">apparel</span>
+                      전체 입어보기
+                    </>
+                  )}
+                </button>
+                
+                {hasSelectedItems && (
+                  <button
+                    onClick={() => setSelectedOutfit({ outerwear: null, tops: null, bottoms: null, shoes: null })}
+                    className="text-[10px] text-red-400 hover:text-red-500 transition-colors ml-1"
+                  >
+                    전체 해제
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* 선택된 옷봉 레일 - 위쪽과 동일한 디자인 */}
+            <div className="relative pt-2">
+              {/* 옷봉 레일 */}
+              <div
+                className="absolute top-6 left-0 right-0 h-[14px] z-0 backdrop-blur-sm"
+                style={{
+                  background: 'linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(245,236,215,0.7) 50%, rgba(212,175,55,0.2) 100%)',
+                  borderTop: '2px solid #D4AF37',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1), inset 0 1px 2px rgba(255,255,255,0.8), inset 0 -1px 2px rgba(212,175,55,0.3)',
+                }}
+              />
+
+              {/* 선택된 옷 카드들 - 순서 유지하며 선택된 것만 표시 */}
+              <div className="flex gap-3 overflow-x-auto pb-3 hide-scrollbar relative z-10 justify-center">
+                {['outerwear', 'tops', 'bottoms', 'shoes'].map((category) => {
+                  const item = selectedOutfit[category];
+                  if (!item) return null;
+                  
+                  return (
+                    <div
+                      key={`selected-${category}-${item.id}`}
+                      className="flex-shrink-0 cursor-pointer group/selected"
+                      style={{
+                        animation: 'selectedSwingIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both',
+                        transformOrigin: 'top center',
+                      }}
+                    >
+                      {/* 옷걸이 */}
+                      <div className="flex justify-center">
+                        <img
+                          src="/assets/hook.png"
+                          alt="hook"
+                          className="w-16 h-16 object-contain"
+                        />
+                      </div>
+                      {/* 옷 카드 */}
+                      <div
+                        className="w-20 h-24 rounded-xl overflow-hidden relative backdrop-blur-sm -mt-4"
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.6) 100%)',
+                          border: '2px solid #D4AF37',
+                          boxShadow: '0 4px 20px rgba(212,175,55,0.4), 0 0 0 1px rgba(255,255,255,0.5) inset',
+                        }}
+                      >
+                        <img
+                          alt={item.name || '옷'}
+                          className="w-full h-full object-cover"
+                          src={item.image || item.imageUrl}
+                        />
+                        {/* X 버튼 */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeSelection(category);
+                          }}
+                          className="absolute top-1 right-1 w-5 h-5 bg-red-500/90 text-white rounded-full flex items-center justify-center shadow-md opacity-0 group-hover/selected:opacity-100 hover:bg-red-600 hover:scale-110 transition-all"
+                        >
+                          <span className="material-symbols-rounded text-xs">close</span>
+                        </button>
+                        {/* 카테고리 라벨 */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent py-1">
+                          <span className="text-[9px] text-white font-medium block text-center">
+                            {categoryMap[category].name}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -596,6 +786,23 @@ const FittingRoomPage = ({ hideHeader = false }) => {
             @keyframes slideInSimpleRight {
               0% { opacity: 0; transform: translateX(100vw); }
               100% { opacity: 1; transform: translateX(0); }
+            }
+            
+            @keyframes slideInFromRight {
+              0% { opacity: 0; transform: translateX(50px); }
+              100% { opacity: 1; transform: translateX(0); }
+            }
+            
+            .animate-slideInFromRight {
+              animation: slideInFromRight 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+            }
+            
+            @keyframes selectedSwingIn {
+              0% { opacity: 0; transform: translateX(100px) rotate(15deg); }
+              40% { opacity: 1; transform: translateX(0) rotate(-8deg); }
+              60% { transform: rotate(5deg); }
+              80% { transform: rotate(-3deg); }
+              100% { transform: rotate(0); }
             }
           `}
         </style>
