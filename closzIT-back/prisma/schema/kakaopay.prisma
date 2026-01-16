@@ -1,0 +1,133 @@
+// ===========================================
+// 결제 상태
+// ===========================================
+enum PaymentStatus {
+  READY      // 결제 준비
+  APPROVED   // 결제 승인 완료
+  CANCELLED  // 사용자 취소
+  FAILED     // 결제 실패
+  REFUNDED   // 환불 완료
+}
+
+// ===========================================
+// 아웃박스 이벤트 타입
+// ===========================================
+enum OutboxEventType {
+  GRANT_CREDIT      // 크레딧 지급
+  DEDUCT_CREDIT     // 크레딧 차감 (환불 시)
+  SEND_NOTIFICATION // 알림 발송
+}
+
+// ===========================================
+// 아웃박스 상태
+// ===========================================
+enum OutboxStatus {
+  PENDING     // 처리 대기
+  PROCESSING  // 처리 중
+  COMPLETED   // 완료
+  FAILED      // 최종 실패 (재시도 소진)
+}
+
+// ===========================================
+// 카카오페이 결제 정보
+// ===========================================
+model KakaoPayment {
+  id                String        @id @default(cuid())
+  
+  // 주문 정보
+  orderId           String        @unique @map("order_id")
+  tid               String?       // 카카오페이 결제 고유번호
+  
+  // 사용자 정보
+  userId            String        @map("user_id")
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // 결제 상품 정보
+  packageId         Int           @map("package_id")
+  credits           Int
+  amount            Int           // 결제 금액 (원)
+  
+  // 결제 상태
+  status            PaymentStatus @default(READY)
+  paymentMethodType String?       @map("payment_method_type") // CARD 또는 MONEY
+  
+  // 크레딧 지급 상태 (정합성 보장용)
+  creditGranted     Boolean       @default(false) @map("credit_granted")
+  creditHistoryId   String?       @map("credit_history_id") // CreditHistory.id 참조
+  
+  // 환불 정보
+  refundedAmount    Int?          @map("refunded_amount")
+  refundHistoryId   String?       @map("refund_history_id")
+  
+  // 시간 정보
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  approvedAt        DateTime?     @map("approved_at")
+  cancelledAt       DateTime?     @map("cancelled_at")
+  refundedAt        DateTime?     @map("refunded_at")
+  
+  // 관계
+  outboxEvents      PaymentOutbox[]
+  auditLogs         PaymentAuditLog[]
+  
+  @@index([userId])
+  @@index([status])
+  @@index([creditGranted, status])
+  @@index([createdAt])
+  @@map("kakao_payments")
+}
+
+// ===========================================
+// 아웃박스 테이블
+// ===========================================
+model PaymentOutbox {
+  id            String          @id @default(cuid())
+  
+  // 이벤트 정보
+  eventType     OutboxEventType
+  payload       Json
+  
+  // 처리 상태
+  status        OutboxStatus    @default(PENDING)
+  retryCount    Int             @default(0) @map("retry_count")
+  maxRetries    Int             @default(5) @map("max_retries")
+  lastError     String?         @map("last_error")
+  
+  // 연관 결제
+  paymentId     String          @map("payment_id")
+  payment       KakaoPayment    @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  
+  // 시간 정보
+  createdAt     DateTime        @default(now()) @map("created_at")
+  processedAt   DateTime?       @map("processed_at")
+  nextRetryAt   DateTime?       @map("next_retry_at")
+  
+  @@index([status, nextRetryAt])
+  @@index([paymentId])
+  @@index([eventType, status])
+  @@map("payment_outbox")
+}
+
+// ===========================================
+// 결제 감사 로그
+// ===========================================
+model PaymentAuditLog {
+  id          String       @id @default(cuid())
+  
+  // 연관 결제
+  paymentId   String       @map("payment_id")
+  payment     KakaoPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  
+  // 로그 정보
+  action      String       // CREATE, KAKAOPAY_READY, APPROVE, GRANT_CREDIT, REFUND, RECONCILE
+  status      String       // SUCCESS, FAILURE
+  details     Json?
+  
+  // 시간 정보
+  createdAt   DateTime     @default(now()) @map("created_at")
+  
+  @@index([paymentId])
+  @@index([createdAt])
+  @@index([action, status])
+  @@map("payment_audit_logs")
+}
