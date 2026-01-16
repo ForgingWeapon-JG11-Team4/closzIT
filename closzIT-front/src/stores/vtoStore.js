@@ -36,6 +36,8 @@ export const useVtoStore = create((set, get) => ({
     userCredit: 0,
     isCreditLoading: false,
     partialVtoLoadingSources: new Set(),
+    partialVtoLoadingCount: 0,  // Set 변경 감지를 위한 카운터
+    singleItemLoadingCount: 0,  // "하나만 입어보기" 전용 카운터 (헤더 로딩용)
     flyAnimation: null,
 
     // ========== Actions ==========
@@ -253,11 +255,18 @@ export const useVtoStore = create((set, get) => ({
         get().requestVtoWithCreditCheck('sns', { postId }, buttonPosition);
     },
 
-    // Single Item Tryon 로딩 시작 (외부에서 호출)
+    // Single Item Tryon 로딩 시작 (외부에서 호출) - 헤더에 로딩 표시
     startSingleItemLoading: (source = 'fitting-room') => {
-        set((state) => ({
-            partialVtoLoadingSources: new Set(state.partialVtoLoadingSources).add(source),
-        }));
+        set((state) => {
+            const nextSources = new Set(state.partialVtoLoadingSources).add(source);
+            const newCount = state.singleItemLoadingCount + 1;
+            console.log('[VTO Store] startSingleItemLoading:', { source, newCount });
+            return {
+                partialVtoLoadingSources: nextSources,
+                partialVtoLoadingCount: nextSources.size,
+                singleItemLoadingCount: newCount,
+            };
+        });
     },
 
     // Single Item Tryon 로딩 종료 (외부에서 호출)
@@ -265,17 +274,23 @@ export const useVtoStore = create((set, get) => ({
         set((state) => {
             const nextSources = new Set(state.partialVtoLoadingSources);
             nextSources.delete(source);
-            return { partialVtoLoadingSources: nextSources };
+            return {
+                partialVtoLoadingSources: nextSources,
+                partialVtoLoadingCount: nextSources.size,
+                singleItemLoadingCount: Math.max(0, state.singleItemLoadingCount - 1),
+            };
         });
     },
 
-    // Partial VTO 실행 (원클릭 입어보기)
+    // Partial VTO 실행 (원클릭 입어보기) - partialVtoLoadingSources만 사용
     executePartialVtoRequest: async (formData, source = 'default') => {
-        const jobId = 'direct-fitting-' + Date.now();
-        set((state) => ({
-            vtoLoadingPosts: new Set([...state.vtoLoadingPosts, jobId]),
-            partialVtoLoadingSources: new Set(state.partialVtoLoadingSources).add(source),
-        }));
+        set((state) => {
+            const nextSources = new Set(state.partialVtoLoadingSources).add(source);
+            return {
+                partialVtoLoadingSources: nextSources,
+                partialVtoLoadingCount: nextSources.size,
+            };
+        });
 
         try {
             const token = getToken();
@@ -309,11 +324,12 @@ export const useVtoStore = create((set, get) => ({
             throw error;
         } finally {
             set((state) => {
-                const nextLoading = new Set(state.vtoLoadingPosts);
-                nextLoading.delete(jobId);
                 const nextSources = new Set(state.partialVtoLoadingSources);
                 nextSources.delete(source);
-                return { vtoLoadingPosts: nextLoading, partialVtoLoadingSources: nextSources };
+                return {
+                    partialVtoLoadingSources: nextSources,
+                    partialVtoLoadingCount: nextSources.size,
+                };
             });
         }
     },
@@ -336,13 +352,21 @@ export const useVtoStore = create((set, get) => ({
         });
     },
 
-    // ID 기반 Partial VTO 실행
+    // ID 기반 Partial VTO 실행 - partialVtoLoadingSources만 사용 (singleItemLoadingCount는 건드리지 않음)
     executePartialVtoByIds: async (clothingIds, source = 'default') => {
-        const localJobId = 'direct-fitting-' + Date.now();
-        set((state) => ({
-            vtoLoadingPosts: new Set([...state.vtoLoadingPosts, localJobId]),
-            partialVtoLoadingSources: new Set(state.partialVtoLoadingSources).add(source),
-        }));
+        console.log('[VTO Store] executePartialVtoByIds start:', { source, clothingIds });
+        set((state) => {
+            const nextSources = new Set(state.partialVtoLoadingSources).add(source);
+            console.log('[VTO Store] executePartialVtoByIds - singleItemLoadingCount unchanged:', state.singleItemLoadingCount);
+            return {
+                partialVtoLoadingSources: nextSources,
+                partialVtoLoadingCount: nextSources.size,
+            };
+        });
+
+        // 선택된 옷 개수에 따라 타입 결정 (2개 이상이면 전체 입어보기)
+        const selectedCount = Object.values(clothingIds).filter(id => id).length;
+        const resultType = selectedCount >= 2 ? VTO_TYPE_FULL : VTO_TYPE_SINGLE;
 
         try {
             const token = getToken();
@@ -400,7 +424,7 @@ export const useVtoStore = create((set, get) => ({
                                     postId: 'direct-fitting',
                                     appliedClothing: data.itemsProcessed,
                                     isDirect: true
-                                }, VTO_TYPE_SINGLE); // 원클릭 입어보기
+                                }, resultType); // 선택된 옷 개수에 따라 타입 결정
                                 get().refreshVtoData();
                                 get().setToastMessage('가상 피팅 완료!');
                                 return data;
@@ -430,7 +454,7 @@ export const useVtoStore = create((set, get) => ({
                     postId: 'direct-fitting',
                     appliedClothing: queueResult.itemsProcessed,
                     isDirect: true
-                }, VTO_TYPE_SINGLE); // 원클릭 입어보기
+                }, resultType); // 선택된 옷 개수에 따라 타입 결정
                 get().refreshVtoData();
                 get().setToastMessage('가상 피팅 완료!');
                 return queueResult;
@@ -441,11 +465,12 @@ export const useVtoStore = create((set, get) => ({
             throw error;
         } finally {
             set((state) => {
-                const nextLoading = new Set(state.vtoLoadingPosts);
-                nextLoading.delete(localJobId);
                 const nextSources = new Set(state.partialVtoLoadingSources);
                 nextSources.delete(source);
-                return { vtoLoadingPosts: nextLoading, partialVtoLoadingSources: nextSources };
+                return {
+                    partialVtoLoadingSources: nextSources,
+                    partialVtoLoadingCount: nextSources.size,
+                };
             });
         }
     },
