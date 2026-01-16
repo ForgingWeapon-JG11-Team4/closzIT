@@ -82,23 +82,15 @@ const MultiTabContainer = () => {
     const navigate = useNavigate();
     const { activeTab, previousTab, slideDirection, setActiveTab, isTabInitialized } = useTabStore();
 
-    // 각 탭별 floatingAction 설정
+    // 통합 FAB 활성화 (모든 메인 탭에서 동일하게 표시)
     const getFloatingAction = () => {
-        switch (activeTab) {
-            case TAB_KEYS.MAIN:
-            case TAB_KEYS.FITTING_ROOM:
-                return {
-                    icon: 'apparel',
-                    onClick: () => navigate('/register')
-                };
-            case TAB_KEYS.FEED:
-                return {
-                    icon: 'post_add',
-                    onClick: () => navigate('/create-post')
-                };
-            default:
-                return null;
+        // 메인 3개 탭 모두에서 통합 FAB 표시
+        if (activeTab === TAB_KEYS.MAIN || 
+            activeTab === TAB_KEYS.FITTING_ROOM || 
+            activeTab === TAB_KEYS.FEED) {
+            return { enabled: true };
         }
+        return null;
     };
 
     // URL 경로에 따라 탭 초기화 (최초 진입 시)

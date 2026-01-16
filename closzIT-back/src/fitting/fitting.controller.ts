@@ -17,11 +17,14 @@ import { VtonCacheService } from '../vton-cache/vton-cache.service';
 import { S3Service } from '../s3/s3.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { Readable } from 'stream';
 
 @Controller('api/fitting')
 @UseGuards(JwtAuthGuard)
 export class FittingController {
   private readonly logger = new Logger(FittingController.name);
+  private readonly s3Client: S3Client;
 
   constructor(
     private readonly fittingService: FittingService,
@@ -29,7 +32,16 @@ export class FittingController {
     private readonly vtonCacheService: VtonCacheService,
     private readonly s3Service: S3Service,
     @InjectQueue('vto-queue') private readonly vtoQueue: Queue,
-  ) {}
+  ) {
+    // S3 Client 초기화
+    this.s3Client = new S3Client({
+      region: process.env.AWS_S3_REGION || 'ap-northeast-2',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    });
+  }
 
   @Post('virtual-try-on')
   @UseInterceptors(
@@ -520,9 +532,10 @@ export class FittingController {
    */
   @Post('single-item-tryon')
   @UseGuards(JwtAuthGuard)
-  async singleItemTryOn(@Request() req, @Body() body: { clothingId: string; category?: string; denoiseSteps?: number; seed?: number }) {
+  async singleItemTryOn(@Request() req, @Body() body: { clothingId: string; clothingOwnerId?: string; category?: string; denoiseSteps?: number; seed?: number }) {
     const userId = req.user.id;
-    console.log('[singleItemTryOn] Starting - userId:', userId, 'clothingId:', body.clothingId, 'category:', body.category);
+    const clothingOwnerId = body.clothingOwnerId || userId; // 없으면 본인 의류
+    console.log('[singleItemTryOn] Starting - userId:', userId, 'clothingId:', body.clothingId, 'clothingOwnerId:', clothingOwnerId, 'category:', body.category);
 
     if (!body.clothingId) {
       throw new BadRequestException({
@@ -531,10 +544,10 @@ export class FittingController {
       });
     }
 
-    // 캐시 존재 확인
+    // 캐시 존재 확인 (garment/text 캐시는 의류 소유자 기준)
     const humanCacheExists = await this.vtonCacheService.checkHumanCacheExists(userId);
-    const garmentCacheExists = await this.vtonCacheService.checkGarmentCacheExists(userId, body.clothingId);
-    const textCacheExists = await this.vtonCacheService.checkTextCacheExists(userId, body.clothingId);
+    const garmentCacheExists = await this.vtonCacheService.checkGarmentCacheExists(clothingOwnerId, body.clothingId);
+    const textCacheExists = await this.vtonCacheService.checkTextCacheExists(clothingOwnerId, body.clothingId);
 
     console.log(`[Cache Check] human=${humanCacheExists}, garment=${garmentCacheExists}, text=${textCacheExists}`);
 
@@ -561,7 +574,7 @@ export class FittingController {
     // 2. Garment & Text 캐시 생성 (필요시)
     if (!garmentCacheExists || !textCacheExists) {
       const clothing = await this.prisma.clothing.findUnique({
-        where: { id: body.clothingId, userId },
+        where: { id: body.clothingId }, // userId 필터 제거 - 다른 사람 옷도 조회 가능
         select: {
           flattenImageUrl: true,
           imageUrl: true,
@@ -580,15 +593,15 @@ export class FittingController {
         });
       }
 
-      // Garment 캐시
+      // Garment 캐시 (의류 소유자 기준으로 저장)
       if (!garmentCacheExists) {
         const imageUrl = clothing.flattenImageUrl || clothing.imageUrl;
         const imageBase64 = await this.fetchImageAsBase64(imageUrl);
-        await this.vtonCacheService.preprocessAndCacheGarment(userId, body.clothingId, imageBase64);
-        console.log('[Cache] Garment cache created');
+        await this.vtonCacheService.preprocessAndCacheGarment(clothingOwnerId, body.clothingId, imageBase64);
+        console.log('[Cache] Garment cache created for owner:', clothingOwnerId);
       }
 
-      // Text 캐시
+      // Text 캐시 (의류 소유자 기준으로 저장)
       if (!textCacheExists) {
         const description = [
           clothing.category || '',
@@ -598,8 +611,8 @@ export class FittingController {
           ...(clothing.details || []),
         ].filter(Boolean).join(' ');
 
-        await this.vtonCacheService.preprocessAndCacheText(userId, body.clothingId, description);
-        console.log('[Cache] Text cache created');
+        await this.vtonCacheService.preprocessAndCacheText(clothingOwnerId, body.clothingId, description);
+        console.log('[Cache] Text cache created for owner:', clothingOwnerId);
       }
     }
 
@@ -612,7 +625,7 @@ export class FittingController {
     let clothingSubCategory: string | undefined;
 
     const clothing = await this.prisma.clothing.findUnique({
-      where: { id: body.clothingId, userId },
+      where: { id: body.clothingId }, // userId 필터 제거 - 다른 사람 옷도 조회 가능
       select: { category: true, subCategory: true },
     });
 
@@ -656,6 +669,7 @@ export class FittingController {
       vtonCategory,  // ⚡ category 전달
       body.denoiseSteps ?? 10,
       body.seed ?? 42,
+      clothingOwnerId,  // 의류 소유자 ID 전달
     );
 
     return {
@@ -696,7 +710,7 @@ export class FittingController {
   }
 
   /**
-   * URL에서 이미지를 Base64로 변환
+   * URL에서 이미지를 Base64로 변환 (AWS SDK 사용)
    */
   private async fetchImageAsBase64(url: string): Promise<string> {
     try {
@@ -705,8 +719,35 @@ export class FittingController {
         return url.split(',')[1];
       }
 
-      // S3 URL인 경우 Pre-signed URL로 변환 후 fetch
-      // (FittingService의 fetchImageAsBuffer 로직 참고)
+      // S3 URL인 경우 AWS SDK로 직접 다운로드
+      const s3UrlPattern = /https?:\/\/([^.]+)\.s3\.([^.]+)\.amazonaws\.com\/(.+)/;
+      const s3Match = url.match(s3UrlPattern);
+
+      if (s3Match) {
+        const bucket = s3Match[1];
+        const key = decodeURIComponent(s3Match[3].split('?')[0]); // Query string 제거
+
+        this.logger.log(`[fetchImageAsBase64] Using AWS SDK - Bucket: ${bucket}, Key: ${key}`);
+
+        const command = new GetObjectCommand({
+          Bucket: bucket,
+          Key: key,
+        });
+
+        const response = await this.s3Client.send(command);
+        const stream = response.Body as Readable;
+        const chunks: Buffer[] = [];
+
+        for await (const chunk of stream) {
+          chunks.push(Buffer.from(chunk));
+        }
+
+        const buffer = Buffer.concat(chunks);
+        return buffer.toString('base64');
+      }
+
+      // S3 URL이 아닌 경우 fetch 사용
+      this.logger.log(`[fetchImageAsBase64] Using fetch for non-S3 URL: ${url}`);
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`Failed to fetch image: ${response.status}`);
@@ -715,7 +756,7 @@ export class FittingController {
       const buffer = Buffer.from(arrayBuffer);
       return buffer.toString('base64');
     } catch (error) {
-      console.error(`Error fetching image from ${url}:`, error);
+      this.logger.error(`Error fetching image from ${url}:`, error);
       throw error;
     }
   }

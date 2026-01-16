@@ -44,6 +44,8 @@ export interface SearchContext {
     rain_probability: number;
   } | null;
   date: Date;
+  query?: string | null;
+  style?: string | null;
 }
 
 export interface UserPreference {
@@ -103,5 +105,6 @@ export interface SearchMeta {
   appliedFilters: {
     tpo: TPO;
     season: Season;
+    style?: string | null;
   };
 }

@@ -23,7 +23,8 @@ const AuthCallbackPage = () => {
       return;
     }
 
-    navigate(redirect, { replace: true });
+    // 최초 로그인 시 전체 페이지 새로고침으로 appStore 초기화
+    window.location.href = redirect;
   }, [searchParams, navigate]);
 
   return (

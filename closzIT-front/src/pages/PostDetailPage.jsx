@@ -1,16 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { addVtoResult } from '../utils/vtoStorage';
+import ClothDetailModal from '../components/ClothDetailModal';
+import CreditConfirmModal from '../components/CreditConfirmModal';
+import { useUserStore } from '../stores/userStore';
+import { useTabStore, TAB_KEYS } from '../stores/tabStore';
+import { useVtoStore } from '../stores/vtoStore';
 
 const PostDetailPage = () => {
   const { postId } = useParams();
   const navigate = useNavigate();
+  const { user: currentUser } = useUserStore();
+  const {
+    vtoLoadingPosts,
+    vtoCompletedPosts,
+    requestVto,
+    showCreditModal,
+    userCredit: storeCredit,
+    handleCreditConfirm,
+    handleCreditCancel,
+    isCreditLoading
+  } = useVtoStore();
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [tryOnLoading, setTryOnLoading] = useState(false);
-  const [tryOnCompleted, setTryOnCompleted] = useState(false);
   const [selectedClothDetail, setSelectedClothDetail] = useState(null); // 의류 상세정보 모달
   const [vtoResultImage, setVtoResultImage] = useState(null); // VTO 결과 이미지
 
@@ -111,56 +124,21 @@ const PostDetailPage = () => {
     }
   };
 
-  const handleTryOn = async () => {
-    if (tryOnLoading || tryOnCompleted) return;
+  const handleTryOn = (event) => {
+    if (vtoLoadingPosts.has(postId) || vtoCompletedPosts.has(postId)) return;
 
-    setTryOnLoading(true);
-
-    try {
-      const token = localStorage.getItem('accessToken');
-      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-
-      const response = await fetch(`${backendUrl}/api/fitting/sns-virtual-try-on`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ postId }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (data.code === 'NO_FULL_BODY_IMAGE') {
-          const confirm = window.confirm(
-            '피팅 모델 이미지가 없어서 착장서비스 이용이 불가합니다. 등록하시겠습니까?'
-          );
-          // 현재 등록 기능 미구현으로 안내만 표시
-          if (confirm) {
-            alert('피팅 모델 이미지 등록 기능은 준비 중입니다.');
-          }
-          return;
-        }
-        throw new Error(data.message || '가상 착장에 실패했습니다.');
-      }
-
-      if (data.success) {
-        // 결과를 localStorage에 저장
-        addVtoResult({
-          imageUrl: data.imageUrl,
-          postId: data.postId,
-          appliedClothing: data.appliedClothing,
-        });
-        setTryOnCompleted(true);
-        alert('가상 착장이 완료되었습니다! SNS 피드에서 결과를 확인하세요.');
-      }
-    } catch (error) {
-      console.error('VTO Error:', error);
-      alert(error.message || '가상 착장 처리 중 오류가 발생했습니다.');
-    } finally {
-      setTryOnLoading(false);
+    // 버튼 위치 저장 (모달 닫힌 후 플라이 애니메이션용)
+    let buttonPosition = null;
+    if (event?.currentTarget) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      buttonPosition = {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2
+      };
     }
+
+    // requestVto에 버튼 위치 전달 (모달 닫힌 후 애니메이션 실행됨)
+    requestVto(postId, buttonPosition);
   };
 
   if (loading) {
@@ -263,7 +241,7 @@ const PostDetailPage = () => {
                     className="group/cloth-card relative aspect-square rounded-lg overflow-hidden bg-cream-dark dark:bg-charcoal-light shadow-soft border border-gold-light/30 hover:border-gold transition-all"
                   >
                     <img
-                      src={pc.clothing.imageUrl}
+                      src={pc.clothing.flattenImageUrl || pc.clothing.imageUrl}
                       alt={pc.clothing.subCategory}
                       className="w-full h-full object-cover"
                     />
@@ -271,7 +249,7 @@ const PostDetailPage = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSelectedClothDetail({ ...pc.clothing, postId: post.id });
+                        setSelectedClothDetail({ ...pc.clothing, postId: post.id, ownerId: post.user.id });
                       }}
                       className="absolute bottom-2 right-2 w-8 h-8 bg-white/90 dark:bg-charcoal/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover/cloth-card:opacity-100 transition-all duration-200 hover:scale-110 hover:bg-white dark:hover:bg-charcoal"
                     >
@@ -283,21 +261,21 @@ const PostDetailPage = () => {
 
               {/* 입어보기 버튼 */}
               <button
-                onClick={handleTryOn}
-                disabled={tryOnLoading || tryOnCompleted}
-                className={`mt-4 w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${tryOnCompleted
+                onClick={(e) => handleTryOn(e)}
+                disabled={vtoLoadingPosts.has(postId) || vtoCompletedPosts.has(postId)}
+                className={`mt-4 w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${vtoCompletedPosts.has(postId)
                   ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                  : tryOnLoading
+                  : vtoLoadingPosts.has(postId)
                     ? 'bg-gold-light/50 text-charcoal cursor-wait'
                     : 'btn-premium hover:scale-[1.02]'
                   }`}
               >
-                {tryOnLoading ? (
+                {vtoLoadingPosts.has(postId) ? (
                   <>
                     <span className="material-symbols-rounded animate-spin">progress_activity</span>
                     생성 중...
                   </>
-                ) : tryOnCompleted ? (
+                ) : vtoCompletedPosts.has(postId) ? (
                   <>
                     <span className="material-symbols-rounded">check_circle</span>
                     생성 완료
@@ -305,7 +283,7 @@ const PostDetailPage = () => {
                 ) : (
                   <>
                     <span className="material-symbols-rounded">checkroom</span>
-                    입어보기
+                    전부 입어보기
                   </>
                 )}
               </button>
@@ -400,113 +378,46 @@ const PostDetailPage = () => {
         </div>
       )}
 
-      {/* 옷 상세 정보 모달 */}
+      {/* 의류 상세 정보 모달 */}
       {selectedClothDetail && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fadeIn"
-          onClick={() => setSelectedClothDetail(null)}
-        >
-          <div
-            className="bg-warm-white dark:bg-charcoal rounded-3xl shadow-2xl max-w-sm w-full max-h-[80vh] overflow-hidden animate-slideDown"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="relative">
-              <img
-                src={selectedClothDetail.image || selectedClothDetail.imageUrl}
-                alt={selectedClothDetail.name}
-                className="w-full h-48 object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              <button
-                onClick={() => setSelectedClothDetail(null)}
-                className="absolute top-3 right-3 w-8 h-8 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/40 transition-colors"
-              >
-                <span className="material-symbols-rounded text-white text-lg">close</span>
-              </button>
-              <div className="absolute bottom-3 left-4 right-4">
-                <h3 className="text-white text-lg font-bold">{selectedClothDetail.name || '의류'}</h3>
-              </div>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-5 space-y-4 max-h-[40vh] overflow-y-auto">
-              <div className="bg-cream-dark dark:bg-charcoal-light/20 rounded-xl p-3">
-                <p className="text-[10px] text-charcoal-light dark:text-cream-dark uppercase font-semibold mb-1">카테고리</p>
-                <p className="text-sm font-medium text-charcoal dark:text-cream">
-                  {selectedClothDetail.category === 'outerwear' && '외투'}
-                  {selectedClothDetail.category === 'tops' && '상의'}
-                  {selectedClothDetail.category === 'bottoms' && '하의'}
-                  {selectedClothDetail.category === 'shoes' && '신발'}
-                  {selectedClothDetail.subCategory && ` (${selectedClothDetail.subCategory})`}
-                </p>
-              </div>
-
-              {selectedClothDetail.wearCount !== undefined && (
-                <div className="bg-cream-dark dark:bg-charcoal-light/20 rounded-xl p-3">
-                  <p className="text-[10px] text-charcoal-light dark:text-cream-dark uppercase font-semibold mb-1">착용 횟수</p>
-                  <p className="text-sm font-medium text-charcoal dark:text-cream">{selectedClothDetail.wearCount}회</p>
-                </div>
-              )}
-            </div>
-
-            {/* VTO 버튼 */}
-            <button
-              onClick={async () => {
-                try {
-                  const token = localStorage.getItem('accessToken');
-                  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-
-                  // 모달 닫기 전에 필요한 정보 저장
-                  const postId = selectedClothDetail.postId;
-                  const clothingId = selectedClothDetail.id;
-
-                  console.log(`[SNS VTO] Starting try-on for post: ${postId}, clothing: ${clothingId}`);
-
-                  setSelectedClothDetail(null);
-                  alert('SNS 옷 가상 피팅을 생성 중입니다... (약 4-5초 소요)');
-
-                  const response = await fetch(`${backendUrl}/api/fitting/sns-virtual-try-on`, {
-                    method: 'POST',
-                    headers: {
-                      'Authorization': `Bearer ${token}`,
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                      postId: postId,
-                      clothingId: clothingId,
-                    }),
-                  });
-
-                  if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || '가상 피팅 실패');
-                  }
-
-                  const result = await response.json();
-                  console.log('[SNS VTO] Response:', result);
-
-                  if (result.success && result.imageUrl) {
-                    console.log('[SNS VTO] Success! Opening modal with image');
-                    setSelectedClothDetail(null);
-                    setVtoResultImage(result.imageUrl);
-                  } else {
-                    console.error('[SNS VTO] Invalid response:', result);
-                    throw new Error('결과 이미지를 받지 못했습니다.');
-                  }
-                } catch (error) {
-                  console.error('SNS virtual try-on error:', error);
-                  alert(`가상 피팅 실패: ${error.message}`);
-                }
-              }}
-              className="w-64 mx-auto mb-4 py-3.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl font-bold hover:from-purple-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-            >
-              <span className="material-symbols-rounded text-lg">auto_awesome</span>
-              하나만 입어보기 (AI)
-            </button>
-          </div>
-        </div>
+        <ClothDetailModal
+          cloth={{
+            ...selectedClothDetail,
+            image: selectedClothDetail.flattenImageUrl || selectedClothDetail.image || selectedClothDetail.imageUrl,
+            name: selectedClothDetail.name || selectedClothDetail.subCategory,
+          }}
+          onClose={() => setSelectedClothDetail(null)}
+          onTryOn={() => {
+            // FittingRoom 탭으로 전환하면서 옷 정보 전달
+            const { setActiveTab, setPendingTryOnCloth } = useTabStore.getState();
+            const clothToTryOn = {
+              ...selectedClothDetail,
+              image: selectedClothDetail.image || selectedClothDetail.imageUrl,
+            };
+            setSelectedClothDetail(null);
+            setPendingTryOnCloth(clothToTryOn);
+            setActiveTab(TAB_KEYS.FITTING_ROOM);
+            navigate('/fitting-room');
+          }}
+          showActions={true}
+          onEdit={(!selectedClothDetail.ownerId || selectedClothDetail.ownerId === currentUser?.id) ? () => {
+            const itemId = selectedClothDetail.id;
+            setSelectedClothDetail(null);
+            navigate(`/item/edit/${itemId}`);
+          } : null}
+          onDelete={null}
+        />
       )}
+
+      {/* 크레딧 확인 모달 */}
+      <CreditConfirmModal
+        isOpen={showCreditModal}
+        onClose={handleCreditCancel}
+        onConfirm={handleCreditConfirm}
+        currentCredit={storeCredit}
+        requiredCredit={3}
+        isLoading={isCreditLoading}
+      />
     </div>
   );
 };

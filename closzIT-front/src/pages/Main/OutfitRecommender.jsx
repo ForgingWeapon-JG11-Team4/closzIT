@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange, searchText = '', onGenerate }) => {
+const OutfitRecommender = ({ 
+  selectedTpo, 
+  onTpoChange, 
+  selectedStyle, 
+  onStyleChange, 
+  searchText = '', 
+  onGenerate 
+}) => {
   const navigate = useNavigate();
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(true);
-  const [selectedEvent, setSelectedEvent] = useState(null); // 캘린더 일정 단일 선택
+  const [selectedEvent, setSelectedEvent] = useState(null);
 
   // TPO 목록
   const tpoList = [
@@ -57,44 +64,31 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange, searchText
     }
   };
 
-  const handleKeywordClick = (keyword, type) => {
-    // 해당 카테고리(TPO/Style)의 목록을 가져옴
-    const categoryList = type === 'TPO' ? tpoList : styleList;
-    
-    // 1. 현재 선택된 키워드 중, '이번에 클릭한 카테고리'에 속하는 것들을 모두 제거
-    // (즉, 기존에 선택된 TPO가 있다면 지우고 새로 선택한걸 넣기 위함)
-    const filteredKeywords = selectedKeywords.filter(k => !categoryList.includes(k));
+  // TPO 클릭 (단일 선택, 토글)
+  const handleTpoClick = (tpo) => {
+    onTpoChange(selectedTpo === tpo ? null : tpo);
+  };
 
-    // 2. 이미 선택되어 있던 키워드를 누른게 아니라면, 새로 클릭한 키워드 추가
-    // (이미 선택된걸 눌렀다면 위에서 제거되었으므로 토글 OFF 효과)
-    if (!selectedKeywords.includes(keyword)) {
-      filteredKeywords.push(keyword);
-    }
-
-    onKeywordsChange(filteredKeywords);
+  // 스타일 클릭 (단일 선택, 토글)
+  const handleStyleClick = (style) => {
+    onStyleChange(selectedStyle === style ? null : style);
   };
 
   const handleGenerate = () => {
-    // onGenerate 콜백이 있으면 페이지 이동 없이 콜백 호출 (MainPage2 통합용)
+    const payload = {
+      calendarEvent: selectedEvent?.title || null,
+      isToday: selectedEvent?.isToday || false,
+      userQuery: searchText || null,
+      tpo: selectedTpo,
+      style: selectedStyle,
+    };
+
     if (onGenerate) {
-      onGenerate({
-        calendarEvent: selectedEvent?.title,
-        isToday: selectedEvent?.isToday,
-        userQuery: searchText,
-        keywords: selectedKeywords, 
-      });
+      onGenerate(payload);
       return;
     }
 
-    // 콜백이 없으면 기존 로직대로 페이지 이동
-    navigate('/fitting', { 
-      state: { 
-        calendarEvent: selectedEvent?.title,
-        isToday: selectedEvent?.isToday,
-        userQuery: searchText,
-        keywords: selectedKeywords, 
-      } 
-    });
+    navigate('/fitting', { state: payload });
   };
 
   return (
@@ -146,16 +140,16 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange, searchText
         )}
       </div>
 
-      {/* TPO Selection - Simple Pill Style */}
+      {/* TPO Selection */}
       <div className="mb-6">
         <h2 className="text-lg font-bold text-charcoal dark:text-cream mb-4 px-1">TPO 선택하기</h2>
         <div className="flex flex-wrap gap-2">
           {tpoList.map((tpo) => (
             <button
               key={tpo}
-              onClick={() => handleKeywordClick(tpo, 'TPO')}
+              onClick={() => handleTpoClick(tpo)}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                selectedKeywords.includes(tpo)
+                selectedTpo === tpo
                   ? 'bg-gold/20 text-gold border border-gold/30'
                   : 'bg-cream-dark dark:bg-charcoal-light/20 text-charcoal-light dark:text-cream-dark border border-gold-light/30 dark:border-charcoal-light/30 hover:border-gold hover:bg-gold/5'
               }`}
@@ -166,16 +160,16 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange, searchText
         </div>
       </div>
 
-      {/* Style Category - Simple Pill Style */}
+      {/* Style Category */}
       <div className="mb-8">
         <h2 className="text-lg font-bold text-charcoal dark:text-cream mb-4 px-1">스타일</h2>
         <div className="flex flex-wrap gap-2">
           {styleList.map((style) => (
             <button
               key={style}
-              onClick={() => handleKeywordClick(style, 'STYLE')}
+              onClick={() => handleStyleClick(style)}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                selectedKeywords.includes(style)
+                selectedStyle === style
                   ? 'bg-gold/20 text-gold border border-gold/30'
                   : 'bg-cream-dark dark:bg-charcoal-light/20 text-charcoal-light dark:text-cream-dark border border-gold-light/30 dark:border-charcoal-light/30 hover:border-gold hover:bg-gold/5'
               }`}
@@ -186,8 +180,8 @@ const OutfitRecommender = ({ selectedKeywords = [], onKeywordsChange, searchText
         </div>
       </div>
 
-      {/* Generate Button - Fixed at bottom above navigator */}
-      {(selectedEvent || searchText || selectedKeywords.length > 0) && (
+      {/* Generate Button */}
+      {(selectedEvent || searchText || selectedTpo || selectedStyle) && (
         <div className="fixed bottom-20 left-0 right-0 flex justify-center z-40 animate-fadeIn">
           <button
             onClick={handleGenerate}

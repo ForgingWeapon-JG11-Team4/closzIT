@@ -65,20 +65,20 @@ const translateValue = (type, value) => {
   if (!value) return null;
   const map = translations[type];
   if (!map) return value;
-  
+
   if (Array.isArray(value)) {
     return value.map(v => map[v] || v).join(', ');
   }
   return map[value] || value;
 };
 
-const ClothDetailModal = ({ 
-  cloth, 
-  onClose, 
-  onTryOn, 
-  onEdit, 
+const ClothDetailModal = ({
+  cloth,
+  onClose,
+  onTryOn,
+  onEdit,
   onDelete,
-  showActions = true 
+  showActions = true
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -115,17 +115,17 @@ const ClothDetailModal = ({
         </button>
 
         {/* 이미지 영역 - 높이 우선 (object-contain) */}
-        <div 
+        <div
           className="relative bg-charcoal/10 flex-shrink-0 transition-all duration-300 ease-out"
           style={{ height: isExpanded ? '180px' : '400px' }}
         >
           <img
-            src={cloth.image || cloth.imageUrl}
+            src={cloth.flattenImageUrl || cloth.image || cloth.imageUrl}
             alt={cloth.name}
             className="w-full h-full object-contain"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-          
+
           {/* 이름 오버레이 */}
           <div className="absolute bottom-3 left-4 right-4">
             <h3 className="text-white text-xl font-bold drop-shadow-lg">{cloth.name || '의류'}</h3>
@@ -161,7 +161,7 @@ const ClothDetailModal = ({
           )}
 
           {/* 상세 정보 콘텐츠 (토글) */}
-          <div 
+          <div
             className={`overflow-hidden transition-all duration-300 ease-out ${isExpanded ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}
           >
             <div className="p-4 space-y-2 max-h-[250px] overflow-y-auto">
@@ -170,28 +170,17 @@ const ClothDetailModal = ({
               {renderInfoSection('계절', translateValue('seasons', cloth.seasons))}
               {renderInfoSection('색상', translateValue('colors', cloth.colors))}
               {cloth.wearCount !== undefined && renderInfoSection('착용 횟수', `${cloth.wearCount}회`)}
-              
-              {/* 수정/삭제 버튼 - 상세 정보 안에 */}
-              {showActions && (onEdit || onDelete) && (
-                <div className="flex gap-2 pt-2">
-                  {onEdit && (
-                    <button
-                      onClick={onEdit}
-                      className="flex-1 py-2.5 bg-gold/20 text-gold rounded-xl font-semibold hover:bg-gold/30 transition-colors flex items-center justify-center gap-2 text-sm"
-                    >
-                      <span className="material-symbols-rounded text-base">edit</span>
-                      수정
-                    </button>
-                  )}
-                  {onDelete && (
-                    <button
-                      onClick={onDelete}
-                      className="flex-1 py-2.5 bg-red-50 text-red-500 rounded-xl font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-2 text-sm"
-                    >
-                      <span className="material-symbols-rounded text-base">delete</span>
-                      삭제
-                    </button>
-                  )}
+
+              {/* 삭제 버튼 - 상세 정보 안에 */}
+              {showActions && onDelete && (
+                <div className="pt-2">
+                  <button
+                    onClick={onDelete}
+                    className="w-full py-2.5 bg-red-50 text-red-500 rounded-xl font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-2 text-sm"
+                  >
+                    <span className="material-symbols-rounded text-base">delete</span>
+                    삭제
+                  </button>
                 </div>
               )}
             </div>

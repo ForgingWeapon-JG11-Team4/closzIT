@@ -56,10 +56,11 @@ export class VectorDBService implements OnModuleInit {
       category?: string;
       tpo?: string;
       season?: string;
+      styleMood?: string;
       limit?: number;
     } = {},
   ): Promise<ScoredClothing[]> {
-    const { category, tpo, season, limit = 10 } = options;
+    const { category, tpo, season, styleMood, limit = 10 } = options;
     const vectorStr = `[${queryEmbedding.join(',')}]`;
 
     let query = `
@@ -99,6 +100,12 @@ export class VectorDBService implements OnModuleInit {
     if (season) {
       query += ` AND $${paramIndex}::"Season" = ANY(seasons)`;
       params.push(season);
+      paramIndex++;
+    }
+
+    if (styleMood) {
+      query += ` AND style_mood = $${paramIndex}::"StyleMood"`;
+      params.push(styleMood);
       paramIndex++;
     }
 

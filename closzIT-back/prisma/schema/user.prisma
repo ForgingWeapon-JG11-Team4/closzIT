@@ -82,5 +82,8 @@ model User {
   /// 관리자 크레딧 조정
   adminCreditActions CreditHistory[] @relation("AdminCreditActions")
 
+  /// 카카오페이 결제 기록
+  KakaoPayments KakaoPayment[]
+
   @@map("users")
 }

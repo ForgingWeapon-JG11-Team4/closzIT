@@ -45,6 +45,7 @@ const tpoOptions = [
   { label: '데이트', value: 'Date' },
   { label: '운동', value: 'Sports' },
   { label: '여행', value: 'Travel' },
+  { label: '결혼식', value: 'Wedding' },
   { label: '파티', value: 'Party' },
   { label: '학교', value: 'School' },
   { label: '집', value: 'Home' }
@@ -488,6 +489,10 @@ const LabelingPage = () => {
                     fetchUser(true);
                   }
                   return; // 성공적으로 완료
+                } else if (!statusResult.result) {
+                  // result가 아직 Redis에서 로드되지 않은 경우 → 다음 poll 대기
+                  console.log('[DEBUG] Job completed but result not yet available, continuing poll...');
+                  continue;
                 } else {
                   throw new Error('No flattened image in result');
                 }
@@ -816,7 +821,8 @@ const LabelingPage = () => {
             <button
               onClick={() => {
                 setShowSuccessPopup(false);
-                navigate('/main');
+                // 전체 페이지 새로고침으로 메인 데이터 갱신
+                window.location.href = '/main';
               }}
               className="w-full py-3.5 rounded-xl font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
               style={{
