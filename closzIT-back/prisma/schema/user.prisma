@@ -83,7 +83,10 @@ model User {
   adminCreditActions CreditHistory[] @relation("AdminCreditActions")
 
   /// 카카오페이 결제 기록
-  KakaoPayments KakaoPayment[]
+  KakaoPayments      KakaoPayment[]
+
+  /// VTO 전체 입어보기 캐시
+  vtoCaches          VtoCache[]
 
   @@map("users")
 }
