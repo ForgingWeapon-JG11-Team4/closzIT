@@ -7,6 +7,7 @@ import FollowerListModal from '../components/FollowerListModal';
 import { useVtoStore } from '../stores/vtoStore';
 import { useUserStore } from '../stores/userStore';
 import { useTabStore, TAB_KEYS } from '../stores/tabStore';
+import { GiTrousers, GiTShirt, GiMonclerJacket } from 'react-icons/gi';
 
 const FeedPage = ({ hideHeader = false }) => {
   const navigate = useNavigate();
@@ -1042,7 +1043,7 @@ const FeedPage = ({ hideHeader = false }) => {
                     {userClothes.outerwear.length > 0 && (
                       <div>
                         <h3 className="text-lg font-bold text-charcoal dark:text-cream mb-3 flex items-center gap-2">
-                          <span className="material-symbols-rounded text-gold">apparel</span>
+                          <GiMonclerJacket className="text-xl text-gold" />
                           외투
                         </h3>
                         <div className="overflow-x-auto pb-4 -mx-4 px-4">
@@ -1122,7 +1123,7 @@ const FeedPage = ({ hideHeader = false }) => {
                     {userClothes.tops.length > 0 && (
                       <div>
                         <h3 className="text-lg font-bold text-charcoal dark:text-cream mb-3 flex items-center gap-2">
-                          <span className="material-symbols-rounded text-gold">styler</span>
+                          <GiTShirt className="text-xl text-gold" />
                           상의
                         </h3>
                         <div className="overflow-x-auto pb-4 -mx-4 px-4">
@@ -1193,7 +1194,7 @@ const FeedPage = ({ hideHeader = false }) => {
                     {userClothes.bottoms.length > 0 && (
                       <div>
                         <h3 className="text-lg font-bold text-charcoal dark:text-cream mb-3 flex items-center gap-2">
-                          <span className="material-symbols-rounded text-gold">sports_martial_arts</span>
+                          <GiTrousers className="text-xl text-gold" />
                           하의
                         </h3>
                         <div className="overflow-x-auto pb-4 -mx-4 px-4">
@@ -1264,7 +1265,7 @@ const FeedPage = ({ hideHeader = false }) => {
                     {userClothes.shoes.length > 0 && (
                       <div>
                         <h3 className="text-lg font-bold text-charcoal dark:text-cream mb-3 flex items-center gap-2">
-                          <span className="material-symbols-rounded text-gold">step</span>
+                          <span className="material-symbols-rounded text-gold">steps</span>
                           신발
                         </h3>
                         <div className="overflow-x-auto pb-4 -mx-4 px-4">
