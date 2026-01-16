@@ -7,81 +7,45 @@ const ClothItem = ({ cloth, onClick }) => (
     onClick={() => onClick && onClick(cloth)}
     className="flex-shrink-0 flex flex-col items-center cursor-pointer group w-20"
   >
-    {cloth.category !== 'shoes' ? (
-      <>
-        <div className="w-12 h-12 -mb-5 relative z-20 transition-transform duration-300 group-hover:-translate-y-1">
-          <img src="/assets/hook.png" alt="hook" className="w-full h-full object-contain drop-shadow-sm" />
-        </div>
-        <div className="w-20 h-24 rounded-lg overflow-hidden border border-gold-light/20 shadow-md relative bg-white z-10 group-hover:shadow-lg transition-all duration-300">
-          <img
-            src={cloth.imageUrl || cloth.image}
-            alt={cloth.name}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
-        </div>
-      </>
-    ) : (
-      <div className="mt-5 w-20 h-20 rounded-xl overflow-hidden border border-gold-light/20 shadow-sm relative bg-white group-hover:shadow-md transition-all duration-300">
-        <img
-          src={cloth.imageUrl || cloth.image}
-          alt={cloth.name}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute top-1 right-1 w-4 h-4 bg-gold/90 rounded-full flex items-center justify-center shadow-sm z-10">
-          <span className="material-symbols-rounded text-white text-[8px]">steps</span>
-        </div>
-      </div>
-    )}
+    <div className="w-12 h-12 -mb-5 relative z-20 transition-transform duration-300 group-hover:-translate-y-1">
+      <img src="/assets/hook.png" alt="hook" className="w-full h-full object-contain drop-shadow-sm" />
+    </div>
+    <div className="w-20 h-24 rounded-lg overflow-hidden border border-gold-light/20 shadow-md relative bg-white z-10 group-hover:shadow-lg transition-all duration-300">
+      <img
+        src={cloth.imageUrl || cloth.image}
+        alt={cloth.name}
+        className="w-full h-full object-cover"
+      />
+      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
+    </div>
   </div>
 );
 
-const RecentlyAddedClothes = ({ onClothClick }) => {
-  const [recentClothes, setRecentClothes] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+const RecentlyAddedClothes = ({ userClothes, onClothClick }) => {
   const [shouldAnimate, setShouldAnimate] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const containerRef = useRef(null);
+  const scrollRef = useRef(null);
 
   // 아이템 크기 상수 (w-20 = 80px, gap-4 = 16px)
   const ITEM_WIDTH = 80;
   const GAP = 16;
 
-  useEffect(() => {
-    const fetchRecentClothes = async () => {
-      try {
-        const token = localStorage.getItem('accessToken');
-        if (!token) return;
+  // props로 전달받은 userClothes에서 최근 등록 아이템 계산
+  const recentClothes = useMemo(() => {
+    if (!userClothes) return [];
+    
+    const allClothes = [
+      ...(userClothes.outerwear || []),
+      ...(userClothes.tops || []),
+      ...(userClothes.bottoms || []),
+      ...(userClothes.shoes || []),
+    ];
 
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-
-        const response = await fetch(`${backendUrl}/items/by-category`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const allClothes = [
-            ...(data.outerwear || []),
-            ...(data.tops || []),
-            ...(data.bottoms || []),
-            ...(data.shoes || []),
-          ];
-
-          const sorted = allClothes.sort((a, b) => {
-            return new Date(b.createdAt) - new Date(a.createdAt);
-          }).slice(0, 5);
-
-          setRecentClothes(sorted);
-        }
-      } catch (error) {
-        console.error('Failed to fetch recent clothes:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchRecentClothes();
-  }, []);
+    return allClothes
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 5);
+  }, [userClothes]);
 
   // 컨테이너 크기 vs 아이템 총 너비 비교
   useEffect(() => {
@@ -113,7 +77,7 @@ const RecentlyAddedClothes = ({ onClothClick }) => {
     return recentClothes.length * baseDuration;
   }, [recentClothes.length]);
 
-  if (isLoading || recentClothes.length === 0) return null;
+  if (recentClothes.length === 0) return null;
 
   return (
     <div className="mt-4 px-1 w-1/2">
@@ -138,10 +102,13 @@ const RecentlyAddedClothes = ({ onClothClick }) => {
         <div 
           ref={containerRef}
           className="flex-1 flex items-start overflow-hidden w-full relative -mx-1 px-1 z-10 pt-0"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
         >
-          {shouldAnimate ? (
+          {shouldAnimate && !isHovered ? (
+            // 무한 스크롤 애니메이션 모드
             <div 
-              className="flex items-start infinite-scroll-container hover:[animation-play-state:paused]"
+              className="flex items-start infinite-scroll-container"
               style={{ 
                 '--set-width': `${setWidth}px`,
                 '--duration': `${animationDuration}s`,
@@ -168,7 +135,23 @@ const RecentlyAddedClothes = ({ onClothClick }) => {
                 ))}
               </div>
             </div>
+          ) : shouldAnimate && isHovered ? (
+            // 호버 시 수동 스와이프 모드
+            <div 
+              ref={scrollRef}
+              className="flex items-start overflow-x-auto hide-scrollbar scroll-smooth"
+              style={{ gap: `${GAP}px` }}
+            >
+              {recentClothes.map((cloth, index) => (
+                <ClothItem 
+                  key={`swipe-${cloth.id}-${index}`}
+                  cloth={cloth}
+                  onClick={onClothClick}
+                />
+              ))}
+            </div>
           ) : (
+            // 아이템이 적어서 애니메이션 불필요할 때
             <div className="flex gap-4 items-start justify-center w-full">
               {recentClothes.map((cloth, index) => (
                 <ClothItem 
@@ -193,6 +176,13 @@ const RecentlyAddedClothes = ({ onClothClick }) => {
           .infinite-scroll-container {
             animation: infinite-scroll-exact var(--duration) linear infinite;
             will-change: transform;
+          }
+          .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+          .hide-scrollbar::-webkit-scrollbar {
+            display: none;
           }
         `}</style>
       </div>
