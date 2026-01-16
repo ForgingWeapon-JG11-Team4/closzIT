@@ -85,11 +85,8 @@ const FittingRoomPage = ({ hideHeader = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { activeTab, consumePendingTryOnCloth } = useTabStore();
-  const { requestPartialVtoByIds, checkPartialVtoLoading } = useVtoStore();
+  const { requestPartialVtoByIds, checkPartialVtoLoading, startSingleItemLoading, stopSingleItemLoading, refreshVtoData } = useVtoStore();
   const isFullOutfitLoading = checkPartialVtoLoading('fitting-room');
-
-  // vtoStore에서 로딩 상태 관리 함수 가져오기
-  const { startSingleItemLoading, stopSingleItemLoading, refreshVtoData } = useVtoStore();
 
   // VTO 상태
   const [isVtoLoading, setIsVtoLoading] = useState(false);
@@ -130,7 +127,7 @@ const FittingRoomPage = ({ hideHeader = false }) => {
         console.log(`[VTO] Auto try-on for clothing: ${clothingId}, category: ${category}`);
 
         setIsVtoLoading(true);
-        startSingleItemLoading('fitting-room'); // 헤더 로딩 애니메이션 시작
+        startSingleItemLoading('single-item'); // 헤더 로딩 애니메이션 시작 (전부 입어보기와 분리)
 
         const response = await fetch(`${backendUrl}/api/fitting/single-item-tryon`, {
           method: 'POST',
@@ -174,7 +171,7 @@ const FittingRoomPage = ({ hideHeader = false }) => {
         alert(`가상 피팅 실패: ${error.message}`);
       } finally {
         setIsVtoLoading(false);
-        stopSingleItemLoading('fitting-room'); // 헤더 로딩 애니메이션 종료
+        stopSingleItemLoading('single-item'); // 헤더 로딩 애니메이션 종료
       }
     };
 
@@ -841,7 +838,7 @@ const FittingRoomPage = ({ hideHeader = false }) => {
 
               setSelectedClothDetail(null);
               setIsVtoLoading(true);
-              startSingleItemLoading('fitting-room'); // 헤더 로딩 애니메이션 시작
+              startSingleItemLoading('single-item'); // 헤더 로딩 애니메이션 시작 (전부 입어보기와 분리)
 
               const response = await fetch(`${backendUrl}/api/fitting/single-item-tryon`, {
                 method: 'POST',
@@ -885,7 +882,7 @@ const FittingRoomPage = ({ hideHeader = false }) => {
               alert(`가상 피팅 실패: ${error.message}`);
             } finally {
               setIsVtoLoading(false);
-              stopSingleItemLoading('fitting-room'); // 헤더 로딩 애니메이션 종료
+              stopSingleItemLoading('single-item'); // 헤더 로딩 애니메이션 종료
             }
           }}
           onEdit={() => {
