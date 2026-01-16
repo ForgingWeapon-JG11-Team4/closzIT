@@ -28,7 +28,7 @@ export const useVtoStore = create((set, get) => ({
     flyAnimation: null,
 
     // ========== Actions ==========
-    
+
     // 초기 데이터 로드
     initialize: () => {
         get().refreshVtoData();
@@ -192,10 +192,16 @@ export const useVtoStore = create((set, get) => ({
                             }
                             return;
                         } else if (statusResult.status === 'failed') {
-                            throw new Error(statusResult.error || 'VTO 작업이 실패했습니다.');
+                            // 에러를 throw하지 않고 직접 처리하여 루프 탈출
+                            const errorMsg = statusResult.error || 'VTO 작업이 실패했습니다.';
+                            console.error('[VTO] Job failed:', errorMsg);
+                            throw new Error(errorMsg);
                         }
                     } catch (pollError) {
-                        console.error('[VTO] Poll error:', pollError);
+                        // 네트워크 에러 등 예외 상황만 여기서 처리
+                        // 'failed' 상태에서 throw된 에러도 여기서 잡히므로 바로 상위로 전파
+                        console.error('[VTO] Error:', pollError.message);
+                        throw pollError;
                     }
                 }
                 throw new Error('VTO 작업 시간이 초과되었습니다.');
@@ -353,7 +359,7 @@ export const useVtoStore = create((set, get) => ({
 
                         if (statusResult.status === 'completed') {
                             const data = statusResult.result;
-                            if (data.success) {
+                            if (data && data.success) {
                                 addVtoResultToStorage({
                                     imageUrl: data.imageUrl,
                                     postId: 'direct-fitting',
@@ -363,13 +369,23 @@ export const useVtoStore = create((set, get) => ({
                                 get().refreshVtoData();
                                 get().setToastMessage('가상 피팅 완료!');
                                 return data;
+                            } else if (!data) {
+                                // result가 아직 Redis에서 로드되지 않은 경우 → 다음 poll 대기
+                                console.log('[Partial VTO] Job completed but result not yet available, continuing poll...');
+                                continue;
                             }
                             return;
                         } else if (statusResult.status === 'failed') {
-                            throw new Error(statusResult.error || 'VTO 작업이 실패했습니다.');
+                            // 에러를 throw하지 않고 직접 처리하여 루프 탈출
+                            const errorMsg = statusResult.error || 'VTO 작업이 실패했습니다.';
+                            console.error('[Partial VTO] Job failed:', errorMsg);
+                            throw new Error(errorMsg);
                         }
                     } catch (pollError) {
-                        console.error('[Partial VTO] Poll error:', pollError);
+                        // 네트워크 에러 등 예외 상황만 여기서 처리
+                        // 'failed' 상태에서 throw된 에러도 여기서 잡히므로 바로 상위로 전파
+                        console.error('[Partial VTO] Error:', pollError.message);
+                        throw pollError;
                     }
                 }
                 throw new Error('VTO 작업 시간이 초과되었습니다.');
