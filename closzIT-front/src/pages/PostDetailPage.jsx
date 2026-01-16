@@ -241,7 +241,7 @@ const PostDetailPage = () => {
                     className="group/cloth-card relative aspect-square rounded-lg overflow-hidden bg-cream-dark dark:bg-charcoal-light shadow-soft border border-gold-light/30 hover:border-gold transition-all"
                   >
                     <img
-                      src={pc.clothing.imageUrl}
+                      src={pc.clothing.flattenImageUrl || pc.clothing.imageUrl}
                       alt={pc.clothing.subCategory}
                       className="w-full h-full object-cover"
                     />
@@ -383,7 +383,7 @@ const PostDetailPage = () => {
         <ClothDetailModal
           cloth={{
             ...selectedClothDetail,
-            image: selectedClothDetail.image || selectedClothDetail.imageUrl,
+            image: selectedClothDetail.flattenImageUrl || selectedClothDetail.image || selectedClothDetail.imageUrl,
             name: selectedClothDetail.name || selectedClothDetail.subCategory,
           }}
           onClose={() => setSelectedClothDetail(null)}
