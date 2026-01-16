@@ -6,6 +6,8 @@ import { FlattenProcessor } from './processors/flatten.processor';
 import { VtoProcessor } from './processors/vto.processor';
 import { AnalysisModule } from '../analysis/analysis.module';
 import { FittingModule } from '../fitting/fitting.module';
+import { S3Module } from '../s3/s3.module';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
     imports: [
@@ -21,10 +23,12 @@ import { FittingModule } from '../fitting/fitting.module';
         }),
         BullModule.registerQueue(
             { name: 'flatten-queue' },
-            { name: 'vto-queue' },
+            { name: process.env.VTO_QUEUE_NAME || 'vto-queue' },
         ),
         forwardRef(() => AnalysisModule),
         forwardRef(() => FittingModule),
+        S3Module,
+        PrismaModule,
     ],
     controllers: [QueueController],
     providers: [FlattenProcessor, VtoProcessor],

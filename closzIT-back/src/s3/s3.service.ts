@@ -34,13 +34,17 @@ export class S3Service {
      * @param base64Data - Base64 인코딩된 이미지 데이터 (data:image/... prefix 포함 가능)
      * @param key - S3 객체 키 (예: users/{userId}/clothes/{clothingId}.png)
      * @param contentType - MIME 타입 (기본값: image/png)
+     * @param bucketName - 사용할 버킷 이름 (기본값: 환경변수 AWS_S3_BUCKET)
      * @returns S3 객체 URL
      */
     async uploadBase64Image(
         base64Data: string,
         key: string,
         contentType: string = 'image/png',
+        bucketName?: string,
     ): Promise<string> {
+        const targetBucket = bucketName || this.bucketName;
+
         try {
             // data:image/png;base64, 프리픽스 제거
             let pureBase64 = base64Data;
@@ -58,7 +62,7 @@ export class S3Service {
             const buffer = Buffer.from(pureBase64, 'base64');
 
             const command = new PutObjectCommand({
-                Bucket: this.bucketName,
+                Bucket: targetBucket,
                 Key: key,
                 Body: buffer,
                 ContentType: contentType,
@@ -69,7 +73,7 @@ export class S3Service {
             await this.s3Client.send(command);
 
             // S3 URL 생성
-            const url = `https://${this.bucketName}.s3.${this.region}.amazonaws.com/${key}`;
+            const url = `https://${targetBucket}.s3.${this.region}.amazonaws.com/${key}`;
             this.logger.log(`Uploaded image to S3: ${key}`);
 
             return url;
@@ -199,6 +203,29 @@ export class S3Service {
     }
 
     /**
+     * S3 URL에서 버킷 이름을 추출합니다.
+     * @param url - S3 URL
+     * @returns 버킷 이름 또는 null
+     */
+    extractBucketFromUrl(url: string): string | null {
+        if (!url || !url.includes('.s3.')) {
+            return null;
+        }
+
+        try {
+            const urlObj = new URL(url);
+            // hostname에서 버킷 이름 추출 (예: bucket-name.s3.region.amazonaws.com)
+            const hostParts = urlObj.hostname.split('.');
+            if (hostParts.length >= 4 && hostParts[1] === 's3') {
+                return hostParts[0];
+            }
+            return null;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
      * 주어진 URL이 S3 URL인지 확인합니다.
      */
     isS3Url(url: string): boolean {
@@ -216,12 +243,15 @@ export class S3Service {
      * S3 객체에 대한 Pre-signed URL을 생성합니다.
      * @param key - S3 객체 키
      * @param expiresIn - URL 유효 시간 (초, 기본값: 3600 = 1시간)
+     * @param bucketName - 사용할 버킷 이름 (기본값: 환경변수 AWS_S3_BUCKET)
      * @returns Pre-signed URL
      */
-    async getPresignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
+    async getPresignedUrl(key: string, expiresIn: number = 3600, bucketName?: string): Promise<string> {
+        const targetBucket = bucketName || this.bucketName;
+
         try {
             const command = new GetObjectCommand({
-                Bucket: this.bucketName,
+                Bucket: targetBucket,
                 Key: key,
             });
 
@@ -277,11 +307,12 @@ export class S3Service {
             return urlOrKey;
         }
 
-        // S3 URL인 경우 키를 추출하여 Pre-signed URL 생성
+        // S3 URL인 경우 키와 버킷을 추출하여 Pre-signed URL 생성
         if (this.isS3Url(urlOrKey)) {
             const key = this.extractKeyFromUrl(urlOrKey);
+            const bucket = this.extractBucketFromUrl(urlOrKey);
             if (key) {
-                return this.getPresignedUrl(key, expiresIn);
+                return this.getPresignedUrl(key, expiresIn, bucket || undefined);
             }
         }
 

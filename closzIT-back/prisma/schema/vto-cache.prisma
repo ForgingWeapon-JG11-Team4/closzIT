@@ -1,0 +1,34 @@
+// VTO 전체 입어보기 결과 캐시 테이블
+
+model VtoCache {
+  /// 고유 ID (자동 생성 UUID)
+  id          String   @id @default(dbgenerated("gen_random_uuid()"))
+  
+  /// 조합 해시 (userId + modelImageHash + sorted(clothingIds))
+  hashKey     String   @unique @map("hash_key")
+  
+  /// 요청자 ID
+  userId      String   @map("user_id")
+  
+  /// SNS 게시글 ID
+  postId      String   @map("post_id")
+  
+  /// 착장한 의상 ID 배열
+  clothingIds String[] @map("clothing_ids")
+  
+  /// S3 이미지 URL
+  s3Url       String   @map("s3_url")
+  
+  /// 보여주기 여부 (Soft Delete용)
+  isVisible   Boolean  @default(true) @map("is_visible")
+  
+  /// 생성일
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  /// User 관계
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([hashKey])
+  @@index([userId, isVisible, createdAt(sort: Desc)])
+  @@map("vto_cache")
+}
