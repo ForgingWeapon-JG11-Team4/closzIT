@@ -2,6 +2,40 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
 
+// DB 값 (하이픈 포함) → Prisma enum 이름 매핑
+const ENUM_MAPPINGS: Record<string, string> = {
+  // Color
+  'Sky-blue': 'SkyBlue',
+  // SubCategory
+  'Hoodie-zipup': 'HoodieZipup',
+  'Short-sleeve-T': 'ShortSleeveT',
+  'Long-sleeve-T': 'LongSleeveT',
+  'Polo-shirt': 'PoloShirt',
+  'Cotton-pants': 'CottonPants',
+  'Dress-shoes': 'DressShoes',
+  // Detail
+  'Knit-rib': 'KnitRib',
+};
+
+// 역방향 매핑 (Prisma enum 이름 → DB 값)
+const REVERSE_ENUM_MAPPINGS: Record<string, string> = Object.fromEntries(
+  Object.entries(ENUM_MAPPINGS).map(([db, prisma]) => [prisma, db])
+);
+
+// 단일 값 변환 (DB → Prisma)
+const toPrismaEnum = (value: string): string => ENUM_MAPPINGS[value] || value;
+
+// 단일 값 변환 (Prisma → DB)
+const toDbEnum = (value: string): string => REVERSE_ENUM_MAPPINGS[value] || value;
+
+// 배열 값 변환 (DB → Prisma)
+const toPrismaEnumArray = (values: string[] | undefined): string[] | undefined => 
+  values?.map(toPrismaEnum);
+
+// 배열 값 변환 (Prisma → DB)
+const toDbEnumArray = (values: string[] | undefined): string[] | undefined => 
+  values?.map(toDbEnum);
+
 @Injectable()
 export class ItemsService {
   constructor(
@@ -52,19 +86,19 @@ export class ItemsService {
 
         return {
           id: item.id,
-          name: item.subCategory,
+          name: toDbEnum(item.subCategory),
           // 펼쳐진 이미지가 있으면 우선 사용, 없으면 원본 이미지
           image: flattenImageUrl || imageUrl,
           originalImage: imageUrl,
           flattenImage: flattenImageUrl,
-          category: item.category,
-          subCategory: item.subCategory,
-          colors: item.colors,
-          patterns: item.patterns,
-          details: item.details,
-          styleMoods: item.styleMoods,
-          tpos: item.tpos,
-          seasons: item.seasons,
+          category: toDbEnum(item.category),
+          subCategory: toDbEnum(item.subCategory),
+          colors: toDbEnumArray(item.colors as string[]),
+          patterns: toDbEnumArray(item.patterns as string[]),
+          details: toDbEnumArray(item.details as string[]),
+          styleMoods: toDbEnumArray(item.styleMoods as string[]),
+          tpos: toDbEnumArray(item.tpos as string[]),
+          seasons: toDbEnumArray(item.seasons as string[]),
           userRating: item.userRating,
           note: item.note,
           isPublic: item.isPublic,
@@ -140,18 +174,18 @@ export class ItemsService {
 
         return {
           id: item.id,
-          name: item.subCategory,
+          name: toDbEnum(item.subCategory),
           image: flattenImageUrl || imageUrl,
           originalImage: imageUrl,
           flattenImage: flattenImageUrl,
-          category: item.category,
-          subCategory: item.subCategory,
-          colors: item.colors,
-          patterns: item.patterns,
-          details: item.details,
-          styleMoods: item.styleMoods,
-          tpos: item.tpos,
-          seasons: item.seasons,
+          category: toDbEnum(item.category),
+          subCategory: toDbEnum(item.subCategory),
+          colors: toDbEnumArray(item.colors as string[]),
+          patterns: toDbEnumArray(item.patterns as string[]),
+          details: toDbEnumArray(item.details as string[]),
+          styleMoods: toDbEnumArray(item.styleMoods as string[]),
+          tpos: toDbEnumArray(item.tpos as string[]),
+          seasons: toDbEnumArray(item.seasons as string[]),
           userRating: item.userRating,
           note: item.note,
           isPublic: item.isPublic,
@@ -217,18 +251,18 @@ export class ItemsService {
 
     return {
       id: item.id,
-      name: item.subCategory,
+      name: toDbEnum(item.subCategory),
       image: flattenImageUrl || imageUrl,
       originalImage: imageUrl,
       flattenImage: flattenImageUrl,
-      category: item.category,
-      subCategory: item.subCategory,
-      colors: item.colors,
-      patterns: item.patterns,
-      details: item.details,
-      styleMoods: item.styleMoods,
-      tpos: item.tpos,
-      seasons: item.seasons,
+      category: toDbEnum(item.category),
+      subCategory: toDbEnum(item.subCategory),
+      colors: toDbEnumArray(item.colors as string[]),
+      patterns: toDbEnumArray(item.patterns as string[]),
+      details: toDbEnumArray(item.details as string[]),
+      styleMoods: toDbEnumArray(item.styleMoods as string[]),
+      tpos: toDbEnumArray(item.tpos as string[]),
+      seasons: toDbEnumArray(item.seasons as string[]),
       userRating: item.userRating,
       note: item.note,
       isPublic: item.isPublic,
@@ -261,14 +295,14 @@ export class ItemsService {
     return this.prisma.clothing.update({
       where: { id: itemId },
       data: {
-        category: data.category,
-        subCategory: data.subCategory,
-        colors: data.colors as any,
-        patterns: data.patterns as any,
-        details: data.details as any,
-        styleMoods: data.styleMoods as any,
-        tpos: data.tpos as any,
-        seasons: data.seasons as any,
+        category: data.category ? toPrismaEnum(data.category) as any : undefined,
+        subCategory: data.subCategory ? toPrismaEnum(data.subCategory) : undefined,
+        colors: toPrismaEnumArray(data.colors) as any,
+        patterns: toPrismaEnumArray(data.patterns) as any,
+        details: toPrismaEnumArray(data.details) as any,
+        styleMoods: toPrismaEnumArray(data.styleMoods) as any,
+        tpos: toPrismaEnumArray(data.tpos) as any,
+        seasons: toPrismaEnumArray(data.seasons) as any,
         note: data.note,
       },
     });

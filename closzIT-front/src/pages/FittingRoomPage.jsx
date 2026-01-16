@@ -41,8 +41,9 @@ const keywordGroups = [
     options: [
       { label: '데일리', value: 'Daily' }, { label: '출근', value: 'Commute' },
       { label: '데이트', value: 'Date' }, { label: '운동', value: 'Sports' },
-      { label: '여행', value: 'Travel' }, { label: '파티', value: 'Party' },
-      { label: '학교', value: 'School' }, { label: '집', value: 'Home' }
+      { label: '여행', value: 'Travel' }, { label: '결혼식', value: 'Wedding' },
+      { label: '파티', value: 'Party' }, { label: '학교', value: 'School' },
+      { label: '집', value: 'Home' }
     ]
   },
   {

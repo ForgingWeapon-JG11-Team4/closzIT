@@ -171,27 +171,16 @@ const ClothDetailModal = ({
               {renderInfoSection('색상', translateValue('colors', cloth.colors))}
               {cloth.wearCount !== undefined && renderInfoSection('착용 횟수', `${cloth.wearCount}회`)}
               
-              {/* 수정/삭제 버튼 - 상세 정보 안에 */}
-              {showActions && (onEdit || onDelete) && (
-                <div className="flex gap-2 pt-2">
-                  {onEdit && (
-                    <button
-                      onClick={onEdit}
-                      className="flex-1 py-2.5 bg-gold/20 text-gold rounded-xl font-semibold hover:bg-gold/30 transition-colors flex items-center justify-center gap-2 text-sm"
-                    >
-                      <span className="material-symbols-rounded text-base">edit</span>
-                      수정
-                    </button>
-                  )}
-                  {onDelete && (
-                    <button
-                      onClick={onDelete}
-                      className="flex-1 py-2.5 bg-red-50 text-red-500 rounded-xl font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-2 text-sm"
-                    >
-                      <span className="material-symbols-rounded text-base">delete</span>
-                      삭제
-                    </button>
-                  )}
+              {/* 삭제 버튼 - 상세 정보 안에 */}
+              {showActions && onDelete && (
+                <div className="pt-2">
+                  <button
+                    onClick={onDelete}
+                    className="w-full py-2.5 bg-red-50 text-red-500 rounded-xl font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-2 text-sm"
+                  >
+                    <span className="material-symbols-rounded text-base">delete</span>
+                    삭제
+                  </button>
                 </div>
               )}
             </div>
