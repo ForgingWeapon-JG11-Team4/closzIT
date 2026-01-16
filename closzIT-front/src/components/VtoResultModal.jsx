@@ -1,244 +1,188 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
-const VtoResultModal = ({ isOpen, onClose, results, onRefresh, onDelete }) => {
-    // 최신순이 오른쪽에 오도록 역순 정렬 -> 최신 이미지가 마지막 인덱스
-    const sortedResults = [...results].reverse();
+const VtoResultModal = ({
+    isOpen,
+    onClose,
+    fullResults = [],      // 전체 입어보기 결과
+    singleResults = [],    // 원클릭 입어보기 결과
+    activeTab = 'full',    // 현재 활성 탭
+    onTabChange,           // 탭 변경 콜백
+    unseenFullCount = 0,   // 전체 입어보기 unseen
+    unseenSingleCount = 0, // 원클릭 입어보기 unseen
+    onRefresh,
+    onDelete,
+    // 기존 호환성 유지
+    results = [],
+}) => {
+    // 탭별 결과 선택 (기존 results prop 호환성 유지)
+    const currentResults = activeTab === 'full'
+        ? (fullResults.length > 0 ? fullResults : results.filter(r => r.type === 'full' || !r.type))
+        : (singleResults.length > 0 ? singleResults : results.filter(r => r.type === 'single'));
 
-    // 모달이 열릴 때 가장 최신 이미지(마지막 인덱스)가 보이도록 초기화
-    const [currentIndex, setCurrentIndex] = useState(sortedResults.length > 0 ? sortedResults.length - 1 : 0);
+    // 최신순 정렬
+    const sortedResults = [...currentResults].sort((a, b) =>
+        new Date(b.createdAt) - new Date(a.createdAt)
+    );
 
     // 확대된 이미지 상태
     const [enlargedImage, setEnlargedImage] = useState(null);
 
-    // results가 변경되면(새 이미지 추가 시) 최신 이미지로 이동
+    // 모달 닫힐 때 확대 이미지도 닫기
     useEffect(() => {
-        if (isOpen && sortedResults.length > 0) {
-            setCurrentIndex(sortedResults.length - 1);
+        if (!isOpen) {
+            setEnlargedImage(null);
         }
-    }, [results.length, isOpen]);
-    const [dragOffset, setDragOffset] = useState(0);
-    const [isDragging, setIsDragging] = useState(false);
-    const touchStartX = useRef(0);
-
-    const imageWidth = 280;
-    const gap = 16;
-
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
-
-    const handleRemove = (id) => {
-        // VtoContext의 deleteVtoResult 호출 (버튼 상태 연동됨)
+    const handleRemove = (e, id) => {
+        e.stopPropagation();
         onDelete?.(id);
-        if (currentIndex >= sortedResults.length - 1 && currentIndex > 0) {
-            setCurrentIndex(currentIndex - 1);
-        }
-    };
-
-    const goToPrev = () => {
-        if (currentIndex > 0) {
-            setCurrentIndex(currentIndex - 1);
-        }
-    };
-
-    const goToNext = () => {
-        if (currentIndex < sortedResults.length - 1) {
-            setCurrentIndex(currentIndex + 1);
-        }
-    };
-
-    const handleTouchStart = (e) => {
-        touchStartX.current = e.touches[0].clientX;
-        setIsDragging(true);
-    };
-
-    const handleTouchMove = (e) => {
-        if (!isDragging) return;
-        const diff = e.touches[0].clientX - touchStartX.current;
-        if ((currentIndex === 0 && diff > 0) ||
-            (currentIndex === sortedResults.length - 1 && diff < 0)) {
-            setDragOffset(diff * 0.3);
-        } else {
-            setDragOffset(diff);
-        }
-    };
-
-    const handleTouchEnd = () => {
-        setIsDragging(false);
-        if (dragOffset > 80 && currentIndex > 0) {
-            goToPrev();
-        } else if (dragOffset < -80 && currentIndex < sortedResults.length - 1) {
-            goToNext();
-        }
-        setDragOffset(0);
-    };
-
-    const handleMouseDown = (e) => {
-        touchStartX.current = e.clientX;
-        setIsDragging(true);
-    };
-
-    const handleMouseMove = (e) => {
-        if (!isDragging) return;
-        const diff = e.clientX - touchStartX.current;
-        if ((currentIndex === 0 && diff > 0) ||
-            (currentIndex === sortedResults.length - 1 && diff < 0)) {
-            setDragOffset(diff * 0.3);
-        } else {
-            setDragOffset(diff);
-        }
-    };
-
-    const handleMouseUp = () => {
-        if (isDragging) handleTouchEnd();
-    };
-
-    const handleMouseLeave = () => {
-        if (isDragging) handleTouchEnd();
-    };
-
-    // 중앙 정렬 로직:
-    // 트랙 시작점을 화면 중앙(50vw)으로 설정하고
-    // 현재 인덱스 * (너비 + 간격) + 반너비 만큼 왼쪽으로 이동
-    const getTransformStyle = () => {
-        const centerOffset = currentIndex * (imageWidth + gap) + (imageWidth / 2);
-        return `translateX(calc(-${centerOffset}px + ${dragOffset}px))`;
     };
 
     return (
-        <div className="fixed inset-0 z-[100] bg-black/80 overflow-hidden">
-            {/* Close Button */}
-            <button
+        <>
+            {/* 메인 모달 */}
+            <div
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-end sm:items-center justify-center animate-fadeIn"
                 onClick={onClose}
-                className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
             >
-                <span className="material-symbols-rounded text-white text-2xl">close</span>
-            </button>
-
-            {sortedResults.length === 0 ? (
-                <div className="w-full h-full flex items-center justify-center">
-                    <div className="text-center">
-                        <span className="material-symbols-rounded text-6xl text-gold-light">checkroom</span>
-                        <p className="mt-4 text-white text-lg">
-                            아직 생성된 착장 이미지가 없습니다
-                        </p>
-                    </div>
-                </div>
-            ) : (
                 <div
-                    className="w-full h-full flex flex-col items-center justify-center select-none"
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseLeave}
+                    className="bg-warm-white dark:bg-[#1A1918] w-full max-w-md sm:rounded-3xl rounded-t-3xl shadow-2xl overflow-hidden animate-slideUp flex flex-col max-h-[80vh]"
+                    onClick={(e) => e.stopPropagation()}
                 >
-                    {/* Header */}
-                    <div className="absolute top-4 left-4 z-10">
-                        <p className="text-white font-semibold">
-                            {currentIndex + 1} / {sortedResults.length}
-                        </p>
+                    {/* 헤더 */}
+                    <div className="px-6 py-4 border-b border-gold-light/20 flex items-center justify-between bg-white/50 dark:bg-charcoal/50">
+                        <h3 className="text-lg font-bold text-charcoal dark:text-cream flex items-center gap-2">
+                            <span className="material-symbols-rounded text-gold">checkroom</span>
+                            입어보기 결과
+                        </h3>
+                        <button
+                            onClick={onClose}
+                            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-charcoal-light"
+                        >
+                            <span className="material-symbols-rounded text-charcoal-light">close</span>
+                        </button>
                     </div>
 
-                    {/* 캐러셀 */}
-                    <div
-                        className="flex items-center self-start"
-                        style={{
-                            marginLeft: '50vw',
-                            gap: `${gap}px`,
-                            transform: getTransformStyle(),
-                            transition: isDragging ? 'none' : 'transform 0.3s ease-out',
-                            cursor: isDragging ? 'grabbing' : 'grab',
-                            width: 'max-content'
-                        }}
-                    >
-                        {sortedResults.map((result, idx) => (
-                            <div
-                                key={result.id}
-                                className="relative flex-shrink-0 rounded-2xl overflow-hidden shadow-2xl bg-charcoal/80 flex items-center justify-center"
-                                style={{ width: imageWidth, height: '70vh', maxHeight: 450 }}
-                            >
-                                <img
-                                    src={result.imageUrl}
-                                    alt="Virtual Try-On Result"
-                                    className="max-w-full max-h-full object-contain pointer-events-auto cursor-pointer"
-                                    draggable={false}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (!isDragging && Math.abs(dragOffset) < 5) {
-                                            setEnlargedImage(result.imageUrl);
-                                        }
-                                    }}
-                                />
+                    {/* 탭 */}
+                    <div className="px-4 pt-4 pb-2 flex gap-2">
+                        <button
+                            onClick={() => onTabChange?.('full')}
+                            className={`relative flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                                activeTab === 'full'
+                                    ? 'bg-gold text-charcoal shadow-md'
+                                    : 'bg-gray-100 dark:bg-charcoal-light/30 text-charcoal-light dark:text-cream-dark hover:bg-gray-200 dark:hover:bg-charcoal-light/50'
+                            }`}
+                        >
+                            전체 입어보기
+                            {unseenFullCount > 0 && activeTab !== 'full' && (
+                                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1">
+                                    {unseenFullCount}
+                                </span>
+                            )}
+                        </button>
+                        <button
+                            onClick={() => onTabChange?.('single')}
+                            className={`relative flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                                activeTab === 'single'
+                                    ? 'bg-gold text-charcoal shadow-md'
+                                    : 'bg-gray-100 dark:bg-charcoal-light/30 text-charcoal-light dark:text-cream-dark hover:bg-gray-200 dark:hover:bg-charcoal-light/50'
+                            }`}
+                        >
+                            하나만 입어보기
+                            {unseenSingleCount > 0 && activeTab !== 'single' && (
+                                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1">
+                                    {unseenSingleCount}
+                                </span>
+                            )}
+                        </button>
+                    </div>
 
-                                {idx === currentIndex && (
-                                    <>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleRemove(result.id);
-                                            }}
-                                            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/50 hover:bg-red-500 flex items-center justify-center transition-colors"
+                    {/* 컨텐츠 */}
+                    <div className="flex-1 overflow-y-auto p-4">
+                        {sortedResults.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-4">
+                                {sortedResults.map((item) => (
+                                    <div key={item.id} className="group relative">
+                                        <div
+                                            className="aspect-[3/4] rounded-2xl overflow-hidden border border-gold-light/20 shadow-sm cursor-pointer hover:ring-2 ring-gold transition-all bg-white"
+                                            onClick={() => setEnlargedImage(item.imageUrl)}
                                         >
-                                            <span className="material-symbols-rounded text-white text-lg">delete</span>
-                                        </button>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setEnlargedImage(result.imageUrl);
-                                            }}
-                                            className="absolute top-3 left-3 w-9 h-9 rounded-full bg-black/50 hover:bg-gold flex items-center justify-center transition-colors"
-                                        >
-                                            <span className="material-symbols-rounded text-white text-lg">fullscreen</span>
-                                        </button>
-                                    </>
-                                )}
-
-                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
-                                    <p className="text-white text-sm">
-                                        {new Date(result.createdAt).toLocaleString('ko-KR')}
-                                    </p>
-                                    {result.appliedClothing && (
-                                        <p className="text-white/70 text-xs mt-1">
-                                            적용: {result.appliedClothing.join(', ')}
-                                        </p>
-                                    )}
-                                </div>
+                                            <img
+                                                src={item.imageUrl}
+                                                alt="VTO Result"
+                                                className="w-full h-full object-cover"
+                                            />
+                                            <button
+                                                onClick={(e) => handleRemove(e, item.id)}
+                                                className="absolute top-2 right-2 w-7 h-7 bg-black/50 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                                            >
+                                                <span className="material-symbols-rounded text-sm">delete</span>
+                                            </button>
+                                        </div>
+                                        <div className="mt-2 px-1">
+                                            {item.appliedClothing && (
+                                                <p className="text-xs font-bold text-charcoal dark:text-cream truncate">
+                                                    {Array.isArray(item.appliedClothing)
+                                                        ? item.appliedClothing.join(', ')
+                                                        : item.appliedClothing}
+                                                </p>
+                                            )}
+                                            <p className="text-[10px] text-charcoal-light dark:text-cream-dark opacity-70">
+                                                {new Date(item.createdAt).toLocaleString('ko-KR', {
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
+                        ) : (
+                            <div className="py-12 text-center">
+                                <span className="material-symbols-rounded text-5xl text-gold-light/30 mb-2">
+                                    {activeTab === 'full' ? 'checkroom' : 'styler'}
+                                </span>
+                                <p className="text-charcoal-light dark:text-cream-dark mt-2">
+                                    {activeTab === 'full'
+                                        ? '아직 전체 입어보기 결과가 없습니다'
+                                        : '아직 원클릭 입어보기 결과가 없습니다'}
+                                </p>
+                                <p className="text-xs text-charcoal-light/60 dark:text-cream-dark/60 mt-1">
+                                    {activeTab === 'full'
+                                        ? 'SNS 피드에서 "전부 입어보기"를 눌러보세요'
+                                        : '옷 상세에서 "입어보기"를 눌러보세요'}
+                                </p>
+                            </div>
+                        )}
                     </div>
 
-                    {/* 스와이프 힌트 */}
-                    {sortedResults.length > 1 && (
-                        <p className="text-white/50 text-sm mt-6">
-                            ← 좌우로 스와이프하여 이동 →
-                        </p>
-                    )}
-
-                    {/* Page Indicators */}
-                    {sortedResults.length > 1 && (
-                        <div className="flex gap-2 mt-3">
-                            {sortedResults.map((_, idx) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => setCurrentIndex(idx)}
-                                    className={`h-2 rounded-full transition-all ${idx === currentIndex
-                                        ? 'bg-gold w-6'
-                                        : 'bg-white/40 w-2 hover:bg-white/60'
-                                        }`}
-                                />
-                            ))}
+                    {/* 푸터 - 전체 삭제 */}
+                    {sortedResults.length > 0 && (
+                        <div className="p-4 bg-gray-50 dark:bg-charcoal-light/10 text-center border-t border-gold-light/10">
+                            <button
+                                onClick={() => {
+                                    if (window.confirm('현재 탭의 모든 결과를 삭제할까요?')) {
+                                        sortedResults.forEach(item => onDelete?.(item.id));
+                                    }
+                                }}
+                                className="text-xs text-red-500 font-medium hover:underline"
+                            >
+                                {activeTab === 'full' ? '전체 입어보기' : '원클릭 입어보기'} 결과 전체 삭제
+                            </button>
                         </div>
                     )}
                 </div>
-            )}
+            </div>
 
             {/* 이미지 확대 라이트박스 */}
             {enlargedImage && (
                 <div
-                    className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center animate-fadeIn"
+                    className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center animate-fadeIn"
                     onClick={() => setEnlargedImage(null)}
                 >
                     <div
@@ -252,12 +196,12 @@ const VtoResultModal = ({ isOpen, onClose, results, onRefresh, onDelete }) => {
                         >
                             <span className="material-symbols-rounded text-gray-700 text-2xl">close</span>
                         </button>
-                        {/* 이미지 박스 */}
+                        {/* 이미지 */}
                         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden p-2">
                             <img
                                 src={enlargedImage}
                                 alt="Enlarged VTO Result"
-                                className="max-w-[80vw] max-h-[60vh] object-contain"
+                                className="max-w-[85vw] max-h-[75vh] object-contain"
                             />
                         </div>
                     </div>
@@ -274,7 +218,7 @@ const VtoResultModal = ({ isOpen, onClose, results, onRefresh, onDelete }) => {
                     animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
                 }
             `}</style>
-        </div>
+        </>
     );
 };
 

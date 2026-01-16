@@ -5,6 +5,12 @@ import {
     getUnseenVtoCount,
     markAllVtoAsSeen,
     removeVtoResult as removeVtoResultFromStorage,
+    getFullVtoResults,
+    getSingleVtoResults,
+    getUnseenFullVtoCount,
+    getUnseenSingleVtoCount,
+    VTO_TYPE_FULL,
+    VTO_TYPE_SINGLE,
 } from '../utils/vtoStorage';
 import { useUserStore } from './userStore';
 
@@ -17,7 +23,12 @@ export const useVtoStore = create((set, get) => ({
     vtoLoadingPosts: new Set(),
     vtoCompletedPosts: new Set(),
     vtoResults: [],
+    fullVtoResults: [],      // 전체 입어보기 결과
+    singleVtoResults: [],    // 원클릭 입어보기 결과
     unseenCount: 0,
+    unseenFullCount: 0,      // 전체 입어보기 unseen
+    unseenSingleCount: 0,    // 원클릭 입어보기 unseen
+    activeVtoTab: 'full',    // 현재 활성 탭: 'full' | 'single'
     toastMessage: '',
     isVtoModalOpen: false,
     showCreditModal: false,
@@ -46,13 +57,21 @@ export const useVtoStore = create((set, get) => ({
     refreshVtoData: () => {
         set({
             vtoResults: getVtoResults(),
+            fullVtoResults: getFullVtoResults(),
+            singleVtoResults: getSingleVtoResults(),
             unseenCount: getUnseenVtoCount(),
+            unseenFullCount: getUnseenFullVtoCount(),
+            unseenSingleCount: getUnseenSingleVtoCount(),
         });
+    },
+
+    setActiveVtoTab: (tab) => {
+        set({ activeVtoTab: tab });
     },
 
     openVtoModal: () => {
         markAllVtoAsSeen();
-        set({ unseenCount: 0, isVtoModalOpen: true });
+        set({ unseenCount: 0, unseenFullCount: 0, unseenSingleCount: 0, isVtoModalOpen: true });
     },
 
     closeVtoModal: () => {
@@ -180,7 +199,7 @@ export const useVtoStore = create((set, get) => ({
                                     imageUrl: data.imageUrl,
                                     postId: postId,
                                     appliedClothing: data.appliedClothing,
-                                });
+                                }, VTO_TYPE_FULL); // 전체 입어보기
                                 set((state) => ({
                                     vtoCompletedPosts: new Set([...state.vtoCompletedPosts, postId])
                                 }));
@@ -204,7 +223,7 @@ export const useVtoStore = create((set, get) => ({
                     imageUrl: queueResult.imageUrl,
                     postId: postId,
                     appliedClothing: queueResult.appliedClothing,
-                });
+                }, VTO_TYPE_FULL); // 전체 입어보기
                 set((state) => ({
                     vtoCompletedPosts: new Set([...state.vtoCompletedPosts, postId])
                 }));
@@ -228,7 +247,23 @@ export const useVtoStore = create((set, get) => ({
         get().requestVtoWithCreditCheck('sns', { postId }, buttonPosition);
     },
 
-    // Partial VTO 실행
+    // Single Item Tryon 로딩 시작 (외부에서 호출)
+    startSingleItemLoading: (source = 'fitting-room') => {
+        set((state) => ({
+            partialVtoLoadingSources: new Set(state.partialVtoLoadingSources).add(source),
+        }));
+    },
+
+    // Single Item Tryon 로딩 종료 (외부에서 호출)
+    stopSingleItemLoading: (source = 'fitting-room') => {
+        set((state) => {
+            const nextSources = new Set(state.partialVtoLoadingSources);
+            nextSources.delete(source);
+            return { partialVtoLoadingSources: nextSources };
+        });
+    },
+
+    // Partial VTO 실행 (원클릭 입어보기)
     executePartialVtoRequest: async (formData, source = 'default') => {
         const jobId = 'direct-fitting-' + Date.now();
         set((state) => ({
@@ -257,7 +292,7 @@ export const useVtoStore = create((set, get) => ({
                     postId: 'direct-fitting',
                     appliedClothing: data.itemsProcessed,
                     isDirect: true
-                });
+                }, VTO_TYPE_SINGLE); // 원클릭 입어보기
                 get().refreshVtoData();
                 get().setToastMessage('가상 피팅 완료!');
                 return data;
@@ -359,7 +394,7 @@ export const useVtoStore = create((set, get) => ({
                                     postId: 'direct-fitting',
                                     appliedClothing: data.itemsProcessed,
                                     isDirect: true
-                                });
+                                }, VTO_TYPE_SINGLE); // 원클릭 입어보기
                                 get().refreshVtoData();
                                 get().setToastMessage('가상 피팅 완료!');
                                 return data;
@@ -379,7 +414,7 @@ export const useVtoStore = create((set, get) => ({
                     postId: 'direct-fitting',
                     appliedClothing: queueResult.itemsProcessed,
                     isDirect: true
-                });
+                }, VTO_TYPE_SINGLE); // 원클릭 입어보기
                 get().refreshVtoData();
                 get().setToastMessage('가상 피팅 완료!');
                 return queueResult;
