@@ -20,6 +20,7 @@ import { WeatherModule } from './weather/weather.module';
 import { S3Module } from './s3/s3.module';
 import { VtonCacheModule } from './vton-cache/vton-cache.module';
 import { QueueModule } from './queue/queue.module';
+import { KakaoPayModule } from './payment/kakaopay.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { QueueModule } from './queue/queue.module';
     WeatherModule,
     VtonCacheModule,
     QueueModule,
+    KakaoPayModule,
   ],
   controllers: [AppController],
   providers: [AppService],
