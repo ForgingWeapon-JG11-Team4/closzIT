@@ -489,6 +489,10 @@ const LabelingPage = () => {
                     fetchUser(true);
                   }
                   return; // 성공적으로 완료
+                } else if (!statusResult.result) {
+                  // result가 아직 Redis에서 로드되지 않은 경우 → 다음 poll 대기
+                  console.log('[DEBUG] Job completed but result not yet available, continuing poll...');
+                  continue;
                 } else {
                   throw new Error('No flattened image in result');
                 }

@@ -69,21 +69,26 @@ export class VtoProcessor extends WorkerHost {
                     errorMsg.includes('No content parts') ||
                     errorMsg.includes('did not generate any candidates') ||
                     errorMsg.includes('No image data') ||
-                    errorMsg.includes('가상 피팅 처리 중 오류') ||  // HttpException 메시지
+                    errorMsg.includes('가상 피팅 처리 중 오류') ||
                     errorMsg.includes('가상 착장') ||
                     error.status === 429 ||
                     error.status === 503 ||
-                    error.status === 500;  // 500 에러도 재시도
+                    error.status === 500;
 
                 if (isRetryableError && attempt < MAX_RETRIES) {
-                    const delay = Math.pow(2, attempt) * 1000; // 2초, 4초, 8초
+                    const delay = Math.pow(2, attempt) * 1000;
                     this.logger.warn(`[VTO Worker] Job ${job.id} attempt ${attempt} failed (retryable), waiting ${delay}ms: ${error.message}`);
                     await new Promise(resolve => setTimeout(resolve, delay));
                     continue;
                 }
 
                 this.logger.error(`[VTO Worker] Job ${job.id} failed after ${attempt} attempts: ${error.message}`);
-                throw error;
+
+                // 에러 코드를 포함한 상세 메시지 생성
+                const errorCode = error.status || error.statusCode || '';
+                const errorCodeStr = errorCode ? ` [${errorCode}]` : '';
+                const detailedError = new Error(`${error.message}${errorCodeStr}`);
+                throw detailedError;
             }
         }
 
