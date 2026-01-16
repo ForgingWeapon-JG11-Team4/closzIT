@@ -15,6 +15,9 @@ import FittingPage from './pages/Fitting/FittingPage';
 import DirectFittingPage from './pages/Fitting/DirectFittingPage';
 import BatchTryOnPage from './pages/BatchTryOn/BatchTryOnPage';
 import CreditShopPage from './pages/Credit/CreditShopPage';
+import PaymentSuccessPage from './pages/Payment/PaymentSuccessPage';
+import PaymentFailPage from './pages/Payment/PaymentFailPage';
+import PaymentCancelPage from './pages/Payment/PaymentCancelPage';
 
 import FeedPage from './pages/FeedPage';
 import CreatePostPage from './pages/CreatePostPage';
@@ -64,6 +67,9 @@ const AppContent = () => {
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
           <Route path="/credit-shop" element={<CreditShopPage />} />
+          <Route path="/payment/success" element={<PaymentSuccessPage />} />
+          <Route path="/payment/fail" element={<PaymentFailPage />} />
+          <Route path="/payment/cancel" element={<PaymentCancelPage />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
       )}

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const CreditShopPage = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    
     const [activeTab, setActiveTab] = useState('purchase');
     const [userCredit, setUserCredit] = useState(0);
     const [pinCode, setPinCode] = useState('');
@@ -14,6 +16,10 @@ const CreditShopPage = () => {
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
     const [toast, setToast] = useState(null);
     const [creditPackages, setCreditPackages] = useState([]);
+    
+    // 결제 방법 선택 모달
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [pendingPackage, setPendingPackage] = useState(null);
 
     const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
@@ -28,6 +34,27 @@ const CreditShopPage = () => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3000);
     };
+
+    // 결제 결과 처리 (카카오페이에서 돌아왔을 때)
+    useEffect(() => {
+        const paymentResult = searchParams.get('payment');
+        const credits = searchParams.get('credits');
+        const reason = searchParams.get('reason');
+
+        if (paymentResult === 'success' && credits) {
+            showToast(`${credits} 크레딧이 충전되었습니다! 🎉`, 'success');
+            // URL 파라미터 제거
+            navigate('/credit-shop', { replace: true });
+            // 크레딧 새로고침
+            fetchCredit();
+        } else if (paymentResult === 'fail') {
+            showToast(reason || '결제에 실패했습니다.', 'error');
+            navigate('/credit-shop', { replace: true });
+        } else if (paymentResult === 'cancel') {
+            showToast('결제가 취소되었습니다.', 'error');
+            navigate('/credit-shop', { replace: true });
+        }
+    }, [searchParams, navigate]);
 
     // 크레딧 조회
     const fetchCredit = useCallback(async () => {
@@ -54,7 +81,7 @@ const CreditShopPage = () => {
             const token = localStorage.getItem('accessToken');
             if (!token) return;
 
-            const response = await fetch(`${backendUrl}/credit/packages`, {
+            const response = await fetch(`${backendUrl}/payment/kakaopay/packages`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -100,9 +127,65 @@ const CreditShopPage = () => {
         }
     }, [activeTab, fetchCreditHistory]);
 
-    // 크레딧 구매 (데모)
-    const handlePurchase = async (pkg) => {
-        setSelectedPackage(pkg);
+    // 패키지 선택 시 결제 방법 모달 표시
+    const handlePackageSelect = (pkg) => {
+        setPendingPackage(pkg);
+        setShowPaymentModal(true);
+    };
+
+    // 카카오페이 결제
+    const handleKakaoPay = async () => {
+        if (!pendingPackage) return;
+        
+        setShowPaymentModal(false);
+        setSelectedPackage(pendingPackage);
+        setIsLoading(true);
+
+        try {
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                showToast('로그인이 필요합니다.', 'error');
+                return;
+            }
+
+            const response = await fetch(`${backendUrl}/payment/kakaopay/ready`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ packageId: pendingPackage.id }),
+            });
+
+            const data = await response.json();
+
+            if (data.success && data.redirectUrl) {
+                // 카카오페이 결제 페이지로 이동
+                // 모바일/PC 분기
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                const redirectUrl = isMobile ? data.mobileRedirectUrl : data.redirectUrl;
+                
+                // 현재 창에서 이동 (또는 팝업)
+                window.location.href = redirectUrl;
+            } else {
+                showToast(data.message || '결제 준비에 실패했습니다.', 'error');
+            }
+        } catch (error) {
+            console.error('KakaoPay failed:', error);
+            showToast('네트워크 오류가 발생했습니다.', 'error');
+        } finally {
+            setIsLoading(false);
+            setSelectedPackage(null);
+            setPendingPackage(null);
+        }
+    };
+
+    // 데모 결제 (테스트용)
+    const handleDemoPurchase = async () => {
+        if (!pendingPackage) return;
+        
+        setShowPaymentModal(false);
+        setSelectedPackage(pendingPackage);
         setIsLoading(true);
 
         try {
@@ -117,16 +200,16 @@ const CreditShopPage = () => {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
-                    'Idempotency-Key': `purchase-${Date.now()}-${pkg.id}`,
+                    'Idempotency-Key': `purchase-${Date.now()}-${pendingPackage.id}`,
                 },
-                body: JSON.stringify({ packageId: pkg.id }),
+                body: JSON.stringify({ packageId: pendingPackage.id }),
             });
 
             const data = await response.json();
 
             if (data.success) {
                 setUserCredit(data.newBalance);
-                showToast(data.message || `${pkg.credits} 크레딧이 충전되었습니다!`, 'success');
+                showToast(data.message || `${pendingPackage.credits} 크레딧이 충전되었습니다!`, 'success');
             } else {
                 showToast(data.message || '구매에 실패했습니다.', 'error');
             }
@@ -136,6 +219,7 @@ const CreditShopPage = () => {
         } finally {
             setIsLoading(false);
             setSelectedPackage(null);
+            setPendingPackage(null);
         }
     };
 
@@ -224,6 +308,88 @@ const CreditShopPage = () => {
         );
     };
 
+    // 결제 방법 선택 모달
+    const PaymentMethodModal = () => {
+        if (!showPaymentModal || !pendingPackage) return null;
+
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center">
+                {/* Backdrop */}
+                <div 
+                    className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                    onClick={() => {
+                        setShowPaymentModal(false);
+                        setPendingPackage(null);
+                    }}
+                />
+                
+                {/* Modal */}
+                <div className="relative bg-warm-white dark:bg-charcoal-light rounded-2xl shadow-2xl w-[90%] max-w-sm p-6 animate-fadeIn">
+                    {/* Header */}
+                    <div className="text-center mb-6">
+                        <div className="w-16 h-16 mx-auto mb-3 bg-gradient-to-br from-gold/20 to-gold-light/20 rounded-full flex items-center justify-center">
+                            <CreditIcon size="lg" />
+                        </div>
+                        <h3 className="text-lg font-bold text-charcoal dark:text-cream">
+                            {pendingPackage.credits} 크레딧 구매
+                        </h3>
+                        <p className="text-gold font-semibold text-xl mt-1">
+                            {formatPrice(pendingPackage.price)}
+                        </p>
+                    </div>
+
+                    {/* Payment Methods */}
+                    <div className="space-y-3">
+                        {/* 카카오페이 */}
+                        <button
+                            onClick={handleKakaoPay}
+                            disabled={isLoading}
+                            className="w-full flex items-center gap-4 p-4 bg-[#FEE500] hover:bg-[#FDD835] rounded-xl transition-all active:scale-[0.98] disabled:opacity-70"
+                        >
+                            <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
+                                <svg viewBox="0 0 24 24" className="w-6 h-6" fill="#FEE500">
+                                    <path d="M12 3C6.48 3 2 6.58 2 11c0 2.83 1.82 5.32 4.56 6.73l-.93 3.42c-.08.29.22.53.48.39l4.03-2.37c.61.08 1.24.13 1.86.13 5.52 0 10-3.58 10-8S17.52 3 12 3z"/>
+                                </svg>
+                            </div>
+                            <div className="flex-1 text-left">
+                                <p className="font-bold text-black">카카오페이</p>
+                                <p className="text-xs text-black/60">간편하게 결제하기</p>
+                            </div>
+                            <span className="material-symbols-rounded text-black/40">chevron_right</span>
+                        </button>
+
+                        {/* 데모 결제 (개발용) */}
+                        <button
+                            onClick={handleDemoPurchase}
+                            disabled={isLoading}
+                            className="w-full flex items-center gap-4 p-4 bg-gray-100 dark:bg-charcoal hover:bg-gray-200 dark:hover:bg-charcoal/80 rounded-xl transition-all active:scale-[0.98] disabled:opacity-70 border border-gray-200 dark:border-gray-700"
+                        >
+                            <div className="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-lg flex items-center justify-center">
+                                <span className="material-symbols-rounded text-gray-600 dark:text-gray-300">science</span>
+                            </div>
+                            <div className="flex-1 text-left">
+                                <p className="font-bold text-charcoal dark:text-cream">데모 결제</p>
+                                <p className="text-xs text-charcoal/60 dark:text-cream/60">테스트용 (무료)</p>
+                            </div>
+                            <span className="material-symbols-rounded text-charcoal/40 dark:text-cream/40">chevron_right</span>
+                        </button>
+                    </div>
+
+                    {/* Cancel Button */}
+                    <button
+                        onClick={() => {
+                            setShowPaymentModal(false);
+                            setPendingPackage(null);
+                        }}
+                        className="w-full mt-4 py-3 text-charcoal/60 dark:text-cream/60 font-medium hover:text-charcoal dark:hover:text-cream transition-colors"
+                    >
+                        취소
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-b from-warm-white to-cream dark:from-charcoal dark:to-charcoal-light">
             {/* Toast Message */}
@@ -240,6 +406,9 @@ const CreditShopPage = () => {
                     </div>
                 </div>
             )}
+
+            {/* Payment Method Modal */}
+            <PaymentMethodModal />
 
             {/* Header */}
             <div className="sticky top-0 z-50 glass-warm border-b border-gold-light/20 px-4 py-3">
@@ -289,21 +458,8 @@ const CreditShopPage = () => {
                             </div>
                         </div>
 
-                        {/* Demo Notice Banner */}
-                        <div className="px-4 py-3">
-                            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3">
-                                <div className="flex items-start gap-2">
-                                    <span className="material-symbols-rounded text-blue-500 text-lg">info</span>
-                                    <div className="text-xs text-blue-700 dark:text-blue-300">
-                                        <p className="font-semibold mb-1">🎮 데모 모드</p>
-                                        <p>실제 결제 없이 크레딧이 충전됩니다. PIN 코드: DEMO10, DEMO50, DEMO100</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
                         {/* Promotional Banner */}
-                        <div className="px-4 py-2">
+                        <div className="px-4 py-3">
                             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gold/20 via-gold-light/20 to-gold/10 p-5 border border-gold/30">
                                 <div className="relative z-10">
                                     <h3 className="text-gold-dark dark:text-gold font-bold text-lg mb-1">
@@ -328,7 +484,7 @@ const CreditShopPage = () => {
                         </div>
 
                         {/* Credit Packages */}
-                        <div className="px-4 mt-4">
+                        <div className="px-4 mt-2">
                             <div className="bg-warm-white dark:bg-charcoal-light rounded-2xl shadow-sm border border-gold/20 overflow-hidden">
                                 {creditPackages.map((pkg, index) => (
                                     <div
@@ -356,7 +512,7 @@ const CreditShopPage = () => {
                                             </div>
                                         </div>
                                         <button
-                                            onClick={() => handlePurchase(pkg)}
+                                            onClick={() => handlePackageSelect(pkg)}
                                             disabled={isLoading}
                                             className="px-5 py-2 bg-gradient-to-r from-gold to-gold-dark hover:from-gold-dark hover:to-gold text-white font-semibold text-sm rounded-full shadow-md hover:shadow-lg transition-all active:scale-95 disabled:opacity-70"
                                         >
@@ -407,7 +563,6 @@ const CreditShopPage = () => {
                                 <div className="mt-4 space-y-1.5 text-xs text-charcoal/50 dark:text-cream/50">
                                     <p>· 기프트카드로 충전한 크레딧은 크레딧샵 {'>'} 이용내역 탭에서 확인하실 수 있습니다.</p>
                                     <p>· 무료 크레딧 쿠폰으로 충전한 크레딧은 크레딧샵 {'>'} 무료크레딧 탭에서 확인하실 수 있습니다.</p>
-                                    <p>· '크레딧받기' 버튼을 누르신 후에는 화면을 이탈하시더라도 이미 진행 중인 충전 절차가 취소되지 않습니다.</p>
                                 </div>
                             </div>
                         </div>
@@ -532,8 +687,6 @@ const CreditShopPage = () => {
                                     { code: 'DEMO10', credits: 10 },
                                     { code: 'DEMO50', credits: 50 },
                                     { code: 'DEMO100', credits: 100 },
-                                    { code: 'WELCOME', credits: 20 },
-                                    { code: 'CLOSZIT', credits: 30 },
                                 ].map((pin) => (
                                     <div
                                         key={pin.code}
