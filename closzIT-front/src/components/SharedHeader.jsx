@@ -13,8 +13,8 @@ const SharedHeader = ({
 }) => {
     const navigate = useNavigate();
     const {
-        vtoLoadingPosts,
-        partialVtoLoadingSources,
+        singleItemLoadingCount,
+        partialVtoLoadingCount,
         unseenCount,
         unseenFullCount,
         unseenSingleCount,
@@ -37,7 +37,8 @@ const SharedHeader = ({
         isCreditLoading
     } = useVtoStore();
 
-    const isAnyVtoLoading = vtoLoadingPosts.size > 0 || partialVtoLoadingSources.size > 0;
+    // 헤더 로딩: 하나만 입어보기 + 전부 입어보기 모두 표시
+    const isAnyVtoLoading = singleItemLoadingCount > 0 || partialVtoLoadingCount > 0;
     const { userCredit, fetchUser } = useUserStore();
 
     useEffect(() => {
@@ -96,7 +97,7 @@ const SharedHeader = ({
                     </div>
 
                     <div className="flex items-center gap-2">
-                        {/* 입어보기 결과 버튼 */}
+                        {/* 입어보기 결과 버튼 - 하나만 입어보기 로딩만 표시 */}
                         <div className="relative w-10 h-10 mr-1">
                             {isAnyVtoLoading && (
                                 <div className="absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 0deg, #00D9FF, #0099FF, #00D9FF, #0099FF)', animation: 'spin 1s linear infinite' }} />

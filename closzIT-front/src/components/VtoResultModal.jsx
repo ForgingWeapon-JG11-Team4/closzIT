@@ -123,13 +123,6 @@ const VtoResultModal = ({
                                             </button>
                                         </div>
                                         <div className="mt-2 px-1">
-                                            {item.appliedClothing && (
-                                                <p className="text-xs font-bold text-charcoal dark:text-cream truncate">
-                                                    {Array.isArray(item.appliedClothing)
-                                                        ? item.appliedClothing.join(', ')
-                                                        : item.appliedClothing}
-                                                </p>
-                                            )}
                                             <p className="text-[10px] text-charcoal-light dark:text-cream-dark opacity-70">
                                                 {new Date(item.createdAt).toLocaleString('ko-KR', {
                                                     month: 'short',
