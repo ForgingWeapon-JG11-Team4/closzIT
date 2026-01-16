@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import SharedHeader from '../components/SharedHeader';
 import ClothDetailModal from '../components/ClothDetailModal';
 import { useVtoStore } from '../stores/vtoStore';
+import { addVtoResult, VTO_TYPE_SINGLE } from '../utils/vtoStorage';
 import { useUserStore } from '../stores/userStore';
 import { useTabStore, TAB_KEYS } from '../stores/tabStore';
 import { GiTrousers, GiTShirt, GiMonclerJacket } from 'react-icons/gi';
@@ -87,6 +88,9 @@ const FittingRoomPage = ({ hideHeader = false }) => {
   const { requestPartialVtoByIds, checkPartialVtoLoading } = useVtoStore();
   const isFullOutfitLoading = checkPartialVtoLoading('fitting-room');
 
+  // vtoStore에서 로딩 상태 관리 함수 가져오기
+  const { startSingleItemLoading, stopSingleItemLoading, refreshVtoData } = useVtoStore();
+
   // VTO 상태
   const [isVtoLoading, setIsVtoLoading] = useState(false);
   const [userFullBodyImage, setUserFullBodyImage] = useState(null);
@@ -126,6 +130,7 @@ const FittingRoomPage = ({ hideHeader = false }) => {
         console.log(`[VTO] Auto try-on for clothing: ${clothingId}, category: ${category}`);
 
         setIsVtoLoading(true);
+        startSingleItemLoading('fitting-room'); // 헤더 로딩 애니메이션 시작
 
         const response = await fetch(`${backendUrl}/api/fitting/single-item-tryon`, {
           method: 'POST',
@@ -152,6 +157,15 @@ const FittingRoomPage = ({ hideHeader = false }) => {
         if (result.success && result.imageUrl) {
           setBeforeAfterImage(result.imageUrl);
           saveToHistory(result.imageUrl, tryOnCloth || selectedClothDetail);
+
+          // 새 VTO 결과 모달에도 저장
+          addVtoResult({
+            imageUrl: result.imageUrl,
+            postId: 'direct-fitting',
+            appliedClothing: [tryOnCloth?.name || '옷'],
+            isDirect: true
+          }, VTO_TYPE_SINGLE);
+          refreshVtoData(); // 스토어 새로고침
         } else {
           throw new Error('결과 이미지를 받지 못했습니다.');
         }
@@ -160,11 +174,12 @@ const FittingRoomPage = ({ hideHeader = false }) => {
         alert(`가상 피팅 실패: ${error.message}`);
       } finally {
         setIsVtoLoading(false);
+        stopSingleItemLoading('fitting-room'); // 헤더 로딩 애니메이션 종료
       }
     };
 
     runAutoTryOn();
-  }, [activeTab, consumePendingTryOnCloth]);
+  }, [activeTab, consumePendingTryOnCloth, startSingleItemLoading, stopSingleItemLoading, refreshVtoData]);
 
   // 옷장 현황 상태
   const [wardrobeStats, setWardrobeStats] = useState({
@@ -815,16 +830,18 @@ const FittingRoomPage = ({ hideHeader = false }) => {
           cloth={selectedClothDetail}
           onClose={() => setSelectedClothDetail(null)}
           onTryOn={async () => {
+            const clothToTryOn = selectedClothDetail; // 클로저용 복사
             try {
               const token = localStorage.getItem('accessToken');
               const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-              const clothingId = selectedClothDetail.id;
-              const category = selectedClothDetail.category;
+              const clothingId = clothToTryOn.id;
+              const category = clothToTryOn.category;
 
               console.log(`[VTO] Starting try-on for clothing: ${clothingId}, category: ${category}`);
 
               setSelectedClothDetail(null);
               setIsVtoLoading(true);
+              startSingleItemLoading('fitting-room'); // 헤더 로딩 애니메이션 시작
 
               const response = await fetch(`${backendUrl}/api/fitting/single-item-tryon`, {
                 method: 'POST',
@@ -834,7 +851,7 @@ const FittingRoomPage = ({ hideHeader = false }) => {
                 },
                 body: JSON.stringify({
                   clothingId: clothingId,
-                  clothingOwnerId: selectedClothDetail.userId, // 다른 사람 옷 입어보기 지원
+                  clothingOwnerId: clothToTryOn.userId, // 다른 사람 옷 입어보기 지원
                   category: category,
                   denoiseSteps: 10,
                   seed: 42,
@@ -850,8 +867,16 @@ const FittingRoomPage = ({ hideHeader = false }) => {
 
               if (result.success && result.imageUrl) {
                 setBeforeAfterImage(result.imageUrl);
-                saveToHistory(result.imageUrl, selectedClothDetail);
+                saveToHistory(result.imageUrl, clothToTryOn);
 
+                // 새 VTO 결과 모달에도 저장
+                addVtoResult({
+                  imageUrl: result.imageUrl,
+                  postId: 'direct-fitting',
+                  appliedClothing: [clothToTryOn?.name || '옷'],
+                  isDirect: true
+                }, VTO_TYPE_SINGLE);
+                refreshVtoData(); // 스토어 새로고침
               } else {
                 throw new Error('결과 이미지를 받지 못했습니다.');
               }
@@ -860,6 +885,7 @@ const FittingRoomPage = ({ hideHeader = false }) => {
               alert(`가상 피팅 실패: ${error.message}`);
             } finally {
               setIsVtoLoading(false);
+              stopSingleItemLoading('fitting-room'); // 헤더 로딩 애니메이션 종료
             }
           }}
           onEdit={() => {
