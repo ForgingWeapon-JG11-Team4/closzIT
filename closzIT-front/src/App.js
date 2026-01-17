@@ -15,6 +15,7 @@ import ItemEditPage from './pages/ItemEdit/ItemEditPage';
 import FittingPage from './pages/Fitting/FittingPage';
 import DirectFittingPage from './pages/Fitting/DirectFittingPage';
 import BatchTryOnPage from './pages/BatchTryOn/BatchTryOnPage';
+import WebCapturePage from './pages/WebCapture/WebCapturePage';
 import CreditShopPage from './pages/Credit/CreditShopPage';
 import PaymentSuccessPage from './pages/Payment/PaymentSuccessPage';
 import PaymentFailPage from './pages/Payment/PaymentFailPage';
@@ -61,6 +62,7 @@ const AppContent = () => {
           <Route path="/fitting" element={<FittingPage />} />
           <Route path="/fitting/direct" element={<DirectFittingPage />} />
           <Route path="/batch-tryon" element={<BatchTryOnPage />} />
+          <Route path="/web-capture" element={<WebCapturePage />} />
 
           <Route path="/feed/:userId" element={<FeedPage />} />
           <Route path="/create-post" element={<CreatePostPage />} />
