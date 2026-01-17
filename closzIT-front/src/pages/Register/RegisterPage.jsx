@@ -51,6 +51,8 @@ const RegisterPage = () => {
   // 선택된 이미지들 관리
   const [selectedImages, setSelectedImages] = useState([]);
 
+
+
   // 카메라 존재 여부 확인 및 카메라 실행
   const handleCameraClick = useCallback(async () => {
     try {
@@ -90,6 +92,8 @@ const RegisterPage = () => {
     }
   }, []);
 
+
+
   const handleOptionClick = (optionId) => {
     if (optionId === 'album') {
       fileInputRef.current?.click();
@@ -97,6 +101,8 @@ const RegisterPage = () => {
       handleCameraClick();
     } else if (optionId === 'barcode') {
       navigate('/register/barcode');
+    } else if (optionId === 'website') {
+      navigate('/web-capture');
     } else {
       navigate('/labeling', { state: { source: optionId } });
     }
@@ -381,6 +387,7 @@ const RegisterPage = () => {
 
       {/* Global Bottom Navigation */}
       <BottomNav />
+
 
       {/* Keyframe Animation */}
       <style>{`
