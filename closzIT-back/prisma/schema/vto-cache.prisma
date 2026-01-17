@@ -21,7 +21,10 @@ model VtoCache {
   
   /// 보여주기 여부 (Soft Delete용)
   isVisible   Boolean  @default(true) @map("is_visible")
-  
+
+  /// 읽음 여부 (새 결과 알림용)
+  seen        Boolean  @default(false) @map("seen")
+
   /// 생성일
   createdAt   DateTime @default(now()) @map("created_at")
 
