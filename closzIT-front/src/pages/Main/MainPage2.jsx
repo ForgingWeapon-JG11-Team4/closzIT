@@ -8,6 +8,7 @@ import FittingResult from './FittingResult';
 import { useAppStore } from '../../stores/appStore';
 import { useTabStore, TAB_KEYS } from '../../stores/tabStore';
 import { GiTrousers, GiTShirt, GiMonclerJacket } from 'react-icons/gi';
+import { ResponsivePie } from '@nivo/pie';
 
 
 // 요일 목록
@@ -21,52 +22,7 @@ const categoryMap = {
   shoes: { name: '신발', icon: 'steps', color: '#DAA520' },
 };
 
-// 키워드 필터 옵션 (백엔드 필드명과 일치: tpos, styleMoods, seasons, colors)
-const keywordGroups = [
-  {
-    title: 'TPO',
-    key: 'tpos',
-    options: [
-      { label: '데일리', value: 'Daily' }, { label: '출근', value: 'Commute' },
-      { label: '데이트', value: 'Date' }, { label: '운동', value: 'Sports' },
-      { label: '여행', value: 'Travel' }, { label: '결혼식', value: 'Wedding' },
-      { label: '파티', value: 'Party' }, { label: '학교', value: 'School' },
-      { label: '집', value: 'Home' }
-    ]
-  },
-  {
-    title: '스타일',
-    key: 'styleMoods',
-    options: [
-      { label: '캐주얼', value: 'Casual' }, { label: '스트릿', value: 'Street' },
-      { label: '미니멀', value: 'Minimal' }, { label: '포멀', value: 'Formal' },
-      { label: '스포티', value: 'Sporty' }, { label: '빈티지', value: 'Vintage' },
-      { label: '고프코어', value: 'Gorpcore' }
-    ]
-  },
-  {
-    title: '계절',
-    key: 'seasons',
-    options: [
-      { label: '봄', value: 'Spring' }, { label: '여름', value: 'Summer' },
-      { label: '가을', value: 'Autumn' }, { label: '겨울', value: 'Winter' }
-    ]
-  },
-  {
-    title: '색상',
-    key: 'colors',
-    options: [
-      { label: '블랙', value: 'Black' }, { label: '화이트', value: 'White' },
-      { label: '그레이', value: 'Gray' }, { label: '베이지', value: 'Beige' },
-      { label: '브라운', value: 'Brown' }, { label: '네이비', value: 'Navy' },
-      { label: '블루', value: 'Blue' }, { label: '하늘색', value: 'Sky-blue' },
-      { label: '레드', value: 'Red' }, { label: '핑크', value: 'Pink' },
-      { label: '오렌지', value: 'Orange' }, { label: '옐로우', value: 'Yellow' },
-      { label: '그린', value: 'Green' }, { label: '민트', value: 'Mint' },
-      { label: '퍼플', value: 'Purple' }, { label: '카키', value: 'Khaki' }
-    ]
-  }
-];
+
 
 // 더미 데이터 (날씨 제외)
 const dummyData = {
@@ -162,54 +118,7 @@ const MainPage2 = ({ hideHeader = false }) => {
     shoes: [],
   });
 
-  // 키워드 필터 상태 (백엔드 필드명과 일치)
-  const [isKeywordModalOpen, setIsKeywordModalOpen] = useState(false);
-  const [filterState, setFilterState] = useState({
-    tpos: [],
-    styleMoods: [],
-    seasons: [],
-    colors: [],
-  });
 
-  // 필터링된 옷 목록 계산
-  const filteredClothes = React.useMemo(() => {
-    // 활성화된 필터가 없으면 전체 반환
-    const hasActiveFilters = Object.values(filterState).some(arr => arr.length > 0);
-    if (!hasActiveFilters) return userClothes;
-
-    const result = { ...userClothes };
-    Object.keys(result).forEach(category => {
-      if (!result[category]) return;
-      result[category] = result[category].filter(item => {
-        // 각 활성 필터 그룹에 대해, 아이템이 해당 그룹의 선택된 값 중 하나라도 포함해야 함 (AND 조건)
-        return Object.entries(filterState).every(([key, selectedValues]) => {
-          if (selectedValues.length === 0) return true;
-
-          // 백엔드에서 반환하는 필드명: tpos, styleMoods, seasons, colors
-          // item 객체에서 직접 접근
-          const itemValue = item[key];
-
-          if (!itemValue) return false; // 해당 속성이 없으면 탈락
-
-          const valuesArray = Array.isArray(itemValue) ? itemValue : [itemValue];
-          return selectedValues.some(v => valuesArray.includes(v));
-        });
-      });
-    });
-    return result;
-  }, [userClothes, filterState]);
-
-  // 필터링된 통계 계산
-  const filteredStats = React.useMemo(() => {
-    return {
-      outerwear: filteredClothes.outerwear?.length || 0,
-      tops: filteredClothes.tops?.length || 0,
-      bottoms: filteredClothes.bottoms?.length || 0,
-      shoes: filteredClothes.shoes?.length || 0,
-      total: (filteredClothes.outerwear?.length || 0) + (filteredClothes.tops?.length || 0) +
-        (filteredClothes.bottoms?.length || 0) + (filteredClothes.shoes?.length || 0),
-    };
-  }, [filteredClothes]);
 
   // 스크롤 상태 감지
   const clothesScrollRef = useRef(null);
@@ -495,45 +404,70 @@ const MainPage2 = ({ hideHeader = false }) => {
               </div>
             )}
 
-            {/* Content Grid: Recently Added */}
-            <div className="flex w-full items-stretch px-1">
-              <RecentlyAddedClothes 
-                userClothes={userClothes}
-                onClothClick={setSelectedClothDetail} 
+            {/* Content Grid: Recently Added + Wardrobe Stats */}
+            <div className="flex w-full items-stretch gap-3 px-1">
+              {/* 최근 등록 옷들 */}
+              <div className="flex-1 w-0 min-w-0">
+                <RecentlyAddedClothes 
+                  userClothes={userClothes}
+                  onClothClick={setSelectedClothDetail} 
                 />
+              </div>
+              
+              {/* 옷장 현황 파이 차트 */}
+              <div 
+                className="flex-1 w-0 min-w-0 rounded-2xl p-3 shadow-soft border border-gold-light/20 flex flex-col justify-between"
+                style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(250,248,245,0.98) 100%)' }}
+              >
+                <h4 className="text-base font-bold text-charcoal flex items-center gap-1.5 pl-1 mb-1">
+                  <span className="material-symbols-rounded text-gold text-lg">checkroom</span>
+                  옷장 현황
+                  <span className="ml-1 text-xs font-medium text-charcoal-light bg-gold/10 px-2 py-0.5 rounded-full">
+                    {(userClothes.outerwear?.length || 0) + (userClothes.tops?.length || 0) + (userClothes.bottoms?.length || 0) + (userClothes.shoes?.length || 0)}벌
+                  </span>
+                </h4>
+                <div className="flex-1 min-h-[140px] -my-2">
+                  <ResponsivePie
+                    theme={{
+                      labels: {
+                        text: {
+                          fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          fill: '#4A4A4A',
+                        },
+                      },
+                    }}
+                    data={[
+                      { id: '외투', label: '외투', value: userClothes.outerwear?.length || 0, color: '#D4AF37' },
+                      { id: '상의', label: '상의', value: userClothes.tops?.length || 0, color: '#B8860B' },
+                      { id: '하의', label: '하의', value: userClothes.bottoms?.length || 0, color: '#CD853F' },
+                      { id: '신발', label: '신발', value: userClothes.shoes?.length || 0, color: '#DAA520' },
+                    ].filter(d => d.value > 0)}
+                    margin={{ top: 20, right: 30, bottom: 20, left: 30 }}
+                    innerRadius={0.5}
+                    padAngle={0.6}
+                    cornerRadius={2}
+                    activeOuterRadiusOffset={8}
+                    colors={{ datum: 'data.color' }}
+                    borderWidth={1}
+                    borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
+                    arcLinkLabelsSkipAngle={10}
+                    arcLinkLabelsTextColor="#333333"
+                    arcLinkLabelsThickness={2}
+                    arcLinkLabelsColor={{ from: 'color' }}
+                    arcLabelsSkipAngle={10}
+                    arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
+                    arcLabel={d => d.value}
+                    tooltip={({ datum }) => (
+                      <div className="bg-white px-2 py-1 rounded shadow-lg text-xs font-medium">
+                        {datum.id}: {datum.value}벌
+                      </div>
+                    )}
+                  />
+                </div>
+              </div>
             </div>
-
-
-
-
-            {/* 슬라이드 인 + 흔들흔들 애니메이션 */}
-            <style>
-              {`
-            @keyframes appearSwingFromRight {
-              0% { opacity: 0; transform: translateX(100vw) rotate(5deg); } /* 화면 너비만큼 이동 */
-              50% { opacity: 1; transform: translateX(0) rotate(-3deg); }
-              70% { transform: rotate(2deg); }
-              85% { transform: rotate(-1deg); }
-              100% { transform: rotate(0); }
-            }
-            
-            @keyframes slideInRail {
-              0% { opacity: 0; transform: translateX(100%); }
-              100% { opacity: 1; transform: translateX(0); }
-            }
-            
-            @keyframes slideInSimpleRight {
-              0% { opacity: 0; transform: translateX(100vw); } /* 화면 너비만큼 이동 */
-              100% { opacity: 1; transform: translateX(0); }
-            }
-            
-            @keyframes idleSwing {
-              0%, 100% { transform: rotate(0deg); }
-              25% { transform: rotate(2.5deg); }
-              75% { transform: rotate(-2.5deg); }
-            }
-          `}
-            </style>
 
           </main>
         )}
@@ -587,82 +521,7 @@ const MainPage2 = ({ hideHeader = false }) => {
         />
       )}
 
-      {/* ========== Keyword Filter Modal ========== */}
-      {isKeywordModalOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center animate-fadeIn"
-          onClick={() => setIsKeywordModalOpen(false)}
-        >
-          <div
-            className="bg-warm-white dark:bg-charcoal w-full max-w-sm sm:rounded-3xl rounded-t-3xl shadow-2xl overflow-hidden animate-slideUp sm:animate-slideDown max-h-[85vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-gold-light/20 flex items-center justify-between bg-white/50 backdrop-blur-sm relative z-10">
-              <h3 className="text-lg font-bold text-charcoal dark:text-cream">키워드로 옷 찾기</h3>
-              <button
-                onClick={() => {
-                  setFilterState({ tpos: [], styleMoods: [], seasons: [], colors: [] });
-                }}
-                className="text-xs text-gold underline font-medium"
-              >
-                초기화
-              </button>
-            </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {keywordGroups.map((group) => (
-                <div key={group.key}>
-                  <h4 className="text-sm font-bold text-charcoal dark:text-cream mb-3 flex items-center gap-2">
-                    <span className="w-1 h-4 bg-gold rounded-full"></span>
-                    {group.title}
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {group.options.map((option) => {
-                      const isSelected = filterState[group.key].includes(option.value);
-                      return (
-                        <button
-                          key={option.value}
-                          onClick={() => {
-                            setFilterState(prev => {
-                              const current = prev[group.key];
-                              const updated = current.includes(option.value)
-                                ? current.filter(v => v !== option.value)
-                                : [...current, option.value];
-                              return { ...prev, [group.key]: updated };
-                            });
-                          }}
-                          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${isSelected
-                            ? 'bg-gold text-white border-gold shadow-md transform scale-105'
-                            : 'bg-white dark:bg-charcoal-light border-gold-light/20 text-charcoal-light dark:text-cream-dark hover:border-gold/50'
-                            }`}
-                        >
-                          {option.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Footer */}
-            <div className="p-4 border-t border-gold-light/20 bg-white/50 backdrop-blur-sm safe-area-pb">
-              <button
-                onClick={() => setIsKeywordModalOpen(false)}
-                className="w-full py-3.5 bg-gradient-to-r from-gold to-gold-dark text-white rounded-xl font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
-              >
-                {/* 필터 적용된 총 개수 계산 */}
-                {(() => {
-                  const total = Object.values(filteredClothes).reduce((acc, list) => acc + list.length, 0);
-                  return `${total}벌의 옷 결과 보기`;
-                })()}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
 
     </div>
