@@ -35,6 +35,7 @@ export const useVtoStore = create((set, get) => ({
     partialVtoLoadingCount: 0,  // Set 변경 감지를 위한 카운터
     singleItemLoadingCount: 0,  // "하나만 입어보기" 전용 카운터 (헤더 로딩용)
     flyAnimation: null,
+    showCompletionGlow: false,  // 플라이 애니메이션 완료 후 파란색 테두리 펄스 표시
 
     // ========== Actions ==========
 
@@ -147,7 +148,12 @@ export const useVtoStore = create((set, get) => ({
                             endY: headerRect.top + headerRect.height / 2,
                         }
                     });
-                    setTimeout(() => set({ flyAnimation: null }), 600);
+                    // 플라이 애니메이션 완료 후 completion glow 활성화
+                    setTimeout(() => {
+                        set({ flyAnimation: null, showCompletionGlow: true });
+                        // 1.5초 후 glow 비활성화 (3회 펄스 애니메이션)
+                        setTimeout(() => set({ showCompletionGlow: false }), 1500);
+                    }, 600);
                 }
             }
 
