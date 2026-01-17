@@ -95,6 +95,8 @@ const RegisterPage = () => {
       fileInputRef.current?.click();
     } else if (optionId === 'camera') {
       handleCameraClick();
+    } else if (optionId === 'barcode') {
+      navigate('/register/barcode');
     } else {
       navigate('/labeling', { state: { source: optionId } });
     }

@@ -154,7 +154,7 @@ const LabelingPage = () => {
   const { userId, userCredit, fetchUser } = useUserStore();
 
   // RegisterPage에서 전달받은 이미지 정보
-  const { imageUrl: initialImageUrl, imageFile: initialImageFile, images: batchImages } = location.state || {};
+  const { imageUrl: initialImageUrl, imageFile: initialImageFile, images: batchImages, source: imageSource, imageBase64 } = location.state || {};
 
   // 배치 이미지 처리 상태
   const [currentBatchIndex, setCurrentBatchIndex] = useState(0);
@@ -215,6 +215,31 @@ const LabelingPage = () => {
     }
     fetchUser();
   }, [fetchUser]);
+
+  // 바코드 소스: base64 데이터에서 File 객체 생성
+  useEffect(() => {
+    const loadImageFromBase64 = async () => {
+      if (imageSource === 'barcode' && imageBase64 && !currentImageFile) {
+        try {
+          console.log('[LabelingPage] Creating file from base64 for barcode source...');
+
+          // base64를 Blob으로 변환
+          const response = await fetch(imageBase64);
+          const blob = await response.blob();
+          const file = new File([blob], `barcode_image_${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' });
+          const objectUrl = URL.createObjectURL(blob);
+
+          setCurrentImageFile(file);
+          setCurrentImageUrl(objectUrl);
+
+          console.log('[LabelingPage] File created from base64:', file.name, file.size);
+        } catch (error) {
+          console.error('[LabelingPage] Failed to create file from base64:', error);
+        }
+      }
+    };
+    loadImageFromBase64();
+  }, [imageSource, imageBase64, currentImageFile]);
 
   // 배치 인덱스 변경 시 이미지 업데이트
   useEffect(() => {

@@ -22,6 +22,7 @@ import { VtonCacheModule } from './vton-cache/vton-cache.module';
 import { QueueModule } from './queue/queue.module';
 import { KakaoPayModule } from './payment/kakaopay.module';
 import { OutfitLogModule } from './outfit-log/outfit-log.module';
+import { BarcodeModule } from './barcode/barcode.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { OutfitLogModule } from './outfit-log/outfit-log.module';
     QueueModule,
     KakaoPayModule,
     OutfitLogModule,
+    BarcodeModule,
   ],
   controllers: [AppController],
   providers: [AppService],
