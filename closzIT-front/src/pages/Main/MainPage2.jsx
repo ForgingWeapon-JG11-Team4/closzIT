@@ -4,6 +4,7 @@ import SharedHeader from '../../components/SharedHeader';
 import OutfitRecommender from './OutfitRecommender';
 import ClothDetailModal from '../../components/ClothDetailModal';
 import RecentlyAddedClothes from './RecentlyAddedClothes';
+import RecentOutfits from './RecentOutfits';
 import FittingResult from './FittingResult';
 import { useAppStore } from '../../stores/appStore';
 import { useTabStore, TAB_KEYS } from '../../stores/tabStore';
@@ -467,6 +468,11 @@ const MainPage2 = ({ hideHeader = false }) => {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Recent Outfits Section */}
+            <div className="px-1">
+              <RecentOutfits onClothClick={setSelectedClothDetail} />
             </div>
 
           </main>
