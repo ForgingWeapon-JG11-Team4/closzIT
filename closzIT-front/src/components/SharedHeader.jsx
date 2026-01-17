@@ -15,12 +15,14 @@ const SharedHeader = ({
     const {
         singleItemLoadingCount,
         partialVtoLoadingCount,
+        vtoLoadingPosts,  // SNS VTO 로딩 상태
         unseenCount,
         unseenFullCount,
         unseenSingleCount,
         toastMessage,
         isVtoModalOpen,
         flyAnimation,
+        showCompletionGlow,
         openVtoModal,
         closeVtoModal,
         vtoResults,
@@ -37,8 +39,11 @@ const SharedHeader = ({
         isCreditLoading
     } = useVtoStore();
 
-    // 헤더 로딩: 하나만 입어보기 + 전부 입어보기 모두 표시
-    const isAnyVtoLoading = singleItemLoadingCount > 0 || partialVtoLoadingCount > 0;
+    // 헤더 로딩: 하나만 입어보기 + 전부 입어보기 + SNS VTO 모두 표시
+    const isAnyVtoLoading = singleItemLoadingCount > 0 || partialVtoLoadingCount > 0 || vtoLoadingPosts.size > 0;
+
+    // 파란색 테두리 표시 조건: 로딩 중이거나 완료 후 glow 상태
+    const showBlueBorder = isAnyVtoLoading || showCompletionGlow;
     const { userCredit, fetchUser } = useUserStore();
 
     useEffect(() => {
@@ -98,11 +103,19 @@ const SharedHeader = ({
 
                     <div className="flex items-center gap-2">
                         {/* 입어보기 결과 버튼 - 하나만 입어보기 로딩만 표시 */}
-                        <div className="relative w-10 h-10 mr-1">
-                            {isAnyVtoLoading && (
-                                <div className="absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 0deg, #00D9FF, #0099FF, #00D9FF, #0099FF)', animation: 'spin 1s linear infinite' }} />
+                        <div id="vto-header-button" className="relative w-10 h-10 mr-1">
+                            {showBlueBorder && (
+                                <div
+                                    className="absolute inset-0 rounded-full"
+                                    style={{
+                                        background: 'conic-gradient(from 0deg, #00D9FF, #0099FF, #00D9FF, #0099FF)',
+                                        animation: isAnyVtoLoading
+                                            ? 'spin 1s linear infinite'
+                                            : 'pulse 0.5s ease-in-out 3'
+                                    }}
+                                />
                             )}
-                            <button onClick={openVtoModal} className={`absolute rounded-full btn-premium flex items-center justify-center ${isAnyVtoLoading ? 'inset-[3px]' : 'inset-0'}`}>
+                            <button onClick={openVtoModal} className={`absolute rounded-full btn-premium flex items-center justify-center ${showBlueBorder ? 'inset-[3px]' : 'inset-0'}`}>
                                 <span className="material-symbols-rounded text-xl">checkroom</span>
                             </button>
                             {unseenCount > 0 && (
