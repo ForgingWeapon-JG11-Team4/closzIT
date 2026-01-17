@@ -216,6 +216,9 @@ const FittingRoomPage = ({ hideHeader = false }) => {
   // 선택된 옷이 있는지 확인
   const hasSelectedItems = Object.values(selectedOutfit).some(item => item !== null);
 
+  // 오늘 이 코디 입기 상태
+  const [isOutfitLogLoading, setIsOutfitLogLoading] = useState(false);
+
   // 옷 선택/해제 토글
   const toggleClothSelection = (cloth, category) => {
     setSelectedOutfit(prev => {
@@ -255,6 +258,51 @@ const FittingRoomPage = ({ hideHeader = false }) => {
     };
 
     requestPartialVtoByIds(clothingIds, buttonPosition, 'fitting-room');
+  };
+
+  // 오늘 이 코디 입기 버튼 클릭
+  const handleWearTodayClick = async () => {
+    if (isOutfitLogLoading) return;
+
+    // 최소한 상의, 하의, 신발이 있어야 함
+    if (!selectedOutfit.tops?.id || !selectedOutfit.bottoms?.id || !selectedOutfit.shoes?.id) {
+      alert('상의, 하의, 신발은 필수입니다.');
+      return;
+    }
+
+    setIsOutfitLogLoading(true);
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+
+      const response = await fetch(`${backendUrl}/outfit-log`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          outerId: selectedOutfit.outerwear?.id,
+          topId: selectedOutfit.tops?.id,
+          bottomId: selectedOutfit.bottoms?.id,
+          shoesId: selectedOutfit.shoes?.id,
+          tpo: 'Daily',
+        }),
+      });
+
+      if (response.ok) {
+        alert('오늘의 코디로 저장되었습니다! 👍');
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || '착장 기록 저장 실패');
+      }
+    } catch (err) {
+      console.error('Outfit log error:', err);
+      alert(`착장 기록 저장 실패: ${err.message}`);
+    } finally {
+      setIsOutfitLogLoading(false);
+    }
   };
 
   // 필터링된 옷 목록 계산
@@ -627,6 +675,31 @@ const FittingRoomPage = ({ hideHeader = false }) => {
                     <>
                       <span className="material-symbols-rounded text-sm">apparel</span>
                       전체 입어보기
+                    </>
+                  )}
+                </button>
+
+                {/* 오늘 이 코디 입기 버튼 */}
+                <button
+                  onClick={handleWearTodayClick}
+                  disabled={isOutfitLogLoading || !selectedOutfit.tops || !selectedOutfit.bottoms || !selectedOutfit.shoes}
+                  className={`px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-bold transition-all shadow-sm ${
+                    isOutfitLogLoading
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : (!selectedOutfit.tops || !selectedOutfit.bottoms || !selectedOutfit.shoes)
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-charcoal text-white hover:bg-charcoal-dark hover:shadow-md'
+                  }`}
+                >
+                  {isOutfitLogLoading ? (
+                    <>
+                      <span className="material-symbols-rounded text-sm animate-spin">progress_activity</span>
+                      저장 중...
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-rounded text-sm">today</span>
+                      오늘 이 코디 입기
                     </>
                   )}
                 </button>

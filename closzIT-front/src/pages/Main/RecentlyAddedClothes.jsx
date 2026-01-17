@@ -80,7 +80,7 @@ const RecentlyAddedClothes = ({ userClothes, onClothClick }) => {
   if (recentClothes.length === 0) return null;
 
   return (
-    <div className="mt-4 px-1 w-1/2">
+    <div className="w-full h-full">
       <div
         className="rounded-[28px] p-3 shadow-soft border border-gold/30 relative overflow-hidden flex flex-col bg-white backdrop-blur-sm min-h-[160px] h-full"
       >

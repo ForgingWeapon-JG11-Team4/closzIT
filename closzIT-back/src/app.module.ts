@@ -21,6 +21,7 @@ import { S3Module } from './s3/s3.module';
 import { VtonCacheModule } from './vton-cache/vton-cache.module';
 import { QueueModule } from './queue/queue.module';
 import { KakaoPayModule } from './payment/kakaopay.module';
+import { OutfitLogModule } from './outfit-log/outfit-log.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { KakaoPayModule } from './payment/kakaopay.module';
     VtonCacheModule,
     QueueModule,
     KakaoPayModule,
+    OutfitLogModule,
   ],
   controllers: [AppController],
   providers: [AppService],
