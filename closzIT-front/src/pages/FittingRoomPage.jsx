@@ -4,7 +4,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import SharedHeader from '../components/SharedHeader';
 import ClothDetailModal from '../components/ClothDetailModal';
 import { useVtoStore } from '../stores/vtoStore';
-import { addVtoResult, VTO_TYPE_SINGLE } from '../utils/vtoStorage';
 import { useUserStore } from '../stores/userStore';
 import { useTabStore, TAB_KEYS } from '../stores/tabStore';
 import { GiTrousers, GiTShirt, GiMonclerJacket } from 'react-icons/gi';
@@ -155,14 +154,8 @@ const FittingRoomPage = ({ hideHeader = false }) => {
           setBeforeAfterImage(result.imageUrl);
           saveToHistory(result.imageUrl, tryOnCloth || selectedClothDetail);
 
-          // 새 VTO 결과 모달에도 저장
-          addVtoResult({
-            imageUrl: result.imageUrl,
-            postId: 'direct-fitting',
-            appliedClothing: [tryOnCloth?.name || '옷'],
-            isDirect: true
-          }, VTO_TYPE_SINGLE);
-          refreshVtoData(); // 스토어 새로고침
+          // 백엔드에서 S3+DB에 자동 저장되므로 스토어만 새로고침
+          refreshVtoData();
         } else {
           throw new Error('결과 이미지를 받지 못했습니다.');
         }
@@ -939,14 +932,8 @@ const FittingRoomPage = ({ hideHeader = false }) => {
                 setBeforeAfterImage(result.imageUrl);
                 saveToHistory(result.imageUrl, clothToTryOn);
 
-                // 새 VTO 결과 모달에도 저장
-                addVtoResult({
-                  imageUrl: result.imageUrl,
-                  postId: 'direct-fitting',
-                  appliedClothing: [clothToTryOn?.name || '옷'],
-                  isDirect: true
-                }, VTO_TYPE_SINGLE);
-                refreshVtoData(); // 스토어 새로고침
+                // 백엔드에서 S3+DB에 자동 저장되므로 스토어만 새로고침
+                refreshVtoData();
               } else {
                 throw new Error('결과 이미지를 받지 못했습니다.');
               }

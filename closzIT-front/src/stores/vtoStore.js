@@ -1,14 +1,9 @@
 import { create } from 'zustand';
-import {
-    addVtoResult as addVtoResultToStorage,
-    markAllVtoAsSeen,
-    removeVtoResult as removeVtoResultFromStorage,
-    getSingleVtoResults,
-    getUnseenSingleVtoCount,
-    VTO_TYPE_FULL,
-    VTO_TYPE_SINGLE,
-} from '../utils/vtoStorage';
 import { useUserStore } from './userStore';
+
+// VTO 타입 상수
+const VTO_TYPE_FULL = 'full';
+const VTO_TYPE_SINGLE = 'single';
 
 const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
@@ -53,12 +48,13 @@ export const useVtoStore = create((set, get) => ({
     },
 
     refreshVtoData: async () => {
-        // 원클릭 입어보기는 기존 sessionStorage에서 가져옴
-        const singleResults = getSingleVtoResults();
-        const unseenSingleCount = getUnseenSingleVtoCount();
-
-        // 전체 입어보기는 DB API에서 가져옴
+        // 모든 VTO 결과를 API에서 가져옴 (S3 + DB 기반)
         let fullResults = [];
+        let singleResults = [];
+        let unseenCount = 0;
+        let unseenFullCount = 0;
+        let unseenSingleCount = 0;
+
         try {
             const token = getToken();
             if (token) {
@@ -67,15 +63,28 @@ export const useVtoStore = create((set, get) => ({
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.success && data.results) {
-                        fullResults = data.results.map(r => ({
+                    if (data.success) {
+                        // 백엔드에서 이미 타입별로 분류해서 보내줌
+                        fullResults = (data.fullResults || []).map(r => ({
                             id: r.id,
                             postId: r.postId,
                             imageUrl: r.imageUrl,
                             createdAt: r.createdAt,
                             type: 'full',
-                            seen: true,
+                            seen: r.seen,
                         }));
+                        singleResults = (data.singleResults || []).map(r => ({
+                            id: r.id,
+                            postId: r.postId,
+                            imageUrl: r.imageUrl,
+                            createdAt: r.createdAt,
+                            type: 'single',
+                            seen: r.seen,
+                        }));
+                        // API에서 unseen count 가져옴
+                        unseenCount = data.unseenCount || 0;
+                        unseenFullCount = data.unseenFullCount || 0;
+                        unseenSingleCount = data.unseenSingleCount || 0;
                     }
                 }
             }
@@ -88,9 +97,9 @@ export const useVtoStore = create((set, get) => ({
             vtoResults: [...fullResults, ...singleResults],
             fullVtoResults: fullResults,
             singleVtoResults: singleResults,
-            unseenCount: unseenSingleCount,
-            unseenFullCount: 0,
-            unseenSingleCount: unseenSingleCount,
+            unseenCount,
+            unseenFullCount,
+            unseenSingleCount,
         });
     },
 
@@ -98,9 +107,23 @@ export const useVtoStore = create((set, get) => ({
         set({ activeVtoTab: tab });
     },
 
-    openVtoModal: () => {
-        markAllVtoAsSeen();
+    openVtoModal: async () => {
+        // 모달 열 때 모든 결과를 읽음으로 표시
         set({ unseenCount: 0, unseenFullCount: 0, unseenSingleCount: 0, isVtoModalOpen: true });
+
+        try {
+            const token = getToken();
+            if (token) {
+                await fetch(`${backendUrl}/api/fitting/vto/mark-all-seen`, {
+                    method: 'PATCH',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                });
+            }
+        } catch (error) {
+            console.error('[VTO] Failed to mark all as seen:', error);
+        }
+
+        get().refreshVtoData();
     },
 
     closeVtoModal: () => {
@@ -327,12 +350,7 @@ export const useVtoStore = create((set, get) => ({
             }
 
             if (data.success) {
-                addVtoResultToStorage({
-                    imageUrl: data.imageUrl,
-                    postId: 'direct-fitting',
-                    appliedClothing: data.itemsProcessed,
-                    isDirect: true
-                }, VTO_TYPE_SINGLE); // 원클릭 입어보기
+                // 백엔드에서 S3+DB에 자동 저장되므로 스토어만 새로고침
                 get().refreshVtoData();
                 get().setToastMessage('가상 피팅 완료!');
                 return data;
@@ -439,17 +457,7 @@ export const useVtoStore = create((set, get) => ({
                             const data = statusResult.result;
                             if (data && data.success) {
                                 // DB에 저장되었으므로 refreshVtoData로 가져옴 (2개 이상 선택 시)
-                                if (selectedCount >= 2) {
-                                    await get().refreshVtoData();
-                                } else {
-                                    // 1개만 선택 - sessionStorage에 저장 (기존 동작)
-                                    addVtoResultToStorage({
-                                        imageUrl: data.imageUrl,
-                                        postId: 'direct-fitting',
-                                        appliedClothing: data.itemsProcessed,
-                                        isDirect: true
-                                    }, resultType);
-                                }
+                                // 백엔드에서 S3+DB에 자동 저장되므로 스토어만 새로고침
                                 get().refreshVtoData();
                                 get().setToastMessage('착장 완료!');
                                 return data;
@@ -474,18 +482,7 @@ export const useVtoStore = create((set, get) => ({
                 }
                 throw new Error('VTO 작업 시간이 초과되었습니다.');
             } else if (queueResult.success && queueResult.imageUrl) {
-                // 캐시 히트 - DB에서 가져옴 (2개 이상 선택 시)
-                if (selectedCount >= 2) {
-                    await get().refreshVtoData();
-                } else {
-                    // 1개만 선택 - sessionStorage에 저장
-                    addVtoResultToStorage({
-                        imageUrl: queueResult.imageUrl,
-                        postId: 'direct-fitting',
-                        appliedClothing: queueResult.itemsProcessed,
-                        isDirect: true
-                    }, resultType);
-                }
+                // 캐시 히트 또는 즉시 완료 - 백엔드에서 S3+DB에 자동 저장됨
                 get().refreshVtoData();
                 get().setToastMessage('착장 완료!');
                 return queueResult;
@@ -525,25 +522,15 @@ export const useVtoStore = create((set, get) => ({
     },
 
     deleteVtoResult: async (id) => {
-        const { fullVtoResults, singleVtoResults } = get();
-
-        // 전체 입어보기 결과인지 확인
-        const isFullResult = fullVtoResults.some(r => r.id === id);
-
-        if (isFullResult) {
-            // DB API로 숨기기
-            try {
-                const token = getToken();
-                await fetch(`${backendUrl}/api/fitting/vto/${id}/hide`, {
-                    method: 'PATCH',
-                    headers: { 'Authorization': `Bearer ${token}` },
-                });
-            } catch (error) {
-                console.error('[VTO] Failed to hide VTO result:', error);
-            }
-        } else {
-            // 원클릭 입어보기는 sessionStorage에서 삭제
-            removeVtoResultFromStorage(id);
+        // 모든 VTO 결과는 DB API로 숨기기 (S3 기반)
+        try {
+            const token = getToken();
+            await fetch(`${backendUrl}/api/fitting/vto/${id}/hide`, {
+                method: 'PATCH',
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+        } catch (error) {
+            console.error('[VTO] Failed to hide VTO result:', error);
         }
 
         // 상태 새로고침

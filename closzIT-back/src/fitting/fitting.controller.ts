@@ -608,7 +608,7 @@ export class FittingController {
   }
 
   /**
-   * 단일 옷 가상 피팅 (자동 캐싱 + V2 최적화)
+   * 단일 옷 가상 피팅 (자동 캐싱 + V2 최적화 + VTO 결과 캐싱)
    * POST /api/fitting/single-item-tryon
    */
   @Post('single-item-tryon')
@@ -625,6 +625,52 @@ export class FittingController {
       });
     }
 
+    // 사용자의 전신 이미지 조회 (캐시 해시 생성용)
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { fullBodyImage: true },
+    });
+
+    if (!user?.fullBodyImage) {
+      throw new BadRequestException({
+        success: false,
+        code: 'NO_FULL_BODY_IMAGE',
+        message: '피팅 모델 이미지가 없어서 착장서비스 이용이 불가합니다.',
+      });
+    }
+
+    // ========== VTO 결과 캐시 조회 ==========
+    const clothingIds = [body.clothingId];
+    const modelHash = crypto.createHash('md5').update(user.fullBodyImage).digest('hex').slice(0, 8);
+    const hashKey = crypto.createHash('sha256')
+      .update(`${userId}:${modelHash}:${clothingIds.join(',')}`)
+      .digest('hex');
+
+    const cachedResult = await this.prisma.vtoCache.findUnique({
+      where: { hashKey },
+    });
+
+    if (cachedResult) {
+      this.logger.log(`[VTO Cache] Cache hit for single-item hashKey: ${hashKey.slice(0, 16)}...`);
+
+      // 캐시 히트 시 isVisible을 true로 업데이트 (삭제 후 재요청 시 다시 보이도록)
+      if (cachedResult.isVisible !== true) {
+        await this.prisma.vtoCache.update({
+          where: { hashKey },
+          data: { isVisible: true },
+        });
+      }
+
+      const presignedUrl = await this.s3Service.convertToPresignedUrl(cachedResult.s3Url);
+      return {
+        success: true,
+        cached: true,
+        imageUrl: presignedUrl,
+        message: '캐시된 결과를 반환합니다.',
+      };
+    }
+    this.logger.log(`[VTO Cache] Cache miss for single-item hashKey: ${hashKey.slice(0, 16)}...`);
+
     // 캐시 존재 확인 (garment/text 캐시는 의류 소유자 기준)
     const humanCacheExists = await this.vtonCacheService.checkHumanCacheExists(userId);
     const garmentCacheExists = await this.vtonCacheService.checkGarmentCacheExists(clothingOwnerId, body.clothingId);
@@ -632,21 +678,8 @@ export class FittingController {
 
     console.log(`[Cache Check] human=${humanCacheExists}, garment=${garmentCacheExists}, text=${textCacheExists}`);
 
-    // 1. Human 캐시 생성 (필요시)
+    // 1. Human 캐시 생성 (필요시) - user는 이미 위에서 조회함
     if (!humanCacheExists) {
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { fullBodyImage: true },
-      });
-
-      if (!user?.fullBodyImage) {
-        throw new BadRequestException({
-          success: false,
-          code: 'NO_FULL_BODY_IMAGE',
-          message: '피팅 모델 이미지가 없어서 착장서비스 이용이 불가합니다.',
-        });
-      }
-
       const imageBase64 = await this.fetchImageAsBase64(user.fullBodyImage);
       await this.vtonCacheService.preprocessAndCacheHuman(userId, imageBase64);
       console.log('[Cache] Human cache created');
@@ -753,11 +786,54 @@ export class FittingController {
       clothingOwnerId,  // 의류 소유자 ID 전달
     );
 
-    return {
-      success: true,
-      message: '가상 피팅이 완료되었습니다',
-      imageUrl: `data:image/png;base64,${resultImageBase64}`,
-    };
+    // ========== VTO 결과 S3 업로드 + DB 캐시 저장 ==========
+    try {
+      const s3Key = `vto/${userId}/${hashKey}.png`;
+      const s3Url = await this.s3Service.uploadBase64Image(
+        resultImageBase64,
+        s3Key,
+        'image/png',
+        'closzit-ai-results'
+      );
+
+      this.logger.log(`[VTO Cache] S3 upload complete: ${s3Key}`);
+
+      // DB에 캐시 저장 (upsert로 중복 hashKey 처리)
+      await this.prisma.vtoCache.upsert({
+        where: { hashKey },
+        update: {
+          s3Url,
+          isVisible: true,
+        },
+        create: {
+          hashKey,
+          userId,
+          postId: 'direct-fitting',
+          clothingIds,
+          s3Url,
+          isVisible: true,
+        },
+      });
+
+      this.logger.log(`[VTO Cache] DB cache saved for single-item hashKey: ${hashKey.slice(0, 16)}...`);
+
+      // S3 URL을 Pre-signed URL로 변환하여 반환
+      const presignedUrl = await this.s3Service.convertToPresignedUrl(s3Url);
+
+      return {
+        success: true,
+        message: '가상 피팅이 완료되었습니다',
+        imageUrl: presignedUrl,
+      };
+    } catch (saveError) {
+      // 캐싱 실패해도 결과는 반환
+      this.logger.error(`[VTO Cache] Cache save failed: ${saveError.message}`);
+      return {
+        success: true,
+        message: '가상 피팅이 완료되었습니다',
+        imageUrl: `data:image/png;base64,${resultImageBase64}`,
+      };
+    }
   }
 
   @Post('batch-tryon')
@@ -851,7 +927,7 @@ export class FittingController {
   @Get('vto-history')
   async getVtoHistory(@Request() req) {
     const userId = req.user.id;
-    
+
     const results = await this.prisma.vtoCache.findMany({
       where: {
         userId,
@@ -861,19 +937,59 @@ export class FittingController {
       take: 20,
     });
 
-    // S3 URL을 Pre-signed URL로 변환
+    // S3 URL을 Pre-signed URL로 변환 + 타입 분류 + seen 포함
     const resultsWithPresignedUrls = await Promise.all(
       results.map(async (result) => ({
         id: result.id,
         postId: result.postId,
         imageUrl: await this.s3Service.convertToPresignedUrl(result.s3Url),
         createdAt: result.createdAt,
+        seen: result.seen,
+        // clothingIds 개수로 타입 결정: 2개 이상이면 full, 1개면 single
+        type: result.clothingIds.length >= 2 ? 'full' : 'single',
       }))
     );
+
+    // 타입별로 분류
+    const fullResults = resultsWithPresignedUrls.filter(r => r.type === 'full');
+    const singleResults = resultsWithPresignedUrls.filter(r => r.type === 'single');
+
+    // unseen 개수 계산
+    const unseenFullCount = fullResults.filter(r => !r.seen).length;
+    const unseenSingleCount = singleResults.filter(r => !r.seen).length;
+    const unseenCount = unseenFullCount + unseenSingleCount;
 
     return {
       success: true,
       results: resultsWithPresignedUrls,
+      fullResults,
+      singleResults,
+      unseenCount,
+      unseenFullCount,
+      unseenSingleCount,
+    };
+  }
+
+  /**
+   * 모든 VTO 결과를 읽음으로 표시
+   * PATCH /api/fitting/vto/mark-all-seen
+   */
+  @Patch('vto/mark-all-seen')
+  async markAllVtoAsSeen(@Request() req) {
+    const userId = req.user.id;
+
+    await this.prisma.vtoCache.updateMany({
+      where: {
+        userId,
+        isVisible: true,
+        seen: false,
+      },
+      data: { seen: true },
+    });
+
+    return {
+      success: true,
+      message: '모든 결과를 읽음으로 표시했습니다.',
     };
   }
 
