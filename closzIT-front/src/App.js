@@ -9,6 +9,7 @@ import UserProfileSetup3 from './pages/UserProfileSetup/UserProfileSetup3';
 import MultiTabContainer from './components/MultiTabContainer';
 import MyPage from './pages/MyPage/MyPage';
 import RegisterPage from './pages/Register/RegisterPage';
+import BarcodeScannerPage from './pages/BarcodeScanner/BarcodeScannerPage';
 import LabelingPage from './pages/Labeling/LabelingPage';
 import ItemEditPage from './pages/ItemEdit/ItemEditPage';
 import FittingPage from './pages/Fitting/FittingPage';
@@ -54,6 +55,7 @@ const AppContent = () => {
 
           <Route path="/mypage" element={<MyPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/register/barcode" element={<BarcodeScannerPage />} />
           <Route path="/labeling" element={<LabelingPage />} />
           <Route path="/item/edit/:itemId" element={<ItemEditPage />} />
           <Route path="/fitting" element={<FittingPage />} />
