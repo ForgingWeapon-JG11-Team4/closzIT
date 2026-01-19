@@ -1044,7 +1044,7 @@ const LabelingPage = () => {
           {!isAnalyzed ? (
             // 분석 전: 원본 이미지만 표시
             <div className="flex flex-col items-center">
-              <div className="relative w-48 h-48 bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden flex items-center justify-center">
+              <div className="relative w-full max-w-sm aspect-[3/4] bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden flex items-center justify-center">
                 {currentImageUrl ? (
                   <img src={currentImageUrl} alt="선택된 의상" className="w-full h-full object-contain" />
                 ) : (
