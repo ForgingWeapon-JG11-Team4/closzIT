@@ -5,6 +5,7 @@ import SharedHeader from '../components/SharedHeader';
 import ClothDetailModal from '../components/ClothDetailModal';
 import { useVtoStore } from '../stores/vtoStore';
 import { useUserStore } from '../stores/userStore';
+import { useAppStore } from '../stores/appStore';
 import { useTabStore, TAB_KEYS } from '../stores/tabStore';
 import { GiTrousers, GiTShirt, GiMonclerJacket } from 'react-icons/gi';
 
@@ -286,6 +287,8 @@ const FittingRoomPage = ({ hideHeader = false }) => {
 
       if (response.ok) {
         alert('오늘의 코디로 저장되었습니다! 👍');
+        // 착장 기록 새로고침 트리거
+        useAppStore.getState().triggerOutfitLogRefresh();
       } else {
         const errorData = await response.json();
         throw new Error(errorData.message || '착장 기록 저장 실패');

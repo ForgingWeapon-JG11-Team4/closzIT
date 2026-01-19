@@ -300,17 +300,17 @@ const MainPage2 = ({ hideHeader = false }) => {
 
             {/* Unified Dashboard Card */}
             <div
-              className="rounded-[32px] p-5 relative overflow-hidden shadow-soft border border-gold-light/20 bg-white"
+              className="rounded-[32px] p-5 md:p-10 relative overflow-hidden shadow-soft border border-gold-light/20 bg-white"
             >
               {/* Top: Search Trigger Button */}
               <div
                 onClick={() => setIsSearchExpanded(true)}
-                className="w-full h-12 rounded-2xl border border-gold/30 flex items-center px-4 cursor-pointer hover:border-gold/50 transition-all z-10 relative bg-white/40 backdrop-blur-sm mb-4"
+                className="w-full h-12 md:h-14 rounded-2xl border border-gold/30 flex items-center px-4 cursor-pointer hover:border-gold/50 transition-all z-10 relative bg-white/40 backdrop-blur-sm mb-4 md:mb-6"
                 style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.08) 0%, rgba(255,250,240,0.8) 100%)' }}
               >
-                <div className="relative flex-1 h-5 overflow-hidden flex items-center justify-center">
+                <div className="relative flex-1 h-5 md:h-6 overflow-hidden flex items-center justify-center">
                   <span
-                    className={`absolute inset-0 flex items-center justify-center text-sm text-charcoal-light dark:text-cream-dark transition-all duration-500 ease-in-out ${showGreeting && userName
+                    className={`absolute inset-0 flex items-center justify-center text-sm md:text-base text-charcoal-light dark:text-cream-dark transition-all duration-500 ease-in-out ${showGreeting && userName
                       ? 'translate-y-0 opacity-100'
                       : '-translate-y-full opacity-0'
                       }`}
@@ -318,34 +318,34 @@ const MainPage2 = ({ hideHeader = false }) => {
                     반가워요, <span className="text-gold font-semibold ml-1">{userName}</span>님!
                   </span>
                   <span
-                    className={`absolute inset-0 flex items-center justify-center text-sm transition-all duration-500 ease-in-out ${showGreeting && userName
+                    className={`absolute inset-0 flex items-center justify-center text-sm md:text-base transition-all duration-500 ease-in-out ${showGreeting && userName
                       ? 'translate-y-full opacity-0'
                       : 'translate-y-0 opacity-100'
                       } text-charcoal-light dark:text-cream-dark gap-1`}
                   >
-                    오늘 뭐 입지? <span className="text-gold font-semibold">AI에게 추천받기</span>
+                    오늘 뱀 입지? <span className="text-gold font-semibold">AI에게 추천받기</span>
                   </span>
                 </div>
-                <span className="material-symbols-rounded text-gold absolute right-4">search</span>
+                <span className="material-symbols-rounded text-gold text-lg md:text-xl absolute right-4">search</span>
               </div>
 
               {/* Bottom Row: Weather - Character - Schedule */}
               <div className="flex items-end justify-between relative z-10 px-1">
                 {/* Left: Weather */}
                 <div className="flex-1 flex flex-col items-start min-w-0">
-                  <div className="w-12 h-12 rounded-2xl bg-white/60 backdrop-blur-md border border-gold-light/10 shadow-sm flex items-center justify-center mb-2">
-                    <span className="material-symbols-rounded text-2xl text-gold">{getWeatherIcon()}</span>
+                  <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white/60 backdrop-blur-md border border-gold-light/10 shadow-sm flex items-center justify-center mb-2">
+                    <span className="material-symbols-rounded text-2xl md:text-4xl text-gold">{getWeatherIcon()}</span>
                   </div>
                   <div className="text-left">
                     <div className="flex items-center gap-1.5">
-                      <span className="block text-sm font-bold text-charcoal dark:text-cream">
+                      <span className="block text-sm md:text-lg font-bold text-charcoal dark:text-cream">
                         {weather.temperature !== null ? `${weather.temperature}°C` : ''}
                       </span>
-                      <span className="block text-[10px] text-charcoal-light dark:text-cream-dark leading-none mt-0.5">{weather.condition}</span>
+                      <span className="block text-[10px] md:text-sm text-charcoal-light dark:text-cream-dark leading-none mt-0.5">{weather.condition}</span>
                     </div>
-                    <span className="block text-[10px] text-charcoal-light/70 dark:text-cream-dark/70 mt-0.5">{userLocation}</span>
+                    <span className="block text-[10px] md:text-sm text-charcoal-light/70 dark:text-cream-dark/70 mt-0.5">{userLocation}</span>
                   </div>
-                  <p className="text-[10px] text-gold dark:text-gold-light mt-1 text-left font-medium leading-tight break-keep w-full">
+                  <p className="text-[10px] md:text-sm text-gold dark:text-gold-light mt-1 text-left font-medium leading-tight break-keep w-full">
                     {getWeatherTip()}
                   </p>
                 </div>
@@ -363,7 +363,7 @@ const MainPage2 = ({ hideHeader = false }) => {
                   <img
                     src="/dongle.png"
                     alt="동글쿤"
-                    className="w-32 h-auto object-contain drop-shadow-xl"
+                    className="w-32 md:w-48 h-auto object-contain drop-shadow-xl"
                     style={{
                       animation: 'dongleFloat 3s ease-in-out infinite',
                       transformOrigin: 'bottom center'
@@ -373,17 +373,17 @@ const MainPage2 = ({ hideHeader = false }) => {
 
                 {/* Right: Schedule */}
                 <div className="flex-1 flex flex-col items-end">
-                  <div className="w-12 h-12 rounded-2xl bg-white/60 backdrop-blur-md border border-gold-light/10 shadow-sm flex items-center justify-center mb-2">
-                    <span className="material-symbols-rounded text-2xl text-gold">event</span>
+                  <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white/60 backdrop-blur-md border border-gold-light/10 shadow-sm flex items-center justify-center mb-2">
+                    <span className="material-symbols-rounded text-2xl md:text-4xl text-gold">event</span>
                   </div>
                   <div className="text-right w-full">
-                    <span className="block text-[10px] text-charcoal-light dark:text-cream-dark leading-none mb-0.5">다가오는 일정</span>
-                    <span className="block text-xs font-bold text-charcoal dark:text-cream truncate w-full pl-4">
+                    <span className="block text-[10px] md:text-sm text-charcoal-light dark:text-cream-dark leading-none mb-0.5">다가오는 일정</span>
+                    <span className="block text-xs md:text-base font-bold text-charcoal dark:text-cream truncate w-full pl-4">
                       {upcomingEvents.length > 0 ? upcomingEvents[0].title : '없음'}
                     </span>
                   </div>
                   {upcomingEvents.length > 0 && (
-                    <p className="text-[10px] text-gold dark:text-gold-light mt-1 text-right font-medium">
+                    <p className="text-[10px] md:text-sm text-gold dark:text-gold-light mt-1 text-right font-medium">
                       {upcomingEvents[0].date} {upcomingEvents[0].time}
                     </p>
                   )}
@@ -420,20 +420,20 @@ const MainPage2 = ({ hideHeader = false }) => {
                 className="flex-1 w-0 min-w-0 rounded-2xl p-3 shadow-soft border border-gold-light/20 flex flex-col justify-between"
                 style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(250,248,245,0.98) 100%)' }}
               >
-                <h4 className="text-base font-bold text-charcoal flex items-center gap-1.5 pl-1 mb-1">
-                  <span className="material-symbols-rounded text-gold text-lg">checkroom</span>
+                <h4 className="text-base md:text-xl font-bold text-charcoal flex items-center gap-1.5 pl-1 mb-1">
+                  <span className="material-symbols-rounded text-gold text-lg md:text-2xl">checkroom</span>
                   옷장 현황
-                  <span className="ml-1 text-xs font-medium text-charcoal-light bg-gold/10 px-2 py-0.5 rounded-full">
+                  <span className="ml-1 text-[10px] md:text-xs font-medium text-charcoal-light bg-gold/10 px-2 py-0.5 rounded-full">
                     {(userClothes.outerwear?.length || 0) + (userClothes.tops?.length || 0) + (userClothes.bottoms?.length || 0) + (userClothes.shoes?.length || 0)}벌
                   </span>
                 </h4>
-                <div className="flex-1 min-h-[140px] -my-2">
+                <div className="flex-1 min-h-[140px] md:min-h-[220px] -my-2">
                   <ResponsivePie
                     theme={{
                       labels: {
                         text: {
                           fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
-                          fontSize: 12,
+                          fontSize: 16,
                           fontWeight: 600,
                           fill: '#4A4A4A',
                         },
