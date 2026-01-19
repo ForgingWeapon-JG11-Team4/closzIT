@@ -20,6 +20,9 @@ export const useAppStore = create((set, get) => ({
     eventsLastFetchedAt: null,
     isEventsLoading: false,
 
+    // ========== 착장 기록 새로고침 트리거 ==========
+    outfitLogVersion: 0,
+
     // ========== 사용자 정보 ==========
     userName: '',
     userFullBodyImage: null,
@@ -154,6 +157,11 @@ export const useAppStore = create((set, get) => ({
 
     invalidateEvents: () => {
         set({ eventsLastFetchedAt: null });
+    },
+
+    // ========== 착장 기록 새로고침 트리거 ==========
+    triggerOutfitLogRefresh: () => {
+        set(state => ({ outfitLogVersion: state.outfitLogVersion + 1 }));
     },
 
     // ========== Getter: 캐시 상태 확인 ==========

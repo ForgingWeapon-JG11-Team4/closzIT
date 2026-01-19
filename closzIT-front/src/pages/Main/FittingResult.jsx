@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useVtoStore } from '../../stores/vtoStore';
 import { useUserStore } from '../../stores/userStore';
+import { useAppStore } from '../../stores/appStore';
 import { useNavigate } from 'react-router-dom';
 
 const FittingResult = ({ 
@@ -242,6 +243,8 @@ const FittingResult = ({
 
       if (response.ok) {
         alert('오늘의 코디로 저장되었습니다! 👍');
+        // 착장 기록 새로고침 트리거
+        useAppStore.getState().triggerOutfitLogRefresh();
         // 피드백도 자동으로 worn 처리
         handleFeedback('worn');
       } else {

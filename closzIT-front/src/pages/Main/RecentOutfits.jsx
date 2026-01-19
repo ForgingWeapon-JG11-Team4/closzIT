@@ -1,37 +1,45 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useAppStore } from '../../stores/appStore';
 
 const RecentOutfits = ({ onClothClick }) => {
   const [recentLogs, setRecentLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  
+  // 착장 기록 새로고침 트리거 구독
+  const outfitLogVersion = useAppStore(state => state.outfitLogVersion);
 
-  useEffect(() => {
-    const fetchRecentLogs = async () => {
-      try {
-        const token = localStorage.getItem('accessToken');
-        if (!token) return;
+  const fetchRecentLogs = useCallback(async () => {
+    try {
+      
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
 
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-        const response = await fetch(`${backendUrl}/outfit-log?limit=3`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+      const response = await fetch(`${backendUrl}/outfit-log?limit=4`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
 
-        if (response.ok) {
-          const logs = await response.json();
-          if (logs && logs.length > 0) {
-            const sortedLogs = logs.sort((a, b) => new Date(b.wornDate) - new Date(a.wornDate));
-            setRecentLogs(sortedLogs.slice(0, 3));
-          }
+      if (response.ok) {
+        const logs = await response.json();
+        if (logs && logs.length > 0) {
+          const sortedLogs = logs.sort((a, b) => new Date(b.wornDate) - new Date(a.wornDate));
+          setRecentLogs(sortedLogs.slice(0, 4));
+        } else {
+          setRecentLogs([]);
         }
-      } catch (error) {
-        console.error('Failed to fetch recent outfit logs:', error);
-      } finally {
-        setIsLoading(false);
       }
-    };
-
-    fetchRecentLogs();
+    } catch (error) {
+      console.error('Failed to fetch recent outfit logs:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  // 초기 로드 및 outfitLogVersion 변경 시 새로고침
+  useEffect(() => {
+    fetchRecentLogs();
+  }, [fetchRecentLogs, outfitLogVersion]);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -66,21 +74,21 @@ const RecentOutfits = ({ onClothClick }) => {
       <div className="w-full mt-3">
         <div className="rounded-[28px] p-4 shadow-soft border border-gold/30 bg-white relative overflow-hidden">
           <div className="flex items-center justify-between mb-3 px-1">
-            <h3 className="text-base font-bold text-charcoal flex items-center gap-1.5">
-              <span className="material-symbols-rounded text-gold text-lg">history</span>
+            <h3 className="text-base md:text-xl font-bold text-charcoal flex items-center gap-1.5">
+              <span className="material-symbols-rounded text-gold text-lg md:text-2xl">history</span>
               최근 입은 코디
             </h3>
             <button
               onClick={() => setShowModal(true)}
-              className="text-xs font-medium text-gold hover:text-gold-dark transition-colors flex items-center gap-1"
+              className="text-xs md:text-sm font-medium text-gold hover:text-gold-dark transition-colors flex items-center gap-1"
             >
               전체 보기
-              <span className="material-symbols-rounded text-sm">arrow_forward</span>
+              <span className="material-symbols-rounded text-sm md:text-base">arrow_forward</span>
             </button>
           </div>
 
           {/* 3개의 코디 카드를 가로로 나열 */}
-          <div className="flex gap-8 overflow-x-auto pb-2 pt-3 hide-scrollbar justify-center">
+          <div className="flex gap-4 overflow-x-auto pb-2 pt-3 hide-scrollbar justify-center">
             {recentLogs.map((log, index) => {
               const outfitItems = getOutfitItems(log);
               return (
@@ -89,25 +97,25 @@ const RecentOutfits = ({ onClothClick }) => {
                   className="flex-shrink-0 bg-gradient-to-br from-cream to-white rounded-2xl p-3 border-2 border-gold/30 shadow-md relative"
                 >
                   {/* 날짜 라벨 */}
-                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-gold text-white text-[10px] font-bold px-3 py-0.5 rounded-full shadow-sm whitespace-nowrap">
+                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-gold text-white text-[10px] md:text-xs font-bold px-2 md:px-3 py-0.5 rounded-full shadow-sm whitespace-nowrap">
                     {formatDate(log.wornDate)}
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div className="grid grid-cols-2 gap-1.5 md:gap-2 mt-2">
                     {outfitItems.map(({ type, item }) => (
                       <div 
                         key={`${type}-${item.id}`}
                         className="flex flex-col items-center group cursor-pointer"
                         onClick={() => onClothClick && onClothClick(item)}
                       >
-                        <div className="w-16 h-20 rounded-lg overflow-hidden border border-gold-light/30 shadow-sm relative bg-white group-hover:shadow-md group-hover:scale-105 transition-all duration-200">
+                        <div className="w-12 h-16 md:w-16 md:h-20 rounded-lg overflow-hidden border border-gold-light/30 shadow-sm relative bg-white group-hover:shadow-md group-hover:scale-105 transition-all duration-200">
                           <img
                             src={item.imageUrl || item.image}
                             alt={item.name}
                             className="w-full h-full object-cover"
                           />
                         </div>
-                        <span className="text-[9px] text-charcoal-light mt-1 font-medium">
+                        <span className="text-[8px] md:text-[9px] text-charcoal-light mt-1 font-medium">
                           {type === 'outer' && '외투'}
                           {type === 'top' && '상의'}
                           {type === 'bottom' && '하의'}
