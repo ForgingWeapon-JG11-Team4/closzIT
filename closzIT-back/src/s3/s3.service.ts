@@ -324,4 +324,23 @@ export class S3Service {
         // 그 외의 경우 그대로 반환
         return urlOrKey;
     }
+
+    /**
+     * S3 객체를 가져옵니다 (Stream 반환).
+     * @param key - S3 객체 키
+     * @param bucket - (Optional) 버킷명. 지정하지 않으면 기본 버킷 사용.
+     */
+    async getDemoImage(key: string, bucket?: string): Promise<any> {
+        try {
+            const command = new GetObjectCommand({
+                Bucket: bucket || this.bucketName,
+                Key: key,
+            });
+            const response = await this.s3Client.send(command);
+            return response.Body;
+        } catch (error) {
+            this.logger.error(`Failed to get demo image: ${key} from bucket ${bucket || this.bucketName}`, error);
+            throw error;
+        }
+    }
 }
