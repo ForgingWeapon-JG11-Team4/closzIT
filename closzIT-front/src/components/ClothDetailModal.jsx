@@ -193,7 +193,7 @@ const ClothDetailModal = ({
                 onClick={onTryOn}
                 className="w-full py-3.5 bg-gradient-to-r from-gold to-gold-dark text-white rounded-xl font-bold hover:from-gold-dark hover:to-gold transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
               >
-                <span className="material-symbols-rounded text-lg">checkroom</span>
+                <span className="material-symbols-rounded text-lg">auto_awesome</span>
                 원 클릭 착장
               </button>
             </div>

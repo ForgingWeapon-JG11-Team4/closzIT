@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useVtoStore } from '../../stores/vtoStore';
 import { useUserStore } from '../../stores/userStore';
+import { useAppStore } from '../../stores/appStore';
 import { useNavigate } from 'react-router-dom';
 
 const FittingResult = ({ 
@@ -27,6 +28,7 @@ const FittingResult = ({
   const [userFullBodyImage, setUserFullBodyImage] = useState(null);
   const [isFeedbackLoading, setIsFeedbackLoading] = useState(false);
   const [feedbackStatus, setFeedbackStatus] = useState({}); // { [index]: 'accept' | 'reject' }
+  const [isOutfitLogLoading, setIsOutfitLogLoading] = useState(false);
 
   // 현재 선택된 outfit
   const currentOutfit = outfits[currentOutfitIndex] || null;
@@ -205,6 +207,55 @@ const FittingResult = ({
       console.error('Feedback error:', err);
     } finally {
       setIsFeedbackLoading(false);
+    }
+  };
+
+  // 오늘 이 코디 입기 버튼 클릭
+  const handleWearTodayClick = async () => {
+    if (!currentOutfit || isOutfitLogLoading) return;
+
+    // 최소한 상의, 하의, 신발이 있어야 함
+    if (!currentOutfit.top?.id || !currentOutfit.bottom?.id || !currentOutfit.shoes?.id) {
+      alert('상의, 하의, 신발은 필수입니다.');
+      return;
+    }
+
+    setIsOutfitLogLoading(true);
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      const url = backendUrl || process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+
+      const response = await fetch(`${url}/outfit-log`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          outerId: currentOutfit.outer?.id,
+          topId: currentOutfit.top?.id,
+          bottomId: currentOutfit.bottom?.id,
+          shoesId: currentOutfit.shoes?.id,
+          tpo: context?.tpo || 'Daily',
+        }),
+      });
+
+      if (response.ok) {
+        alert('오늘의 코디로 저장되었습니다! 👍');
+        // 착장 기록 새로고침 트리거
+        useAppStore.getState().triggerOutfitLogRefresh();
+        // 피드백도 자동으로 worn 처리
+        handleFeedback('worn');
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || '착장 기록 저장 실패');
+      }
+    } catch (err) {
+      console.error('Outfit log error:', err);
+      alert(`착장 기록 저장 실패: ${err.message}`);
+    } finally {
+      setIsOutfitLogLoading(false);
     }
   };
 
@@ -415,33 +466,59 @@ const FittingResult = ({
              </button>
           </div>
 
-          {/* Try On Button */}
-          <button
-            onClick={(e) => {
-              if (!isPartialVtoLoading && !isFeedbackLoading) {
-                handleFeedback('accept');
-                handleFittingClick(e);
-              }
-            }}
-            disabled={isPartialVtoLoading || isFeedbackLoading}
-            className={`w-full h-12 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm shadow-lg ${
-              isPartialVtoLoading
-                ? 'bg-gold/50 text-white cursor-wait'
-                : 'bg-gradient-to-r from-gold to-gold-dark text-white hover:shadow-gold/30 hover:-translate-y-0.5'
-            }`}
-          >
-            {isPartialVtoLoading ? (
-              <>
-                <span className="material-symbols-rounded animate-spin text-lg">progress_activity</span>
-                가상 피팅 생성 중...
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-rounded text-lg">checkroom</span>
-                이 코디로 입어보기
-              </>
-            )}
-          </button>
+          {/* Action Buttons Row */}
+          <div className="flex gap-2">
+            {/* Try On Button */}
+            <button
+              onClick={(e) => {
+                if (!isPartialVtoLoading && !isFeedbackLoading) {
+                  handleFeedback('accept');
+                  handleFittingClick(e);
+                }
+              }}
+              disabled={isPartialVtoLoading || isFeedbackLoading}
+              className={`flex-1 h-12 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 text-xs shadow-lg ${
+                isPartialVtoLoading
+                  ? 'bg-gold/50 text-white cursor-wait'
+                  : 'bg-gradient-to-r from-gold to-gold-dark text-white hover:shadow-gold/30 hover:-translate-y-0.5'
+              }`}
+            >
+              {isPartialVtoLoading ? (
+                <>
+                  <span className="material-symbols-rounded animate-spin text-base">progress_activity</span>
+                  생성 중...
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-rounded text-base">auto_awesome</span>
+                  가상착장 해보기
+                </>
+              )}
+            </button>
+
+            {/* Wear Today Button */}
+            <button
+              onClick={handleWearTodayClick}
+              disabled={isOutfitLogLoading || !currentOutfit?.top || !currentOutfit?.bottom || !currentOutfit?.shoes}
+              className={`flex-1 h-12 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 text-xs shadow-lg ${
+                isOutfitLogLoading
+                  ? 'bg-charcoal/50 text-white cursor-wait'
+                  : 'bg-charcoal text-white hover:bg-charcoal-dark hover:shadow-lg hover:-translate-y-0.5'
+              }`}
+            >
+              {isOutfitLogLoading ? (
+                <>
+                  <span className="material-symbols-rounded animate-spin text-base">progress_activity</span>
+                  저장 중...
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-rounded text-base">today</span>
+                  오늘 입기
+                </>
+              )}
+            </button>
+          </div>
           
           {fittingError && (
              <p className="text-[10px] text-red-500 mt-2 text-center">{fittingError}</p>

@@ -1,12 +1,14 @@
-import { Controller, Get, Param, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Param, NotFoundException, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 
 @Controller('queue')
 export class QueueController {
+    private readonly logger = new Logger(QueueController.name);
+
     constructor(
         @InjectQueue('flatten-queue') private flattenQueue: Queue,
-        @InjectQueue('vto-queue') private vtoQueue: Queue,
+        @InjectQueue(process.env.VTO_QUEUE_NAME || 'vto-queue') private vtoQueue: Queue,
     ) { }
 
     @Get('job/:type/:id')
@@ -27,10 +29,13 @@ export class QueueController {
         const job = await queue.getJob(jobId);
 
         if (!job) {
+            this.logger.warn(`[Job Status] Job ${jobId} not found in ${type} queue`);
             return { status: 'not_found', jobId };
         }
 
         const state = await job.getState();
+        const hasResult = !!job.returnvalue;
+
 
         if (state === 'completed') {
             return {

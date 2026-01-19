@@ -73,7 +73,7 @@ const BottomNav = ({ floatingAction }) => {
 
       {/* 통합 FAB 버튼 영역 */}
       {floatingAction && (
-        <div className="fixed bottom-20 right-4 z-50">
+        <div className="fixed bottom-28 right-4 z-50">
           {/* 확장 메뉴 */}
           <div className={`absolute bottom-16 right-0 flex flex-col gap-3 transition-all duration-300 ${
             isFabOpen 
@@ -122,7 +122,7 @@ const BottomNav = ({ floatingAction }) => {
       )}
 
       {/* Bottom Navigation - 3 buttons */}
-      <div className="fixed bottom-0 left-0 right-0 h-16 glass-warm border-t border-gold-light/20 flex items-center justify-evenly gap-16 px-4 z-50 safe-area-pb">
+      <div className="fixed bottom-0 left-0 right-0 h-24 glass-warm border-t border-gold-light/20 flex items-center justify-evenly gap-16 px-4 z-50 safe-area-pb">
         {/* 내 옷장 */}
         <button
           onClick={() => handleTabClick(TAB_KEYS.MAIN, '/main')}
@@ -132,8 +132,8 @@ const BottomNav = ({ floatingAction }) => {
               : 'text-charcoal-light dark:text-cream-dark hover:text-gold'
           }`}
         >
-          <span className="material-symbols-rounded text-[22px]">person</span>
-          <span className="text-[10px] font-semibold">Me</span>
+          <span className="material-symbols-rounded text-[42px]">person</span>
+          <span className="text-[16px] font-semibold">Me</span>
         </button>
 
         {/* 피팅룸 */}
@@ -145,8 +145,8 @@ const BottomNav = ({ floatingAction }) => {
               : 'text-charcoal-light dark:text-cream-dark hover:text-gold'
           }`}
         >
-          <span className="material-symbols-rounded text-[22px]">styler</span>
-          <span className="text-[10px] font-semibold">옷장&피팅룸</span>
+          <span className="material-symbols-rounded text-[42px]">styler</span>
+          <span className="text-[16px] font-semibold">옷장&피팅룸</span>
         </button>
 
         {/* SNS */}
@@ -158,8 +158,8 @@ const BottomNav = ({ floatingAction }) => {
               : 'text-charcoal-light dark:text-cream-dark hover:text-gold'
           }`}
         >
-          <span className="material-symbols-rounded text-[22px]">grid_view</span>
-          <span className="text-[10px] font-semibold">SNS</span>
+          <span className="material-symbols-rounded text-[42px]">grid_view</span>
+          <span className="text-[16px] font-semibold">SNS</span>
         </button>
       </div>
     </>

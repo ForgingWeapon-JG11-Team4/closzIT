@@ -148,13 +148,22 @@ const rotateImageBase64 = (base64Data, degrees) => {
   });
 };
 
+const blobToBase64 = (blob) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
 const LabelingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { userId, userCredit, fetchUser } = useUserStore();
 
   // RegisterPage에서 전달받은 이미지 정보
-  const { imageUrl: initialImageUrl, imageFile: initialImageFile, images: batchImages } = location.state || {};
+  const { imageUrl: initialImageUrl, imageFile: initialImageFile, images: batchImages, source: imageSource, imageBase64 } = location.state || {};
 
   // 배치 이미지 처리 상태
   const [currentBatchIndex, setCurrentBatchIndex] = useState(0);
@@ -215,6 +224,31 @@ const LabelingPage = () => {
     }
     fetchUser();
   }, [fetchUser]);
+
+  // 바코드 소스: base64 데이터에서 File 객체 생성
+  useEffect(() => {
+    const loadImageFromBase64 = async () => {
+      if (imageSource === 'barcode' && imageBase64 && !currentImageFile) {
+        try {
+          console.log('[LabelingPage] Creating file from base64 for barcode source...');
+
+          // base64를 Blob으로 변환
+          const response = await fetch(imageBase64);
+          const blob = await response.blob();
+          const file = new File([blob], `barcode_image_${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' });
+          const objectUrl = URL.createObjectURL(blob);
+
+          setCurrentImageFile(file);
+          setCurrentImageUrl(objectUrl);
+
+          console.log('[LabelingPage] File created from base64:', file.name, file.size);
+        } catch (error) {
+          console.error('[LabelingPage] Failed to create file from base64:', error);
+        }
+      }
+    };
+    loadImageFromBase64();
+  }, [imageSource, imageBase64, currentImageFile]);
 
   // 배치 인덱스 변경 시 이미지 업데이트
   useEffect(() => {
@@ -458,10 +492,52 @@ const LabelingPage = () => {
         const pollInterval = 1000; // 1초
         const maxPolls = 300; // 최대 5분 대기
         let pollCount = 0;
+        const startTime = Date.now();
+        const demoSetId = process.env.REACT_APP_DEMO_SET_ID;
+        const demoTimeoutMs = parseInt(process.env.REACT_APP_FLATTEN_TIMEOUT_MS || '5000', 10);
+        const useDemoFallback = process.env.REACT_APP_USE_DEMO_FALLBACK === 'true';
 
         const pollForResult = async () => {
           while (pollCount < maxPolls) {
             pollCount++;
+
+            // [Demo Fallback] 타임아웃 체크 및 데모 이미지 로드 (사용 여부 체크 추가)
+            if (useDemoFallback && demoSetId && (Date.now() - startTime > demoTimeoutMs)) {
+              console.warn('[LabelingPage] Flatten timeout reached. Falling back to demo image from S3.');
+
+              try {
+                // 카테고리 매핑 (Top, Bottom, Outer, Shoes -> 소문자)
+                let categoryLower = (formData.category || '').toLowerCase();
+
+                // Backend Proxy API 호출
+                const proxyUrl = `${API_BASE_URL}/analysis/demo-image?setId=${demoSetId}&category=${categoryLower}`;
+                console.log('[LabelingPage] Fetching demo image via Proxy:', proxyUrl);
+
+                const demoResponse = await fetch(proxyUrl, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!demoResponse.ok) {
+                  throw new Error(`Failed to fetch demo image: ${demoResponse.status}`);
+                }
+
+                const demoBlob = await demoResponse.blob();
+                const demoBase64 = await blobToBase64(demoBlob);
+
+                setFlattenedImages(prev => ({
+                  ...prev,
+                  [targetIndex]: demoBase64,
+                }));
+
+                // 크레딧 차감 시늉이라도 내려면.. 여기서는 생략하거나 필요시 추가
+                return; // 성공 처리 (Polling 중단)
+              } catch (demoError) {
+                console.error('[LabelingPage] Demo fallback failed:', demoError);
+                // 데모 로드 실패 시에도 계속 Polling 유지할지, 아니면 에러로 끝낼지 결정 필요
+                // 여기서는 로그만 남기고 계속 Polling 시도
+              }
+            }
+
             await new Promise(resolve => setTimeout(resolve, pollInterval));
 
             try {

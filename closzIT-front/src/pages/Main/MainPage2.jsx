@@ -4,10 +4,12 @@ import SharedHeader from '../../components/SharedHeader';
 import OutfitRecommender from './OutfitRecommender';
 import ClothDetailModal from '../../components/ClothDetailModal';
 import RecentlyAddedClothes from './RecentlyAddedClothes';
+import RecentOutfits from './RecentOutfits';
 import FittingResult from './FittingResult';
 import { useAppStore } from '../../stores/appStore';
 import { useTabStore, TAB_KEYS } from '../../stores/tabStore';
 import { GiTrousers, GiTShirt, GiMonclerJacket } from 'react-icons/gi';
+import { ResponsivePie } from '@nivo/pie';
 
 
 // 요일 목록
@@ -21,52 +23,7 @@ const categoryMap = {
   shoes: { name: '신발', icon: 'steps', color: '#DAA520' },
 };
 
-// 키워드 필터 옵션 (백엔드 필드명과 일치: tpos, styleMoods, seasons, colors)
-const keywordGroups = [
-  {
-    title: 'TPO',
-    key: 'tpos',
-    options: [
-      { label: '데일리', value: 'Daily' }, { label: '출근', value: 'Commute' },
-      { label: '데이트', value: 'Date' }, { label: '운동', value: 'Sports' },
-      { label: '여행', value: 'Travel' }, { label: '결혼식', value: 'Wedding' },
-      { label: '파티', value: 'Party' }, { label: '학교', value: 'School' },
-      { label: '집', value: 'Home' }
-    ]
-  },
-  {
-    title: '스타일',
-    key: 'styleMoods',
-    options: [
-      { label: '캐주얼', value: 'Casual' }, { label: '스트릿', value: 'Street' },
-      { label: '미니멀', value: 'Minimal' }, { label: '포멀', value: 'Formal' },
-      { label: '스포티', value: 'Sporty' }, { label: '빈티지', value: 'Vintage' },
-      { label: '고프코어', value: 'Gorpcore' }
-    ]
-  },
-  {
-    title: '계절',
-    key: 'seasons',
-    options: [
-      { label: '봄', value: 'Spring' }, { label: '여름', value: 'Summer' },
-      { label: '가을', value: 'Autumn' }, { label: '겨울', value: 'Winter' }
-    ]
-  },
-  {
-    title: '색상',
-    key: 'colors',
-    options: [
-      { label: '블랙', value: 'Black' }, { label: '화이트', value: 'White' },
-      { label: '그레이', value: 'Gray' }, { label: '베이지', value: 'Beige' },
-      { label: '브라운', value: 'Brown' }, { label: '네이비', value: 'Navy' },
-      { label: '블루', value: 'Blue' }, { label: '하늘색', value: 'Sky-blue' },
-      { label: '레드', value: 'Red' }, { label: '핑크', value: 'Pink' },
-      { label: '오렌지', value: 'Orange' }, { label: '옐로우', value: 'Yellow' },
-      { label: '그린', value: 'Green' }, { label: '민트', value: 'Mint' },
-      { label: '퍼플', value: 'Purple' }, { label: '카키', value: 'Khaki' }
-    ]
-  }
-];
+
 
 // 더미 데이터 (날씨 제외)
 const dummyData = {
@@ -162,54 +119,7 @@ const MainPage2 = ({ hideHeader = false }) => {
     shoes: [],
   });
 
-  // 키워드 필터 상태 (백엔드 필드명과 일치)
-  const [isKeywordModalOpen, setIsKeywordModalOpen] = useState(false);
-  const [filterState, setFilterState] = useState({
-    tpos: [],
-    styleMoods: [],
-    seasons: [],
-    colors: [],
-  });
 
-  // 필터링된 옷 목록 계산
-  const filteredClothes = React.useMemo(() => {
-    // 활성화된 필터가 없으면 전체 반환
-    const hasActiveFilters = Object.values(filterState).some(arr => arr.length > 0);
-    if (!hasActiveFilters) return userClothes;
-
-    const result = { ...userClothes };
-    Object.keys(result).forEach(category => {
-      if (!result[category]) return;
-      result[category] = result[category].filter(item => {
-        // 각 활성 필터 그룹에 대해, 아이템이 해당 그룹의 선택된 값 중 하나라도 포함해야 함 (AND 조건)
-        return Object.entries(filterState).every(([key, selectedValues]) => {
-          if (selectedValues.length === 0) return true;
-
-          // 백엔드에서 반환하는 필드명: tpos, styleMoods, seasons, colors
-          // item 객체에서 직접 접근
-          const itemValue = item[key];
-
-          if (!itemValue) return false; // 해당 속성이 없으면 탈락
-
-          const valuesArray = Array.isArray(itemValue) ? itemValue : [itemValue];
-          return selectedValues.some(v => valuesArray.includes(v));
-        });
-      });
-    });
-    return result;
-  }, [userClothes, filterState]);
-
-  // 필터링된 통계 계산
-  const filteredStats = React.useMemo(() => {
-    return {
-      outerwear: filteredClothes.outerwear?.length || 0,
-      tops: filteredClothes.tops?.length || 0,
-      bottoms: filteredClothes.bottoms?.length || 0,
-      shoes: filteredClothes.shoes?.length || 0,
-      total: (filteredClothes.outerwear?.length || 0) + (filteredClothes.tops?.length || 0) +
-        (filteredClothes.bottoms?.length || 0) + (filteredClothes.shoes?.length || 0),
-    };
-  }, [filteredClothes]);
 
   // 스크롤 상태 감지
   const clothesScrollRef = useRef(null);
@@ -390,17 +300,17 @@ const MainPage2 = ({ hideHeader = false }) => {
 
             {/* Unified Dashboard Card */}
             <div
-              className="rounded-[32px] p-5 relative overflow-hidden shadow-soft border border-gold-light/20 bg-white"
+              className="rounded-[32px] p-5 md:p-10 relative overflow-hidden shadow-soft border border-gold-light/20 bg-white"
             >
               {/* Top: Search Trigger Button */}
               <div
                 onClick={() => setIsSearchExpanded(true)}
-                className="w-full h-12 rounded-2xl border border-gold/30 flex items-center px-4 cursor-pointer hover:border-gold/50 transition-all z-10 relative bg-white/40 backdrop-blur-sm mb-4"
+                className="w-full h-12 md:h-14 rounded-2xl border border-gold/30 flex items-center px-4 cursor-pointer hover:border-gold/50 transition-all z-10 relative bg-white/40 backdrop-blur-sm mb-4 md:mb-6"
                 style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.08) 0%, rgba(255,250,240,0.8) 100%)' }}
               >
-                <div className="relative flex-1 h-5 overflow-hidden flex items-center justify-center">
+                <div className="relative flex-1 h-5 md:h-6 overflow-hidden flex items-center justify-center">
                   <span
-                    className={`absolute inset-0 flex items-center justify-center text-sm text-charcoal-light dark:text-cream-dark transition-all duration-500 ease-in-out ${showGreeting && userName
+                    className={`absolute inset-0 flex items-center justify-center text-sm md:text-base text-charcoal-light dark:text-cream-dark transition-all duration-500 ease-in-out ${showGreeting && userName
                       ? 'translate-y-0 opacity-100'
                       : '-translate-y-full opacity-0'
                       }`}
@@ -408,34 +318,34 @@ const MainPage2 = ({ hideHeader = false }) => {
                     반가워요, <span className="text-gold font-semibold ml-1">{userName}</span>님!
                   </span>
                   <span
-                    className={`absolute inset-0 flex items-center justify-center text-sm transition-all duration-500 ease-in-out ${showGreeting && userName
+                    className={`absolute inset-0 flex items-center justify-center text-sm md:text-base transition-all duration-500 ease-in-out ${showGreeting && userName
                       ? 'translate-y-full opacity-0'
                       : 'translate-y-0 opacity-100'
                       } text-charcoal-light dark:text-cream-dark gap-1`}
                   >
-                    오늘 뭐 입지? <span className="text-gold font-semibold">AI에게 추천받기</span>
+                    오늘 뱀 입지? <span className="text-gold font-semibold">AI에게 추천받기</span>
                   </span>
                 </div>
-                <span className="material-symbols-rounded text-gold absolute right-4">search</span>
+                <span className="material-symbols-rounded text-gold text-lg md:text-xl absolute right-4">search</span>
               </div>
 
               {/* Bottom Row: Weather - Character - Schedule */}
               <div className="flex items-end justify-between relative z-10 px-1">
                 {/* Left: Weather */}
                 <div className="flex-1 flex flex-col items-start min-w-0">
-                  <div className="w-12 h-12 rounded-2xl bg-white/60 backdrop-blur-md border border-gold-light/10 shadow-sm flex items-center justify-center mb-2">
-                    <span className="material-symbols-rounded text-2xl text-gold">{getWeatherIcon()}</span>
+                  <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white/60 backdrop-blur-md border border-gold-light/10 shadow-sm flex items-center justify-center mb-2">
+                    <span className="material-symbols-rounded text-2xl md:text-4xl text-gold">{getWeatherIcon()}</span>
                   </div>
                   <div className="text-left">
                     <div className="flex items-center gap-1.5">
-                      <span className="block text-sm font-bold text-charcoal dark:text-cream">
+                      <span className="block text-sm md:text-lg font-bold text-charcoal dark:text-cream">
                         {weather.temperature !== null ? `${weather.temperature}°C` : ''}
                       </span>
-                      <span className="block text-[10px] text-charcoal-light dark:text-cream-dark leading-none mt-0.5">{weather.condition}</span>
+                      <span className="block text-[10px] md:text-sm text-charcoal-light dark:text-cream-dark leading-none mt-0.5">{weather.condition}</span>
                     </div>
-                    <span className="block text-[10px] text-charcoal-light/70 dark:text-cream-dark/70 mt-0.5">{userLocation}</span>
+                    <span className="block text-[10px] md:text-sm text-charcoal-light/70 dark:text-cream-dark/70 mt-0.5">{userLocation}</span>
                   </div>
-                  <p className="text-[10px] text-gold dark:text-gold-light mt-1 text-left font-medium leading-tight break-keep w-full">
+                  <p className="text-[10px] md:text-sm text-gold dark:text-gold-light mt-1 text-left font-medium leading-tight break-keep w-full">
                     {getWeatherTip()}
                   </p>
                 </div>
@@ -453,7 +363,7 @@ const MainPage2 = ({ hideHeader = false }) => {
                   <img
                     src="/dongle.png"
                     alt="동글쿤"
-                    className="w-32 h-auto object-contain drop-shadow-xl"
+                    className="w-32 md:w-48 h-auto object-contain drop-shadow-xl"
                     style={{
                       animation: 'dongleFloat 3s ease-in-out infinite',
                       transformOrigin: 'bottom center'
@@ -463,17 +373,17 @@ const MainPage2 = ({ hideHeader = false }) => {
 
                 {/* Right: Schedule */}
                 <div className="flex-1 flex flex-col items-end">
-                  <div className="w-12 h-12 rounded-2xl bg-white/60 backdrop-blur-md border border-gold-light/10 shadow-sm flex items-center justify-center mb-2">
-                    <span className="material-symbols-rounded text-2xl text-gold">event</span>
+                  <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white/60 backdrop-blur-md border border-gold-light/10 shadow-sm flex items-center justify-center mb-2">
+                    <span className="material-symbols-rounded text-2xl md:text-4xl text-gold">event</span>
                   </div>
                   <div className="text-right w-full">
-                    <span className="block text-[10px] text-charcoal-light dark:text-cream-dark leading-none mb-0.5">다가오는 일정</span>
-                    <span className="block text-xs font-bold text-charcoal dark:text-cream truncate w-full pl-4">
+                    <span className="block text-[10px] md:text-sm text-charcoal-light dark:text-cream-dark leading-none mb-0.5">다가오는 일정</span>
+                    <span className="block text-xs md:text-base font-bold text-charcoal dark:text-cream truncate w-full pl-4">
                       {upcomingEvents.length > 0 ? upcomingEvents[0].title : '없음'}
                     </span>
                   </div>
                   {upcomingEvents.length > 0 && (
-                    <p className="text-[10px] text-gold dark:text-gold-light mt-1 text-right font-medium">
+                    <p className="text-[10px] md:text-sm text-gold dark:text-gold-light mt-1 text-right font-medium">
                       {upcomingEvents[0].date} {upcomingEvents[0].time}
                     </p>
                   )}
@@ -495,45 +405,75 @@ const MainPage2 = ({ hideHeader = false }) => {
               </div>
             )}
 
-            {/* Content Grid: Recently Added */}
-            <div className="flex w-full items-stretch px-1">
-              <RecentlyAddedClothes 
-                userClothes={userClothes}
-                onClothClick={setSelectedClothDetail} 
+            {/* Content Grid: Recently Added + Wardrobe Stats */}
+            <div className="flex w-full items-stretch gap-3 px-1">
+              {/* 최근 등록 옷들 */}
+              <div className="flex-1 w-0 min-w-0">
+                <RecentlyAddedClothes 
+                  userClothes={userClothes}
+                  onClothClick={setSelectedClothDetail} 
                 />
+              </div>
+              
+              {/* 옷장 현황 파이 차트 */}
+              <div 
+                className="flex-1 w-0 min-w-0 rounded-2xl p-3 shadow-soft border border-gold-light/20 flex flex-col justify-between"
+                style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(250,248,245,0.98) 100%)' }}
+              >
+                <h4 className="text-base md:text-xl font-bold text-charcoal flex items-center gap-1.5 pl-1 mb-1">
+                  <span className="material-symbols-rounded text-gold text-lg md:text-2xl">checkroom</span>
+                  옷장 현황
+                  <span className="ml-1 text-[10px] md:text-xs font-medium text-charcoal-light bg-gold/10 px-2 py-0.5 rounded-full">
+                    {(userClothes.outerwear?.length || 0) + (userClothes.tops?.length || 0) + (userClothes.bottoms?.length || 0) + (userClothes.shoes?.length || 0)}벌
+                  </span>
+                </h4>
+                <div className="flex-1 min-h-[140px] md:min-h-[220px] -my-2">
+                  <ResponsivePie
+                    theme={{
+                      labels: {
+                        text: {
+                          fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+                          fontSize: 16,
+                          fontWeight: 600,
+                          fill: '#4A4A4A',
+                        },
+                      },
+                    }}
+                    data={[
+                      { id: '외투', label: '외투', value: userClothes.outerwear?.length || 0, color: '#D4AF37' },
+                      { id: '상의', label: '상의', value: userClothes.tops?.length || 0, color: '#B8860B' },
+                      { id: '하의', label: '하의', value: userClothes.bottoms?.length || 0, color: '#CD853F' },
+                      { id: '신발', label: '신발', value: userClothes.shoes?.length || 0, color: '#DAA520' },
+                    ].filter(d => d.value > 0)}
+                    margin={{ top: 20, right: 30, bottom: 20, left: 30 }}
+                    innerRadius={0.5}
+                    padAngle={0.6}
+                    cornerRadius={2}
+                    activeOuterRadiusOffset={8}
+                    colors={{ datum: 'data.color' }}
+                    borderWidth={1}
+                    borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
+                    arcLinkLabelsSkipAngle={10}
+                    arcLinkLabelsTextColor="#333333"
+                    arcLinkLabelsThickness={2}
+                    arcLinkLabelsColor={{ from: 'color' }}
+                    arcLabelsSkipAngle={10}
+                    arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
+                    arcLabel={d => d.value}
+                    tooltip={({ datum }) => (
+                      <div className="bg-white px-2 py-1 rounded shadow-lg text-xs font-medium">
+                        {datum.id}: {datum.value}벌
+                      </div>
+                    )}
+                  />
+                </div>
+              </div>
             </div>
 
-
-
-
-            {/* 슬라이드 인 + 흔들흔들 애니메이션 */}
-            <style>
-              {`
-            @keyframes appearSwingFromRight {
-              0% { opacity: 0; transform: translateX(100vw) rotate(5deg); } /* 화면 너비만큼 이동 */
-              50% { opacity: 1; transform: translateX(0) rotate(-3deg); }
-              70% { transform: rotate(2deg); }
-              85% { transform: rotate(-1deg); }
-              100% { transform: rotate(0); }
-            }
-            
-            @keyframes slideInRail {
-              0% { opacity: 0; transform: translateX(100%); }
-              100% { opacity: 1; transform: translateX(0); }
-            }
-            
-            @keyframes slideInSimpleRight {
-              0% { opacity: 0; transform: translateX(100vw); } /* 화면 너비만큼 이동 */
-              100% { opacity: 1; transform: translateX(0); }
-            }
-            
-            @keyframes idleSwing {
-              0%, 100% { transform: rotate(0deg); }
-              25% { transform: rotate(2.5deg); }
-              75% { transform: rotate(-2.5deg); }
-            }
-          `}
-            </style>
+            {/* Recent Outfits Section */}
+            <div className="px-1">
+              <RecentOutfits onClothClick={setSelectedClothDetail} />
+            </div>
 
           </main>
         )}
@@ -587,82 +527,7 @@ const MainPage2 = ({ hideHeader = false }) => {
         />
       )}
 
-      {/* ========== Keyword Filter Modal ========== */}
-      {isKeywordModalOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center animate-fadeIn"
-          onClick={() => setIsKeywordModalOpen(false)}
-        >
-          <div
-            className="bg-warm-white dark:bg-charcoal w-full max-w-sm sm:rounded-3xl rounded-t-3xl shadow-2xl overflow-hidden animate-slideUp sm:animate-slideDown max-h-[85vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-gold-light/20 flex items-center justify-between bg-white/50 backdrop-blur-sm relative z-10">
-              <h3 className="text-lg font-bold text-charcoal dark:text-cream">키워드로 옷 찾기</h3>
-              <button
-                onClick={() => {
-                  setFilterState({ tpos: [], styleMoods: [], seasons: [], colors: [] });
-                }}
-                className="text-xs text-gold underline font-medium"
-              >
-                초기화
-              </button>
-            </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {keywordGroups.map((group) => (
-                <div key={group.key}>
-                  <h4 className="text-sm font-bold text-charcoal dark:text-cream mb-3 flex items-center gap-2">
-                    <span className="w-1 h-4 bg-gold rounded-full"></span>
-                    {group.title}
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {group.options.map((option) => {
-                      const isSelected = filterState[group.key].includes(option.value);
-                      return (
-                        <button
-                          key={option.value}
-                          onClick={() => {
-                            setFilterState(prev => {
-                              const current = prev[group.key];
-                              const updated = current.includes(option.value)
-                                ? current.filter(v => v !== option.value)
-                                : [...current, option.value];
-                              return { ...prev, [group.key]: updated };
-                            });
-                          }}
-                          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${isSelected
-                            ? 'bg-gold text-white border-gold shadow-md transform scale-105'
-                            : 'bg-white dark:bg-charcoal-light border-gold-light/20 text-charcoal-light dark:text-cream-dark hover:border-gold/50'
-                            }`}
-                        >
-                          {option.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Footer */}
-            <div className="p-4 border-t border-gold-light/20 bg-white/50 backdrop-blur-sm safe-area-pb">
-              <button
-                onClick={() => setIsKeywordModalOpen(false)}
-                className="w-full py-3.5 bg-gradient-to-r from-gold to-gold-dark text-white rounded-xl font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
-              >
-                {/* 필터 적용된 총 개수 계산 */}
-                {(() => {
-                  const total = Object.values(filteredClothes).reduce((acc, list) => acc + list.length, 0);
-                  return `${total}벌의 옷 결과 보기`;
-                })()}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
 
     </div>

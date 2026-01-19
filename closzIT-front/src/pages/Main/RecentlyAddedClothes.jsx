@@ -5,12 +5,12 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 const ClothItem = ({ cloth, onClick }) => (
   <div
     onClick={() => onClick && onClick(cloth)}
-    className="flex-shrink-0 flex flex-col items-center cursor-pointer group w-20"
+    className="flex-shrink-0 flex flex-col items-center cursor-pointer group w-20 md:w-28"
   >
-    <div className="w-12 h-12 -mb-5 relative z-20 transition-transform duration-300 group-hover:-translate-y-1">
+    <div className="w-12 h-12 md:w-20 md:h-20 -mb-5 md:-mb-7 relative z-20 transition-transform duration-300 group-hover:-translate-y-1">
       <img src="/assets/hook.png" alt="hook" className="w-full h-full object-contain drop-shadow-sm" />
     </div>
-    <div className="w-20 h-24 rounded-lg overflow-hidden border border-gold-light/20 shadow-md relative bg-white z-10 group-hover:shadow-lg transition-all duration-300">
+    <div className="w-20 h-24 md:w-28 md:h-32 rounded-lg overflow-hidden border border-gold-light/20 shadow-md relative bg-white z-10 group-hover:shadow-lg transition-all duration-300">
       <img
         src={cloth.imageUrl || cloth.image}
         alt={cloth.name}
@@ -27,8 +27,8 @@ const RecentlyAddedClothes = ({ userClothes, onClothClick }) => {
   const containerRef = useRef(null);
   const scrollRef = useRef(null);
 
-  // 아이템 크기 상수 (w-20 = 80px, gap-4 = 16px)
-  const ITEM_WIDTH = 80;
+  // 아이템 크기 상수 (w-28 = 112px, gap-4 = 16px)
+  const ITEM_WIDTH = 112;
   const GAP = 16;
 
   // props로 전달받은 userClothes에서 최근 등록 아이템 계산
@@ -80,18 +80,18 @@ const RecentlyAddedClothes = ({ userClothes, onClothClick }) => {
   if (recentClothes.length === 0) return null;
 
   return (
-    <div className="mt-4 px-1 w-1/2">
+    <div className="w-full h-full">
       <div
-        className="rounded-[28px] p-3 shadow-soft border border-gold/30 relative overflow-hidden flex flex-col bg-white backdrop-blur-sm min-h-[160px] h-full"
+        className="rounded-[28px] p-3 shadow-soft border border-gold/30 relative overflow-hidden flex flex-col bg-white backdrop-blur-sm min-h-[160px] md:min-h-[240px] h-full"
       >
-        <h3 className="text-base font-bold text-charcoal dark:text-cream flex items-center gap-1.5 mb-1 flex-shrink-0 pl-1 z-10 relative">
-          <span className="material-symbols-rounded text-gold text-lg">new_releases</span>
+        <h3 className="text-base md:text-xl font-bold text-charcoal dark:text-cream flex items-center gap-1.5 mb-1 flex-shrink-0 pl-1 z-10 relative">
+          <span className="material-symbols-rounded text-gold text-lg md:text-2xl">new_releases</span>
           최근 등록
         </h3>
 
         {/* 옷봉 (Rail) */}
         <div
-          className="absolute top-[3.5rem] left-0 right-0 h-1.5 z-0"
+          className="absolute top-[3.5rem] md:top-[4.5rem] left-0 right-0 h-1.5 md:h-2 z-0"
           style={{
             background: 'linear-gradient(180deg, #4A4A4A 0%, #2D2D2D 50%, #1A1A1A 100%)',
             boxShadow: '0 1px 2px rgba(0,0,0,0.3)'
