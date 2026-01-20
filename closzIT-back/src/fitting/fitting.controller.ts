@@ -528,6 +528,9 @@ export class FittingController {
         });
       }
 
+      // 5초 대기 (즉시 반환이 어색하므로 자연스러운 UX를 위해)
+      await new Promise(resolve => setTimeout(resolve, 5000));
+
       // S3 URL을 Pre-signed URL로 변환
       const presignedUrl = await this.s3Service.convertToPresignedUrl(cachedResult.s3Url);
       return {
@@ -660,6 +663,9 @@ export class FittingController {
           data: { isVisible: true },
         });
       }
+
+      // 2초 대기 (즉시 반환이 어색하므로 자연스러운 UX를 위해)
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       const presignedUrl = await this.s3Service.convertToPresignedUrl(cachedResult.s3Url);
       return {
