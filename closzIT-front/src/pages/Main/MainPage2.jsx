@@ -323,7 +323,7 @@ const MainPage2 = ({ hideHeader = false }) => {
                       : 'translate-y-0 opacity-100'
                       } text-charcoal-light dark:text-cream-dark gap-1`}
                   >
-                    오늘 뱀 입지? <span className="text-gold font-semibold">AI에게 추천받기</span>
+                    오늘 뭐 입지? <span className="text-gold font-semibold">AI에게 추천받기</span>
                   </span>
                 </div>
                 <span className="material-symbols-rounded text-gold text-lg md:text-xl absolute right-4">search</span>
@@ -434,8 +434,8 @@ const MainPage2 = ({ hideHeader = false }) => {
                         text: {
                           fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
                           fontSize: 16,
-                          fontWeight: 600,
-                          fill: '#4A4A4A',
+                          fontWeight: 700,
+                          fill: '#FFFFFF',
                         },
                       },
                     }}
@@ -458,7 +458,7 @@ const MainPage2 = ({ hideHeader = false }) => {
                     arcLinkLabelsThickness={2}
                     arcLinkLabelsColor={{ from: 'color' }}
                     arcLabelsSkipAngle={10}
-                    arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
+                    arcLabelsTextColor="#FFFFFF"
                     arcLabel={d => d.value}
                     tooltip={({ datum }) => (
                       <div className="bg-white px-2 py-1 rounded shadow-lg text-xs font-medium">

@@ -122,7 +122,7 @@ const BottomNav = ({ floatingAction }) => {
       )}
 
       {/* Bottom Navigation - 3 buttons */}
-      <div className="fixed bottom-0 left-0 right-0 h-24 glass-warm border-t border-gold-light/20 flex items-center justify-evenly gap-16 px-4 z-50 safe-area-pb">
+      <div className="fixed bottom-0 left-0 right-0 h-20 glass-warm border-t border-gold-light/20 flex items-center justify-evenly gap-16 px-4 z-50 safe-area-pb">
         {/* 내 옷장 */}
         <button
           onClick={() => handleTabClick(TAB_KEYS.MAIN, '/main')}
@@ -132,7 +132,7 @@ const BottomNav = ({ floatingAction }) => {
               : 'text-charcoal-light dark:text-cream-dark hover:text-gold'
           }`}
         >
-          <span className="material-symbols-rounded text-[42px]">person</span>
+          <span className="material-symbols-rounded text-[30px]">person</span>
           <span className="text-[16px] font-semibold">Me</span>
         </button>
 
@@ -145,7 +145,7 @@ const BottomNav = ({ floatingAction }) => {
               : 'text-charcoal-light dark:text-cream-dark hover:text-gold'
           }`}
         >
-          <span className="material-symbols-rounded text-[42px]">styler</span>
+          <span className="material-symbols-rounded text-[30px]">styler</span>
           <span className="text-[16px] font-semibold">옷장&피팅룸</span>
         </button>
 
@@ -158,7 +158,7 @@ const BottomNav = ({ floatingAction }) => {
               : 'text-charcoal-light dark:text-cream-dark hover:text-gold'
           }`}
         >
-          <span className="material-symbols-rounded text-[42px]">grid_view</span>
+          <span className="material-symbols-rounded text-[30px]">grid_view</span>
           <span className="text-[16px] font-semibold">SNS</span>
         </button>
       </div>
