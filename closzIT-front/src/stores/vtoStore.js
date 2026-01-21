@@ -491,7 +491,10 @@ export const useVtoStore = create((set, get) => ({
                 }
                 throw new Error('VTO 작업 시간이 초과되었습니다.');
             } else if (queueResult.success && queueResult.imageUrl) {
-                // 캐시 히트 또는 즉시 완료 - 백엔드에서 S3+DB에 자동 저장됨
+                // 캐시 히트 또는 즉시 완료 - 5초 대기 후 결과 표시 (자연스러운 UX)
+                console.log('[Partial VTO] Cache hit, waiting 5 seconds for natural UX');
+                await new Promise(resolve => setTimeout(resolve, 5000));
+
                 get().refreshVtoData();
                 get().setToastMessage('착장 완료!');
                 return queueResult;
