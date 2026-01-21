@@ -279,7 +279,10 @@ export const useVtoStore = create((set, get) => ({
                 }
                 throw new Error('VTO 작업 시간이 초과되었습니다.');
             } else if (queueResult.success && queueResult.imageUrl) {
-                // 캐시 히트된 경우 - DB에서 refreshVtoData로 가져옴
+                // 캐시 히트된 경우 - 5초 대기 후 결과 표시 (자연스러운 UX)
+                console.log('[VTO] Cache hit, waiting 5 seconds for natural UX');
+                await new Promise(resolve => setTimeout(resolve, 5000));
+
                 set((state) => ({
                     vtoCompletedPosts: new Set([...state.vtoCompletedPosts, postId])
                 }));
