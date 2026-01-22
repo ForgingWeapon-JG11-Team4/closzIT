@@ -1,107 +1,370 @@
-# CloszIT
+<p align="center">
+  <img src="closzIT-front/public/assets/closzit-mascot.png" alt="CloszIT Logo" width="120" />
+</p>
 
-AI 기반 개발 워크플로우가 적용된 프로젝트입니다.
+<h1 align="center">CloszIT</h1>
+
+<p align="center">
+  <strong>내 손안의 스마트 옷장 — AI 기반 디지털 옷장 & 가상 피팅 플랫폼</strong>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/React-18.2.0-61DAFB?logo=react" alt="React" />
+  <img src="https://img.shields.io/badge/NestJS-11.0-E0234E?logo=nestjs" alt="NestJS" />
+  <img src="https://img.shields.io/badge/Prisma-5.22-2D3748?logo=prisma" alt="Prisma" />
+  <img src="https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?logo=postgresql" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/PWA-Enabled-5A0FC8" alt="PWA" />
+</p>
 
 ---
 
-## 🚀 Quick Start
+## 📋 목차
 
-### 커밋 & 푸시 (터미널)
+- [아키텍처 개요](#아키텍처-개요)
+- [핵심 기능](#핵심-기능)
+- [기술 심층 분석](#기술-심층-분석)
+- [기술 스택](#기술-스택)
+- [설치 및 실행](#설치-및-실행)
+- [프로젝트 구조](#프로젝트-구조)
+- [환경 변수](#환경-변수)
+
+---
+
+## 🏗️ 아키텍처 개요
+
+CloszIT은 **React PWA 프론트엔드**, **NestJS 백엔드**, 그리고 **AI 서빙 레이어** 간의 명확하게 분리된 3-tier 아키텍처로 구성됩니다.
+
+```
+📱 Frontend     ➜     🔧 Backend     ➜     🗄️ Data
+React + Zustand       NestJS + BullMQ       PostgreSQL + S3
+                            ↓
+                      🤖 AI Services
+                   FastAPI / Gemini / Bedrock
+```
+
+### 데이터 흐름 핵심 포인트
+
+| 레이어 | 기술 | 역할 |
+|--------|------|------|
+| **프론트엔드** | React 18 + Zustand | 상태 관리, 폴링 기반 VTO 결과 조회 |
+| **백엔드** | NestJS + Prisma | 비즈니스 로직, 큐 관리, OAuth |
+| **작업 큐** | BullMQ + Redis | GPU 집약적 VTO 작업의 비동기 처리 |
+| **데이터베이스** | PostgreSQL + pgvector | 벡터 유사도 기반 코디 추천 |
+| **AI 서빙** | FastAPI + Gemini + Bedrock | 옷 분석, 가상 피팅, TPO 추출 |
+
+---
+
+## ✨ 핵심 기능
+
+### 🎨 AI 옷장 (AI Wardrobe)
+
+| 기능 | 설명 | 구현 위치 |
+|------|------|----------|
+| **AI 의류 분석** | YOLO + CLIP 기반 카테고리, 색상, 패턴, 스타일 자동 감지 | `analysis.service.ts` |
+| **옷 펴기 (Flatten)** | Google Gemini로 플랫레이 이미지 생성 | `analysis.service.ts` → `flattenClothing()` |
+| **등록 옵션** | 앨범/카메라/웹캡처/바코드 스캔 지원 | `RegisterPage.jsx` |
+| **벡터 임베딩** | FashionSigLIP 기반 이미지 임베딩 저장 (pgvector) | `clothing.prisma` → `image_embedding` |
+| **착용 추적** | 착용 횟수, 마지막 착용일 자동 기록 | `outfit-log.prisma` |
+
+### 👔 가상 피팅룸 (Virtual Fitting Room)
+
+| 기능 | 설명 | 구현 위치 |
+|------|------|----------|
+| **전체 코디 VTO** | 상의/하의/아우터/신발 조합 가상 착용 | `fitting.controller.ts` → `partialTryOnByIds()` |
+| **SNS 게시물 VTO** | 다른 사용자 게시물의 코디를 내 체형에 입어보기 | `fitting.controller.ts` → `snsFullTryOn()` |
+| **단일 아이템 VTO** | 개별 옷 원클릭 입어보기 | `fitting.controller.ts` → `singleItemTryOn()` |
+| **큐 기반 처리** | BullMQ로 GPU 작업 비동기 처리 (최대 300초 폴링) | `vto.processor.ts` |
+| **결과 캐싱** | S3 저장 + DB 캐시로 동일 조합 즉시 반환 | `vto-cache.prisma` → `hashKey` |
+
+### 🧠 스마트 추천 (Smart Recommendations)
+
+| 기능 | 설명 | 구현 위치 |
+|------|------|----------|
+| **RAG 기반 코디 검색** | TPO + 날씨 + 스타일 컨텍스트 기반 추천 | `rag-search.service.ts` |
+| **벡터 유사도 검색** | pgvector 코사인 유사도로 유사 옷 찾기 | `vector-db.service.ts` |
+| **규칙 기반 스코어링** | TPO/계절/색상 조화 규칙 적용 | `scoring.service.ts` (12KB) |
+| **캘린더 연동** | Google Calendar 일정 기반 TPO 자동 추출 | `calendar.service.ts` |
+| **날씨 반영** | 사용자 위치 기반 날씨 조회 → 계절/날씨 필터링 | `weather.service.ts` |
+| **피드백 학습** | 수락/거절 기록 → 옷 평점 조정 | `feedback.service.ts` |
+
+### 💳 크레딧 시스템
+
+| 기능 | 크레딧 | 설명 |
+|------|--------|------|
+| **회원가입** | +10 | 초기 지급 |
+| **옷 등록** | +1 | 옷 등록 시 적립 |
+| **VTO 사용** | -3 | 가상 피팅당 차감 |
+| **옷 펴기** | -1 | Flatten당 차감 |
+| **구매** | +N | 카카오페이 결제 |
+
+> 모든 크레딧 작업은 `idempotencyKey`로 **멱등성** 보장
+
+### 📱 SNS 피드
+
+| 기능 | 설명 | 구현 위치 |
+|------|------|----------|
+| **코디 게시** | 내 옷장 옷들로 구성된 코디 공유 | `posts.controller.ts` |
+| **좋아요/댓글** | 낙관적 업데이트 적용 | `FeedPage.jsx` |
+| **팔로우** | 다른 사용자 팔로우/언팔로우 | `follow.service.ts` |
+| **코디 입어보기** | 게시물 코디를 VTO로 내 체형에 적용 | `vtoStore.requestVto()` |
+
+---
+
+## 🔬 기술 심층 분석
+
+### 1. 큐 기반 VTO 처리 (BullMQ)
+
+VTO는 GPU 집약적 작업으로, 동기 처리 시 30초 이상 소요됩니다. BullMQ를 통한 비동기 처리로 사용자 경험을 개선합니다.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant API as NestJS API
+    participant Q as BullMQ (Redis)
+    participant P as VtoProcessor
+    participant AI as IDM-VTON API
+    participant S3 as AWS S3
+    
+    C->>API: POST /partial-try-on-by-ids
+    API->>API: 크레딧 확인 (3크레딧)
+    API->>Q: 작업 큐잉 (jobId 발급)
+    API-->>C: { jobId, status: "queued" }
+    
+    loop 1초마다 폴링 (최대 300회)
+        C->>API: GET /queue/job/vto/{jobId}
+        API-->>C: { status: "pending" }
+    end
+    
+    Q->>P: 작업 처리
+    P->>AI: POST /try-on (Base64 이미지)
+    AI-->>P: 결과 이미지
+    P->>S3: 결과 업로드
+    P->>P: VtoCache 저장 (Prisma)
+    P->>P: 크레딧 차감
+    
+    C->>API: GET /queue/job/vto/{jobId}
+    API-->>C: { status: "completed", imageUrl }
+```
+
+**핵심 구현:**
+- `queue.module.ts`: BullMQ 설정 (Redis 연결)
+- `vto.processor.ts`: VTO 작업 처리 로직
+- `vtoStore.js`: 프론트엔드 폴링 및 상태 관리
+
+### 2. RAG 기반 코디 추천
+
+하이브리드 검색 전략으로 개인화된 코디를 추천합니다.
+
+```
+TPO/날씨/스타일  ➜  Vector Search  ➜  Scoring  ➜  Outfit 조합
+```
+
+**핵심 구현:**
+- `rag-search.service.ts`: 통합 검색 오케스트레이션
+- `vector-db.service.ts`: pgvector 쿼리 빌더
+- `scoring.service.ts`: 규칙 기반 점수 계산
+
+### 3. 프론트엔드 상태 관리 (Zustand + SWR 패턴)
+
+```javascript
+// appStore.js - Stale-While-Revalidate 패턴
+fetchUpcomingEvents: async (force = false) => {
+    const { eventsLastFetchedAt, upcomingEvents } = get();
+    const cacheValid = eventsLastFetchedAt && 
+                       (Date.now() - eventsLastFetchedAt < 5 * 60 * 1000);
+    
+    // 캐시 유효 → 즉시 반환, 백그라운드 갱신
+    if (!force && cacheValid) return;
+    
+    // 캐시된 데이터 있으면 로딩 없이 표시 (Stale)
+    if (upcomingEvents.length > 0) {
+        // 백그라운드 갱신 (Revalidate)
+    }
+    // ... API 호출
+}
+```
+
+**4개 Zustand 스토어:**
+| 스토어 | 캐시 전략 | 역할 |
+|--------|----------|------|
+| `appStore` | 날씨 1시간, 일정 5분 | 전역 앱 상태 |
+| `userStore` | 5분 + 요청 시 갱신 | 인증/프로필/크레딧 |
+| `tabStore` | 세션 | 탭 네비게이션 + 지연 로딩 |
+| `vtoStore` | sessionStorage | VTO 결과 + 폴링 상태 |
+
+### 4. 결제 정합성 (Outbox Pattern)
+
+카카오페이 결제 후 크레딧 지급의 **최종 일관성**을 보장합니다.
+
+```
+결제 승인  ➜  Outbox  ➜  Processor  ➜  Credit 지급
+```
+
+---
+
+## 🛠️ 기술 스택
+
+### Frontend
+
+| 카테고리 | 기술 | 버전 | 용도 |
+|---------|------|------|------|
+| **Core** | React | 18.2.0 | UI 프레임워크 |
+| **State** | Zustand | 5.0.10 | 전역 상태 관리 |
+| **Styling** | TailwindCSS | 3.3.6 | 유틸리티 CSS (럭셔리 테마) |
+| **Routing** | React Router | 6.30.3 | SPA 라우팅 |
+| **PWA** | Workbox | 6.6.0 | 오프라인 지원 |
+| **Charts** | @nivo/pie | 0.99.0 | 옷장 통계 차트 |
+| **HTTP** | Axios | 1.13.2 | API 통신 |
+| **Barcode** | html5-qrcode | 2.3.8 | 바코드 스캔 |
+
+### Backend
+
+| 카테고리 | 기술 | 버전 | 용도 |
+|---------|------|------|------|
+| **Core** | NestJS | 11.0.1 | 모듈형 백엔드 |
+| **ORM** | Prisma | 5.22.0 | 타입 안전 DB 접근 |
+| **Database** | PostgreSQL + pgvector | - | 벡터 유사도 검색 |
+| **Queue** | BullMQ | 5.66.5 | 비동기 작업 큐 |
+| **Cache** | Redis | - | 큐 백엔드 |
+| **Auth** | Passport + JWT | 0.7.0 | 인증 |
+| **Storage** | AWS S3 | 3.965.0 | 이미지 저장 |
+| **Scraping** | Puppeteer | 24.35.0 | 웹 캡처 |
+
+### AI Integrations
+
+| 서비스 | 용도 | 엔드포인트 |
+|--------|------|-----------|
+| **FastAPI** | YOLO 감지, CLIP 분류, FashionSigLIP 임베딩 | `FASTAPI_URL` |
+| **IDM-VTON** | 가상 피팅 (DensePose + Diffusion) | `VTON_API_URL` |
+| **Google GenAI** | Gemini - 옷 펴기, TPO 추출 | `GOOGLE_API_KEY` |
+| **AWS Bedrock** | Claude - 로직 처리 | `AWS_REGION` |
+
+---
+
+## 🚀 설치 및 실행
+
+### 사전 요구사항
+
+- Node.js 18+
+- PostgreSQL 15+ (pgvector 확장 설치)
+- Redis 7+
+- PNPM / NPM
+
+### Backend 설정
 
 ```bash
-# 변경사항 스테이징 → AI 커밋 → 푸시 (원라이너)
-git add . && oco && git push
+cd closzIT-back
+
+# 의존성 설치
+npm install
+
+# 환경 변수 설정
+cp .env.example .env
+# .env 파일 수정 (DB, Redis, AI 서버 URL 등)
+
+# Prisma 마이그레이션
+npx prisma generate
+npx prisma migrate deploy
+
+# 개발 서버 실행
+npm run start:dev
 ```
 
-### PR 생성
+### Frontend 설정
 
 ```bash
-gh pr create --title "feat: 기능 설명" --body "상세 설명" --base main
+cd closzIT-front
+
+# 의존성 설치
+npm install
+
+# 환경 변수 설정
+# .env.development 또는 .env.production 확인
+
+# 개발 서버 실행
+npm start
 ```
 
----
+### 환경 변수 (Backend)
 
-## 🤖 AI 자동화 기능
+```env
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/closzit
 
-### 1. AI 커밋 메시지 (OpenCommit)
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
 
-변경사항을 분석하여 **Conventional Commit** 형식의 커밋 메시지를 자동 생성합니다.
+# AI Servers
+FASTAPI_URL=http://localhost:8000      # YOLO/CLIP/Embedding
+VTON_API_URL=http://localhost:8001     # IDM-VTON
 
-| 명령어 | 설명 |
-|--------|------|
-| `oco` | AI 커밋 메시지 생성 + 커밋 실행 |
+# AWS
+AWS_REGION=ap-northeast-1
+AWS_S3_BUCKET=closzit-images
+AWS_S3_REGION=ap-northeast-2
 
-**사용 예시:**
-```bash
-git add .
-oco
-# 🤖 AI가 변경사항 분석 후 커밋 메시지 제안
-# feat: 사용자 인증 기능 추가
+# Auth
+JWT_SECRET=your-secret-key
+GOOGLE_API_KEY=your-gemini-key
 ```
 
-### 2. AI 코드 리뷰 (GitHub Actions)
+### 환경 변수 (Frontend)
 
-PR이 생성되면 **자동으로 코드 리뷰**가 실행됩니다.
-
-| 트리거 | 확인 위치 |
-|--------|-----------|
-| PR 생성/업데이트 시 자동 | GitHub PR 코멘트 |
-
-**리뷰 내용:**
-- 🔍 코드 리뷰 요약
-- ✅ 잘된 부분
-- ⚠️ 개선 제안
-- 💡 추가 권장사항
-
----
-
-## 📋 개발 워크플로우
-
+```env
+REACT_APP_BACKEND_URL=http://localhost:3000
+REACT_APP_DEMO_SET_ID=1
+REACT_APP_FLATTEN_TIMEOUT_MS=5000
+REACT_APP_USE_DEMO_FALLBACK=false
 ```
-1. 브랜치 생성      git checkout -b feature/기능명
-2. 코드 작업        (개발)
-3. 스테이징         git add .
-4. AI 커밋          oco
-5. 푸시             git push origin feature/기능명
-6. PR 생성          gh pr create --base main
-7. 🤖 AI 리뷰 확인   GitHub PR 페이지
-8. 머지             (리뷰 후)
-```
-
----
-
-## ⚙️ 초기 설정
-
-### OpenCommit 설치 (최초 1회)
-
-```bash
-npm install -g opencommit
-oco config set OCO_AI_PROVIDER=gemini
-oco config set OCO_API_KEY=<YOUR_GEMINI_API_KEY>
-```
-
-### GitHub Secrets 설정
-
-Repository Settings → Secrets → Actions에 추가:
-- `GEMINI_API_KEY`: Gemini API 키
-
----
-
-## 🌿 브랜치 전략
-
-| 브랜치 | 용도 |
-|--------|------|
-| `main` | 프로덕션 (직접 커밋 금지) |
-| `develop` | 개발 통합 브랜치 |
-| `feature/*` | 기능 개발 |
-| `hotfix/*` | 긴급 수정 |
 
 ---
 
 ## 📁 프로젝트 구조
 
 ```
-.agent/workflows/     # AI 에이전트 워크플로우 정의
-.github/workflows/    # GitHub Actions (AI 코드 리뷰)
-.husky/               # Git hooks
+closzIT/
+├── closzIT-front/                 # React PWA Frontend
+│   ├── src/
+│   │   ├── components/            # 13개 재사용 컴포넌트
+│   │   ├── pages/                 # 30+ 페이지
+│   │   ├── stores/                # 4개 Zustand 스토어
+│   │   └── utils/                 # VTO 스토리지 유틸
+│   └── public/                    # PWA 매니페스트
+│
+├── closzIT-back/                  # NestJS Backend
+│   ├── src/
+│   │   ├── auth/                  # Google OAuth + JWT
+│   │   ├── fitting/               # VTO 엔드포인트 (1039줄)
+│   │   ├── recommendation/        # RAG 추천 (5개 서비스)
+│   │   ├── queue/                 # BullMQ 프로세서
+│   │   ├── credit/                # 멱등 크레딧 시스템
+│   │   ├── payment/               # 카카오페이 Outbox
+│   │   └── ...                    # 22개 모듈
+│   └── prisma/
+│       └── schema/                # 12개 모듈화 스키마
+│
+└── README.md
 ```
+
+---
+
+## 📊 데이터베이스 스키마
+
+### 주요 테이블
+
+| 테이블 | 설명 |
+|--------|------|
+| `users` | 사용자 (OAuth, 프로필, 크레딧) |
+| `clothes` | 옷 (임베딩, 카테고리, 착용 이력) |
+| `posts` | SNS 게시물 |
+| `vto_cache` | VTO 결과 캐시 (해시키 기반) |
+| `credit_history` | 크레딧 거래 이력 (멱등키 포함) |
+| `kakao_payments` | 결제 기록 (Outbox 패턴) |
+| `outfit_logs` | 착장 기록 |
+
+---
+
+<p align="center">
+  <strong>CloszIT</strong> — 내 손안의 스마트 옷장 🧥✨
+</p>
