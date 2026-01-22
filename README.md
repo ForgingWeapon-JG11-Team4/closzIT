@@ -36,49 +36,56 @@ CloszIT은 **React PWA 프론트엔드**, **NestJS 백엔드**, 그리고 **AI �
 
 ```mermaid
 flowchart TB
-    subgraph Client["👤 사용자 (PWA)"]
-        PWA[React 18 Frontend]
+    subgraph Client["🧑‍💻 Client Layer"]
+        PWA["React 18 PWA"]
     end
 
-    subgraph Frontend["🖥️ React 18 Frontend"]
+    subgraph Frontend["📱 Frontend - Zustand Stores"]
         direction LR
-        appStore["appStore<br/>날씨/캘린더"]
-        userStore["userStore<br/>인증/크레딧"]
-        tabStore["tabStore<br/>탭 네비"]
-        vtoStore["vtoStore<br/>VTO 상태"]
+        appStore["appStore"]
+        userStore["userStore"]
+        tabStore["tabStore"]
+        vtoStore["vtoStore"]
     end
 
-    subgraph Backend["⚙️ NestJS Backend (22 모듈)"]
-        direction TB
-        subgraph Modules["핵심 모듈"]
-            direction LR
-            Auth["Auth<br/>OAuth"]
-            Fitting["Fitting<br/>VTO"]
-            Recommendation["Recommendation<br/>RAG"]
-            Credit["Credit<br/>멱등 처리"]
-            Payment["Payment<br/>카카오페이"]
-        end
-        Queue["BullMQ + Redis<br/>작업 큐"]
-    end
-
-    subgraph Infra["🗄️ Infrastructure"]
+    subgraph Backend["🔧 Backend - NestJS"]
         direction LR
-        PostgreSQL["PostgreSQL<br/>+ pgvector"]
-        S3["AWS S3<br/>이미지"]
-        AIServer["AI 서버"]
+        Auth["Auth"]
+        Fitting["Fitting"]
+        Rec["Recommendation"]
+        Credit["Credit"]
+        Payment["Payment"]
+    end
+
+    subgraph Queue["⚡ Job Queue"]
+        BullMQ["BullMQ + Redis"]
+    end
+
+    subgraph Database["🗄️ Data Layer"]
+        direction LR
+        PG["PostgreSQL + pgvector"]
+        S3["AWS S3"]
     end
 
     subgraph AI["🤖 AI Services"]
         direction LR
-        FastAPI["FastAPI<br/>YOLO/CLIP"]
-        Gemini["Google GenAI<br/>Gemini"]
-        Bedrock["AWS Bedrock<br/>Claude"]
+        FastAPI["FastAPI"]
+        Gemini["Gemini"]
+        Bedrock["Bedrock"]
     end
 
     Client --> Frontend
     Frontend --> Backend
-    Backend --> Infra
-    AIServer --> AI
+    Backend --> Queue
+    Queue --> Database
+    Backend --> AI
+
+    style Client fill:#e1f5fe,stroke:#01579b,color:#01579b
+    style Frontend fill:#f3e5f5,stroke:#7b1fa2,color:#7b1fa2
+    style Backend fill:#fff3e0,stroke:#e65100,color:#e65100
+    style Queue fill:#ffebee,stroke:#c62828,color:#c62828
+    style Database fill:#e8f5e9,stroke:#2e7d32,color:#2e7d32
+    style AI fill:#fce4ec,stroke:#ad1457,color:#ad1457
 ```
 
 ### 데이터 흐름 핵심 포인트
@@ -197,26 +204,29 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     subgraph Context["📋 입력 컨텍스트"]
-        TPO["TPO<br/>데이트"]
-        Weather["날씨<br/>15°C, 맑음"]
-        Style["스타일<br/>캐주얼"]
-        Query["쿼리<br/>자유 입력"]
+        direction LR
+        TPO["TPO"]
+        Weather["날씨"]
+        Style["스타일"]
+        Query["쿼리"]
     end
 
-    Context --> VectorSearch
-
-    VectorSearch["🔍 Vector Similarity Search<br/>pgvector 코사인 유사도 + 필터링"]
-    
+    Context --> VectorSearch["🔍 Vector Search"]
     VectorSearch --> Scoring
 
-    subgraph Scoring["📊 Rule-based Scoring"]
-        Score1["TPO 매칭: +30점"]
-        Score2["계절 적합: +20점"]
-        Score3["색상 조화: +15점"]
-        Score4["착용 빈도 반영"]
+    subgraph Scoring["📊 Scoring"]
+        direction LR
+        S1["TPO +30"]
+        S2["계절 +20"]
+        S3["색상 +15"]
     end
 
-    Scoring --> Assembly["👔 Outfit Assembly<br/>상의 + 하의 + 아우터 + 신발 조합 생성"]
+    Scoring --> Assembly["👔 Outfit Assembly"]
+
+    style Context fill:#e3f2fd,stroke:#1976d2,color:#1976d2
+    style VectorSearch fill:#f3e5f5,stroke:#7b1fa2,color:#7b1fa2
+    style Scoring fill:#fff8e1,stroke:#f9a825,color:#f9a825
+    style Assembly fill:#e8f5e9,stroke:#388e3c,color:#388e3c
 ```
 
 **핵심 구현:**
@@ -258,11 +268,18 @@ fetchUpcomingEvents: async (force = false) => {
 
 ```mermaid
 flowchart LR
-    A["결제 승인"] --> B["KakaoPayment<br/>APPROVED"]
-    B --> C["PaymentOutbox<br/>PENDING"]
-    C --> D["Outbox Processor"]
-    D --> E["CreditService.addCredit()<br/>멱등"]
-    E --> F["PaymentOutbox<br/>COMPLETED"]
+    A["💳 결제 승인"] --> B["KakaoPayment"]
+    B --> C["Outbox"]
+    C --> D["Processor"]
+    D --> E["Credit 지급"]
+    E --> F["✅ 완료"]
+
+    style A fill:#e3f2fd,stroke:#1976d2
+    style B fill:#fff3e0,stroke:#ef6c00
+    style C fill:#fce4ec,stroke:#c2185b
+    style D fill:#f3e5f5,stroke:#7b1fa2
+    style E fill:#e8f5e9,stroke:#388e3c
+    style F fill:#e8f5e9,stroke:#2e7d32
 ```
 
 ---
