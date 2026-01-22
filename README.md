@@ -365,12 +365,6 @@ closzIT/
 
 ---
 
-## 📝 라이선스
-
-이 프로젝트는 비공개 프로젝트입니다.
-
----
-
 <p align="center">
   <strong>CloszIT</strong> — 내 손안의 스마트 옷장 🧥✨
 </p>
