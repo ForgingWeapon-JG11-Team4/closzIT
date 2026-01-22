@@ -34,30 +34,12 @@
 
 CloszIT은 **React PWA 프론트엔드**, **NestJS 백엔드**, 그리고 **AI 서빙 레이어** 간의 명확하게 분리된 3-tier 아키텍처로 구성됩니다.
 
-```mermaid
-flowchart LR
-    subgraph Frontend
-        A[React PWA] --> B[Zustand]
-    end
-
-    subgraph Backend
-        C[NestJS] --> D[BullMQ]
-    end
-
-    subgraph Data
-        E[(PostgreSQL)]
-        F[(S3)]
-    end
-
-    subgraph AI
-        G[FastAPI]
-        H[Gemini]
-        I[Bedrock]
-    end
-
-    Frontend --> Backend
-    Backend --> Data
-    Backend --> AI
+```
+📱 Frontend     ➜     🔧 Backend     ➜     🗄️ Data
+React + Zustand       NestJS + BullMQ       PostgreSQL + S3
+                            ↓
+                      🤖 AI Services
+                   FastAPI / Gemini / Bedrock
 ```
 
 ### 데이터 흐름 핵심 포인트
@@ -173,11 +155,8 @@ sequenceDiagram
 
 하이브리드 검색 전략으로 개인화된 코디를 추천합니다.
 
-```mermaid
-flowchart LR
-    A[TPO/날씨/스타일] --> B[Vector Search]
-    B --> C[Scoring]
-    C --> D[Outfit 조합]
+```
+TPO/날씨/스타일  ➜  Vector Search  ➜  Scoring  ➜  Outfit 조합
 ```
 
 **핵심 구현:**
@@ -217,9 +196,8 @@ fetchUpcomingEvents: async (force = false) => {
 
 카카오페이 결제 후 크레딧 지급의 **최종 일관성**을 보장합니다.
 
-```mermaid
-flowchart LR
-    A[결제 승인] --> B[Outbox] --> C[Processor] --> D[Credit 지급]
+```
+결제 승인  ➜  Outbox  ➜  Processor  ➜  Credit 지급
 ```
 
 ---
