@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { ConfigService } from '@nestjs/config';
-import sharp = require('sharp');
 
 @Injectable()
 export class BedrockService {
@@ -9,8 +8,6 @@ export class BedrockService {
     private readonly logger = new Logger(BedrockService.name);
     // Claude Sonnet 4.5 Model ID (Japan Cross-Region Inference)
     private readonly modelId = 'jp.anthropic.claude-sonnet-4-5-20250929-v1:0';
-    // Claude 권장 최대 이미지 크기 (긴 변 기준)
-    private readonly BEDROCK_MAX_IMAGE_SIZE = 1568;
 
     constructor(private configService: ConfigService) {
         this.client = new BedrockRuntimeClient({
@@ -20,55 +17,6 @@ export class BedrockService {
                 secretAccessKey: this.configService.get<string>('AWS_SECRET_ACCESS_KEY') ?? '',
             },
         });
-    }
-
-    /**
-     * Bedrock API 호출 전 이미지를 적절한 크기로 리사이징합니다.
-     * - 긴 변이 BEDROCK_MAX_IMAGE_SIZE(1568px)를 초과할 경우에만 리사이징
-     * - Lanczos 알고리즘으로 고품질 리사이징 수행
-     * - 원본 비율 유지
-     */
-    private async resizeImageForBedrock(imageBase64: string): Promise<string> {
-        try {
-            const buffer = Buffer.from(imageBase64, 'base64');
-            const metadata = await sharp(buffer).metadata();
-            const { width, height } = metadata;
-
-            if (!width || !height) {
-                this.logger.warn('[Bedrock] Could not read image dimensions, using original');
-                return imageBase64;
-            }
-
-            const maxDimension = Math.max(width, height);
-
-            // 긴 변이 제한을 초과하지 않으면 원본 반환
-            if (maxDimension <= this.BEDROCK_MAX_IMAGE_SIZE) {
-                this.logger.log(`[Bedrock] Image size OK: ${width}x${height} (no resize needed)`);
-                return imageBase64;
-            }
-
-            // 비율 유지하며 리사이징 (Lanczos 알고리즘: 고품질)
-            const resizedBuffer = await sharp(buffer)
-                .resize({
-                    width: width > height ? this.BEDROCK_MAX_IMAGE_SIZE : undefined,
-                    height: height >= width ? this.BEDROCK_MAX_IMAGE_SIZE : undefined,
-                    fit: 'inside',
-                    withoutEnlargement: true,
-                    kernel: sharp.kernel.lanczos3, // 고품질 리사이징
-                })
-                .png({ quality: 100 }) // PNG는 무손실
-                .toBuffer();
-
-            const resizedMetadata = await sharp(resizedBuffer).metadata();
-            this.logger.log(
-                `[Bedrock] Image resized: ${width}x${height} → ${resizedMetadata.width}x${resizedMetadata.height}`
-            );
-
-            return resizedBuffer.toString('base64');
-        } catch (error) {
-            this.logger.error('[Bedrock] Image resize failed, using original:', error.message);
-            return imageBase64;
-        }
     }
 
     async extractClothingSpec(text: string, imageBase64?: string, detectedType?: string): Promise<any> {
@@ -143,14 +91,12 @@ Return ONLY a valid JSON object. No markdown code blocks, no explanations.
             const content: any[] = [{ type: 'text', text: prompt }];
 
             if (imageBase64) {
-                // Bedrock API 제한에 맞게 이미지 리사이징 (필요 시)
-                const resizedImage = await this.resizeImageForBedrock(imageBase64);
                 content.push({
                     type: 'image',
                     source: {
                         type: 'base64',
                         media_type: 'image/png',
-                        data: resizedImage,
+                        data: imageBase64,
                     }
                 });
             }
@@ -302,17 +248,17 @@ Return ONLY a valid JSON object. No markdown, no explanations.
     }
 
     async extractTPO(input: {
-        summary: string;
-        location?: string;
-        description?: string;
-        start?: string;
+    summary: string;
+    location?: string;
+    description?: string;
+    start?: string;
     }): Promise<string> {
-        try {
-            const hour = input.start
-                ? new Date(input.start).getHours()
-                : new Date().getHours();
+    try {
+        const hour = input.start 
+        ? new Date(input.start).getHours() 
+        : new Date().getHours();
 
-            const prompt = `
+        const prompt = `
 You are an expert at understanding daily schedules and recommending appropriate dress codes.
 
 TASK: Analyze the input and determine the most appropriate TPO (Time, Place, Occasion).
@@ -343,37 +289,37 @@ Return ONLY a valid JSON object. No markdown, no explanations.
 }
 `;
 
-            const payload = {
-                anthropic_version: 'bedrock-2023-05-31',
-                max_tokens: 200,
-                messages: [
-                    {
-                        role: 'user',
-                        content: [{ type: 'text', text: prompt }],
-                    },
-                ],
-            };
+        const payload = {
+        anthropic_version: 'bedrock-2023-05-31',
+        max_tokens: 200,
+        messages: [
+            {
+            role: 'user',
+            content: [{ type: 'text', text: prompt }],
+            },
+        ],
+        };
 
-            const command = new InvokeModelCommand({
-                modelId: this.modelId,
-                contentType: 'application/json',
-                body: JSON.stringify(payload),
-            });
+        const command = new InvokeModelCommand({
+        modelId: this.modelId,
+        contentType: 'application/json',
+        body: JSON.stringify(payload),
+        });
 
-            const response = await this.client.send(command);
-            const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+        const response = await this.client.send(command);
+        const responseBody = JSON.parse(new TextDecoder().decode(response.body));
 
-            const resultText = responseBody.content[0].text;
-            const jsonMatch = resultText.match(/\{[\s\S]*\}/);
-            const jsonStr = jsonMatch ? jsonMatch[0] : resultText;
+        const resultText = responseBody.content[0].text;
+        const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+        const jsonStr = jsonMatch ? jsonMatch[0] : resultText;
 
-            const result = JSON.parse(jsonStr);
-            console.log(`[Bedrock] TPO 추출: "${input.summary}" → ${result.tpo} (${result.reason})`);
-            return result.tpo;
+        const result = JSON.parse(jsonStr);
+        console.log(`[Bedrock] TPO 추출: "${input.summary}" → ${result.tpo} (${result.reason})`);
+        return result.tpo;
 
-        } catch (error) {
-            this.logger.error('TPO extraction failed', error);
-            return 'Daily';
-        }
+    } catch (error) {
+        this.logger.error('TPO extraction failed', error);
+        return 'Daily';
+    }
     }
 }
