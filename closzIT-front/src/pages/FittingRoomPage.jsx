@@ -190,6 +190,14 @@ const FittingRoomPage = ({ hideHeader = false }) => {
     shoes: [],
   });
 
+  // 페이지네이션 상태
+  const [pageInfo, setPageInfo] = useState({
+    outerwear: { page: 1, hasMore: true, loading: false },
+    tops: { page: 1, hasMore: true, loading: false },
+    bottoms: { page: 1, hasMore: true, loading: false },
+    shoes: { page: 1, hasMore: true, loading: false },
+  });
+
   // 키워드 필터 상태
   const [isKeywordModalOpen, setIsKeywordModalOpen] = useState(false);
   const [filterState, setFilterState] = useState({
@@ -324,15 +332,21 @@ const FittingRoomPage = ({ hideHeader = false }) => {
 
   // 필터링된 통계 계산
   const filteredStats = React.useMemo(() => {
-    return {
-      outerwear: filteredClothes.outerwear?.length || 0,
-      tops: filteredClothes.tops?.length || 0,
-      bottoms: filteredClothes.bottoms?.length || 0,
-      shoes: filteredClothes.shoes?.length || 0,
-      total: (filteredClothes.outerwear?.length || 0) + (filteredClothes.tops?.length || 0) +
-        (filteredClothes.bottoms?.length || 0) + (filteredClothes.shoes?.length || 0),
-    };
-  }, [filteredClothes]);
+    // 필터가 활성화된 경우에만 필터링된 개수 반환
+    const hasActiveFilters = Object.values(filterState).some(arr => arr.length > 0);
+    if (hasActiveFilters) {
+      return {
+        outerwear: filteredClothes.outerwear?.length || 0,
+        tops: filteredClothes.tops?.length || 0,
+        bottoms: filteredClothes.bottoms?.length || 0,
+        shoes: filteredClothes.shoes?.length || 0,
+        total: (filteredClothes.outerwear?.length || 0) + (filteredClothes.tops?.length || 0) +
+          (filteredClothes.bottoms?.length || 0) + (filteredClothes.shoes?.length || 0),
+      };
+    }
+    // 필터가 없으면 전체 통계(DB에서 가져온 값) 반환
+    return wardrobeStats;
+  }, [filteredClothes, filterState, wardrobeStats]);
 
   // 스크롤 상태 감지
   const clothesScrollRef = useRef(null);
@@ -343,9 +357,22 @@ const FittingRoomPage = ({ hideHeader = false }) => {
   const lastScrollLeftRef = useRef(0);
   const scrollTimeoutRef = useRef(null);
 
+  // 스크롤 및 무한 스크롤 처리
   const handleClothesScroll = (e) => {
     if (!hasScrolled) setHasScrolled(true);
-    const currentScrollLeft = e.target.scrollLeft;
+
+    // 무한 스크롤 트리거
+    const { scrollLeft, scrollWidth, clientWidth } = e.target;
+    // 끝에 도달했는지 확인 (여유분 50px)
+    if (scrollWidth - (scrollLeft + clientWidth) < 50 && expandedCategory) {
+      const info = pageInfo[expandedCategory];
+      if (info.hasMore && !info.loading) {
+        loadMoreClothes(expandedCategory);
+      }
+    }
+
+    // 기존 애니메이션 로직
+    const currentScrollLeft = scrollLeft;
     const deltaX = currentScrollLeft - lastScrollLeftRef.current;
     const rotation = Math.max(Math.min(deltaX * 0.8, 30), -30);
     setScrollRotation(rotation);
@@ -359,13 +386,134 @@ const FittingRoomPage = ({ hideHeader = false }) => {
     }, 100);
   };
 
-  // 카테고리 변경 시 상태 초기화
+  // 추가 데이터 로드 함수
+  const loadMoreClothes = async (category) => {
+    const info = pageInfo[category];
+    if (!info.hasMore || info.loading) return;
+
+    // 로딩 시작
+    setPageInfo(prev => ({
+      ...prev,
+      [category]: { ...prev[category], loading: true }
+    }));
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+      const nextPage = info.page + 1;
+
+      // DB Category Map
+      const dbCategoryMap = {
+        outerwear: 'Outer',
+        tops: 'Top',
+        bottoms: 'Bottom',
+        shoes: 'Shoes'
+      };
+
+      const response = await fetch(`${backendUrl}/items?category=${dbCategoryMap[category]}&page=${nextPage}&limit=15`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json(); // returns { items: [], meta: {} }
+        const newItems = data.items.map(item => ({ ...item, category }));
+
+        setUserClothes(prev => ({
+          ...prev,
+          [category]: [...prev[category], ...newItems]
+        }));
+
+        setPageInfo(prev => ({
+          ...prev,
+          [category]: {
+            page: nextPage,
+            hasMore: data.meta.page < data.meta.totalPages,
+            loading: false
+          }
+        }));
+      } else {
+        setPageInfo(prev => ({
+          ...prev,
+          [category]: { ...prev[category], loading: false }
+        }));
+      }
+    } catch (error) {
+      console.error('Load more error:', error);
+      setPageInfo(prev => ({
+        ...prev,
+        [category]: { ...prev[category], loading: false }
+      }));
+    }
+  };
+
+  // 카테고리 변경 시 상태 초기화 및 데이터 로드 (필요시)
   useEffect(() => {
     setHasScrolled(false);
     setScrollRotation(0);
     if (clothesScrollRef.current) {
       clothesScrollRef.current.scrollLeft = 0;
       lastScrollLeftRef.current = 0;
+    }
+
+    // 해당 카테고리 데이터가 없고, 확장되었을 때 첫 페이지 로드
+    if (expandedCategory && userClothes[expandedCategory].length === 0) {
+      const loadFirstPage = async () => {
+        setPageInfo(prev => ({
+          ...prev,
+          [expandedCategory]: { ...prev[expandedCategory], loading: true }
+        }));
+
+        try {
+          const token = localStorage.getItem('accessToken');
+          const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+          const dbCategoryMap = {
+            outerwear: 'Outer',
+            tops: 'Top',
+            bottoms: 'Bottom',
+            shoes: 'Shoes'
+          };
+
+          const response = await fetch(`${backendUrl}/items?category=${dbCategoryMap[expandedCategory]}&page=1&limit=15`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const newItems = data.items.map(item => ({ ...item, category: expandedCategory }));
+
+            setUserClothes(prev => ({
+              ...prev,
+              [expandedCategory]: newItems
+            }));
+
+            setPageInfo(prev => ({
+              ...prev,
+              [expandedCategory]: {
+                page: 1,
+                hasMore: data.meta.page < data.meta.totalPages,
+                loading: false
+              }
+            }));
+          }
+        } catch (error) {
+          console.error("Initial category load error", error);
+          setPageInfo(prev => ({
+            ...prev,
+            [expandedCategory]: { ...prev[expandedCategory], loading: false }
+          }));
+        }
+      };
+
+      loadFirstPage();
+    }
+    // 해당 카테고리 데이터가 없고, 확장되었을 때 -> 이미 Pre-fetching 되었으므로 로딩 불필요하거나, 
+    // 혹시 실패했을 경우 등 대비용으로 남겨둘 수도 있지만, 기본적으로는 Pre-fetching으로 커버됨.
+    // 하지만 "페이지 1"이 로드되지 않았을 경우를 대비해 유지하되, 조건 강화
+    if (expandedCategory && userClothes[expandedCategory].length === 0 && !pageInfo[expandedCategory].loading) {
+      // 데이터가 정말 없을 수도 있으므로, pageInfo 체크 필요 (여기서는 간단히 길이로만 체크)
+      // Pre-fetching이 실패했거나 아직 완료되지 않았을 때를 위한 fallback
+      // (실제로는 Pre-fetching useEffect에서 처리되지만, 안전장치)
+      // 로직 유지
     }
   }, [expandedCategory]);
 
@@ -392,45 +540,131 @@ const FittingRoomPage = ({ hideHeader = false }) => {
       if (!token) return;
 
       const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-      const response = await fetch(`${backendUrl}/items/by-category`, {
+      const response = await fetch(`${backendUrl}/items/by-category?limit=15`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
       if (response.ok) {
         const data = await response.json();
-        const stats = {
-          outerwear: data.outerwear?.length || 0,
-          tops: data.tops?.length || 0,
-          bottoms: data.bottoms?.length || 0,
-          shoes: data.shoes?.length || 0,
-          total: (data.outerwear?.length || 0) + (data.tops?.length || 0) +
-            (data.bottoms?.length || 0) + (data.shoes?.length || 0),
-        };
+        // data.stats가 있으면 그것을 사용, 없으면 기존 방식(호환성)
+        // 백엔드 업데이트 후 data.stats 사용
+        if (data.stats) {
+          const stats = {
+            outerwear: data.stats.outerwear || 0,
+            tops: data.stats.tops || 0,
+            bottoms: data.stats.bottoms || 0,
+            shoes: data.stats.shoes || 0,
+            total: (data.stats.outerwear || 0) + (data.stats.tops || 0) +
+              (data.stats.bottoms || 0) + (data.stats.shoes || 0),
+          };
+          setWardrobeStats(stats);
+        } else {
+          // Fallback for safety
+          const stats = {
+            outerwear: data.outerwear?.length || 0,
+            tops: data.tops?.length || 0,
+            bottoms: data.bottoms?.length || 0,
+            shoes: data.shoes?.length || 0,
+            total: (data.outerwear?.length || 0) + (data.tops?.length || 0) +
+              (data.bottoms?.length || 0) + (data.shoes?.length || 0),
+          };
+          setWardrobeStats(stats);
+        }
 
-        setWardrobeStats(stats);
-        setUserClothes({
-          outerwear: (data.outerwear || []).map(item => ({ ...item, category: 'outerwear' })),
-          tops: (data.tops || []).map(item => ({ ...item, category: 'tops' })),
-          bottoms: (data.bottoms || []).map(item => ({ ...item, category: 'bottoms' })),
-          shoes: (data.shoes || []).map(item => ({ ...item, category: 'shoes' })),
-        });
+        // 초기 로딩시 userClothes를 채우지 않음 (Lazy Loading)
+        // 단, MainPage와의 일관성을 위해 "최근 항목"을 보여줄 필요가 있다면 채울 수 있으나,
+        // FittingRoom은 "클릭시 로드" 전략을 따름.
+        // 따라서 여기서는 userClothes 업데이트 생략.
       }
     } catch (error) {
       console.error('Wardrobe API error:', error);
     }
   };
 
-  // 초기 로드
+  // 초기 로드: 통계 및 전체 카테고리 첫 페이지 Pre-fetching (병렬 처리)
   useEffect(() => {
-    fetchWardrobeStats();
-  }, []);
+    const fetchInitialData = async () => {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
-  // FittingRoom 탭으로 돌아올 때 데이터 새로고침
-  useEffect(() => {
-    if (activeTab === TAB_KEYS.FITTING_ROOM) {
-      fetchWardrobeStats();
-    }
-  }, [activeTab]);
+      // 1. 통계 데이터 호출
+      const statsPromise = fetch(`${backendUrl}/items/by-category?limit=15`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      }).then(res => res.json());
+
+      // 2. 각 카테고리별 첫 페이지(15개) 데이터 호출
+      const categories = ['Outer', 'Top', 'Bottom', 'Shoes'];
+      const dbCategoryMap = {
+        Outer: 'outerwear',
+        Top: 'tops',
+        Bottom: 'bottoms',
+        Shoes: 'shoes'
+      };
+
+      const itemPromises = categories.map(cat =>
+        fetch(`${backendUrl}/items?category=${cat}&page=1&limit=15`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        }).then(async res => {
+          if (res.ok) return { category: dbCategoryMap[cat], data: await res.json() };
+          return { category: dbCategoryMap[cat], data: null };
+        })
+      );
+
+      try {
+        const [statsData, ...itemsResults] = await Promise.all([statsPromise, ...itemPromises]);
+
+        // A. 통계 업데이트
+        if (statsData.stats) {
+          const stats = {
+            outerwear: statsData.stats.outerwear || 0,
+            tops: statsData.stats.tops || 0,
+            bottoms: statsData.stats.bottoms || 0,
+            shoes: statsData.stats.shoes || 0,
+            total: (statsData.stats.outerwear || 0) + (statsData.stats.tops || 0) +
+              (statsData.stats.bottoms || 0) + (statsData.stats.shoes || 0),
+          };
+          setWardrobeStats(stats);
+        } else {
+          const stats = {
+            outerwear: statsData.outerwear?.length || 0,
+            tops: statsData.tops?.length || 0,
+            bottoms: statsData.bottoms?.length || 0,
+            shoes: statsData.shoes?.length || 0,
+            total: (statsData.outerwear?.length || 0) + (statsData.tops?.length || 0) +
+              (statsData.bottoms?.length || 0) + (statsData.shoes?.length || 0),
+          };
+          setWardrobeStats(stats);
+        }
+
+        // B. 아이템 데이터 업데이트 (Pre-fetching 결과 적용)
+        const newUserClothes = { ...userClothes };
+        const newPageInfo = { ...pageInfo };
+
+        itemsResults.forEach(({ category, data }) => {
+          if (data && data.items) {
+            // 해당 카테고리 데이터 설정
+            newUserClothes[category] = data.items.map(item => ({ ...item, category }));
+
+            // 페이지 정보 업데이트 (다음 페이지가 있는지 확인)
+            newPageInfo[category] = {
+              page: 1,
+              hasMore: data.meta.page < data.meta.totalPages,
+              loading: false
+            };
+          }
+        });
+
+        setUserClothes(newUserClothes);
+        setPageInfo(newPageInfo);
+
+      } catch (error) {
+        console.error('Initial data fetch error:', error);
+      }
+    };
+
+    fetchInitialData();
+  }, []);
 
   return (
     <div className="min-h-screen bg-cream dark:bg-[#1A1918] pb-20">
@@ -547,75 +781,75 @@ const FittingRoomPage = ({ hideHeader = false }) => {
                 {expandedCategory && filteredClothes[expandedCategory]?.map((cloth, idx) => {
                   const isSelected = selectedOutfit[expandedCategory]?.id === cloth.id;
                   return (
-                  <div
-                    key={cloth.id}
-                    onClick={() => toggleClothSelection(cloth, expandedCategory)}
-                    className="flex-shrink-0 cursor-pointer group/card"
-                    style={{
-                      willChange: 'transform',
-                      backfaceVisibility: 'hidden',
-                      ...(expandedCategory === 'shoes' ? {
-                        animation: shouldAnimate ? `slideInSimpleRight 1.0s cubic-bezier(0.22, 1, 0.36, 1) 0.55s backwards` : 'none',
-                        transform: 'translate3d(0,0,0)',
-                      } : {
-                        transform: isScrolling
-                          ? `rotate(${scrollRotation}deg) translate3d(0,0,0)`
-                          : 'translate3d(0,0,0)',
-                        transition: isScrolling ? 'transform 0.1s linear' : 'transform 0.2s cubic-bezier(0.25, 1.5, 0.5, 1)',
-                        animation: isScrolling
-                          ? 'none'
-                          : (hasScrolled
-                            ? 'none'
-                            : (shouldAnimate
-                              ? `appearSwingFromRight 1.0s cubic-bezier(0.22, 1, 0.36, 1) 0.55s backwards`
-                              : 'none')),
-                        transformOrigin: 'top center',
-                      })
-                    }}
-                  >
-                    {/* 옷걸이 */}
-                    {expandedCategory !== 'shoes' && (
-                      <div className="flex justify-center">
-                        <img
-                          src="/assets/hook.png"
-                          alt="hook"
-                          className="w-16 h-16 object-contain"
-                        />
-                      </div>
-                    )}
-                    {/* 옷 카드 */}
                     <div
-                      className={`w-20 h-24 rounded-xl overflow-hidden relative backdrop-blur-sm transition-all duration-200 ${expandedCategory !== 'shoes' ? '-mt-4' : 'mt-2'} ${isSelected ? 'ring-2 ring-gold scale-105' : ''}`}
+                      key={cloth.id}
+                      onClick={() => toggleClothSelection(cloth, expandedCategory)}
+                      className="flex-shrink-0 cursor-pointer group/card"
                       style={{
-                        background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.6) 100%)',
-                        border: isSelected ? '2px solid #D4AF37' : '1.5px solid rgba(212,175,55,0.4)',
-                        boxShadow: isSelected 
-                          ? '0 4px 20px rgba(212,175,55,0.4), 0 0 0 1px rgba(255,255,255,0.5) inset'
-                          : '0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(255,255,255,0.5) inset, 0 2px 4px rgba(212,175,55,0.15)',
+                        willChange: 'transform',
+                        backfaceVisibility: 'hidden',
+                        ...(expandedCategory === 'shoes' ? {
+                          animation: shouldAnimate ? `slideInSimpleRight 1.0s cubic-bezier(0.22, 1, 0.36, 1) 0.55s backwards` : 'none',
+                          transform: 'translate3d(0,0,0)',
+                        } : {
+                          transform: isScrolling
+                            ? `rotate(${scrollRotation}deg) translate3d(0,0,0)`
+                            : 'translate3d(0,0,0)',
+                          transition: isScrolling ? 'transform 0.1s linear' : 'transform 0.2s cubic-bezier(0.25, 1.5, 0.5, 1)',
+                          animation: isScrolling
+                            ? 'none'
+                            : (hasScrolled
+                              ? 'none'
+                              : (shouldAnimate
+                                ? `appearSwingFromRight 1.0s cubic-bezier(0.22, 1, 0.36, 1) 0.55s backwards`
+                                : 'none')),
+                          transformOrigin: 'top center',
+                        })
                       }}
                     >
-                      <img
-                        alt={cloth.name || '옷'}
-                        className="w-full h-full object-cover"
-                        src={cloth.image || cloth.imageUrl}
-                      />
-                      {/* 선택됨 체크 표시 */}
-                      {isSelected && (
-                        <div className="absolute top-1 left-1 w-5 h-5 bg-gold rounded-full flex items-center justify-center shadow-md">
-                          <span className="material-symbols-rounded text-white text-xs">check</span>
+                      {/* 옷걸이 */}
+                      {expandedCategory !== 'shoes' && (
+                        <div className="flex justify-center">
+                          <img
+                            src="/assets/hook.png"
+                            alt="hook"
+                            className="w-16 h-16 object-contain"
+                          />
                         </div>
                       )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedClothDetail(cloth);
+                      {/* 옷 카드 */}
+                      <div
+                        className={`w-20 h-24 rounded-xl overflow-hidden relative backdrop-blur-sm transition-all duration-200 ${expandedCategory !== 'shoes' ? '-mt-4' : 'mt-2'} ${isSelected ? 'ring-2 ring-gold scale-105' : ''}`}
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.6) 100%)',
+                          border: isSelected ? '2px solid #D4AF37' : '1.5px solid rgba(212,175,55,0.4)',
+                          boxShadow: isSelected
+                            ? '0 4px 20px rgba(212,175,55,0.4), 0 0 0 1px rgba(255,255,255,0.5) inset'
+                            : '0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(255,255,255,0.5) inset, 0 2px 4px rgba(212,175,55,0.15)',
                         }}
-                        className="absolute bottom-1 right-1 w-6 h-6 bg-white/90 dark:bg-charcoal/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover/card:opacity-100 transition-all duration-200 hover:scale-110 hover:bg-white dark:hover:bg-charcoal"
                       >
-                        <span className="material-symbols-rounded text-gold text-xs">info</span>
-                      </button>
+                        <img
+                          alt={cloth.name || '옷'}
+                          className="w-full h-full object-cover"
+                          src={cloth.image || cloth.imageUrl}
+                        />
+                        {/* 선택됨 체크 표시 */}
+                        {isSelected && (
+                          <div className="absolute top-1 left-1 w-5 h-5 bg-gold rounded-full flex items-center justify-center shadow-md">
+                            <span className="material-symbols-rounded text-white text-xs">check</span>
+                          </div>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedClothDetail(cloth);
+                          }}
+                          className="absolute bottom-1 right-1 w-6 h-6 bg-white/90 dark:bg-charcoal/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover/card:opacity-100 transition-all duration-200 hover:scale-110 hover:bg-white dark:hover:bg-charcoal"
+                        >
+                          <span className="material-symbols-rounded text-gold text-xs">info</span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
                   );
                 })}
 
@@ -638,9 +872,8 @@ const FittingRoomPage = ({ hideHeader = false }) => {
 
         {/* 선택된 옷봉 섹션 */}
         <div
-          className={`overflow-hidden transition-all duration-500 ease-out ${
-            hasSelectedItems ? 'max-h-[220px] opacity-100' : 'max-h-0 opacity-0'
-          }`}
+          className={`overflow-hidden transition-all duration-500 ease-out ${hasSelectedItems ? 'max-h-[220px] opacity-100' : 'max-h-0 opacity-0'
+            }`}
         >
           <div
             className="rounded-3xl p-4 shadow-soft border border-gold-light/20"
@@ -656,11 +889,10 @@ const FittingRoomPage = ({ hideHeader = false }) => {
                 <button
                   onClick={handleFullOutfitTryOn}
                   disabled={isFullOutfitLoading}
-                  className={`px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-bold transition-all shadow-sm ${
-                    isFullOutfitLoading
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-gold text-white hover:bg-gold-dark hover:shadow-md'
-                  }`}
+                  className={`px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-bold transition-all shadow-sm ${isFullOutfitLoading
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-gold text-white hover:bg-gold-dark hover:shadow-md'
+                    }`}
                 >
                   {isFullOutfitLoading ? (
                     <>
@@ -679,13 +911,12 @@ const FittingRoomPage = ({ hideHeader = false }) => {
                 <button
                   onClick={handleWearTodayClick}
                   disabled={isOutfitLogLoading || !selectedOutfit.tops || !selectedOutfit.bottoms || !selectedOutfit.shoes}
-                  className={`px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-bold transition-all shadow-sm ${
-                    isOutfitLogLoading
+                  className={`px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-bold transition-all shadow-sm ${isOutfitLogLoading
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : (!selectedOutfit.tops || !selectedOutfit.bottoms || !selectedOutfit.shoes)
                       ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : (!selectedOutfit.tops || !selectedOutfit.bottoms || !selectedOutfit.shoes)
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-charcoal text-white hover:bg-charcoal-dark hover:shadow-md'
-                  }`}
+                      : 'bg-charcoal text-white hover:bg-charcoal-dark hover:shadow-md'
+                    }`}
                 >
                   {isOutfitLogLoading ? (
                     <>
@@ -699,7 +930,7 @@ const FittingRoomPage = ({ hideHeader = false }) => {
                     </>
                   )}
                 </button>
-                
+
                 {hasSelectedItems && (
                   <button
                     onClick={() => setSelectedOutfit({ outerwear: null, tops: null, bottoms: null, shoes: null })}
@@ -728,7 +959,7 @@ const FittingRoomPage = ({ hideHeader = false }) => {
                 {['outerwear', 'tops', 'bottoms', 'shoes'].map((category) => {
                   const item = selectedOutfit[category];
                   if (!item) return null;
-                  
+
                   return (
                     <div
                       key={`selected-${category}-${item.id}`}

@@ -119,6 +119,14 @@ const MainPage2 = ({ hideHeader = false }) => {
     shoes: [],
   });
 
+  const [wardrobeStats, setWardrobeStats] = useState({
+    outerwear: 0,
+    tops: 0,
+    bottoms: 0,
+    shoes: 0,
+    total: 0,
+  });
+
 
 
   // 스크롤 상태 감지
@@ -173,12 +181,36 @@ const MainPage2 = ({ hideHeader = false }) => {
       if (!token) return;
 
       const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-      const response = await fetch(`${backendUrl}/items/by-category`, {
+      const response = await fetch(`${backendUrl}/items/by-category?limit=15`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
       if (response.ok) {
         const data = await response.json();
+
+        // 통계 데이터 설정 (백엔드 호환성 확인)
+        if (data.stats) {
+          const stats = {
+            outerwear: data.stats.outerwear || 0,
+            tops: data.stats.tops || 0,
+            bottoms: data.stats.bottoms || 0,
+            shoes: data.stats.shoes || 0,
+            total: (data.stats.outerwear || 0) + (data.stats.tops || 0) +
+              (data.stats.bottoms || 0) + (data.stats.shoes || 0),
+          };
+          setWardrobeStats(stats);
+        } else {
+          // Fallback
+          const stats = {
+            outerwear: data.outerwear?.length || 0,
+            tops: data.tops?.length || 0,
+            bottoms: data.bottoms?.length || 0,
+            shoes: data.shoes?.length || 0,
+            total: (data.outerwear?.length || 0) + (data.tops?.length || 0) +
+              (data.bottoms?.length || 0) + (data.shoes?.length || 0),
+          };
+          setWardrobeStats(stats);
+        }
 
         setUserClothes({
           outerwear: (data.outerwear || []).map(item => ({ ...item, category: 'outerwear' })),
@@ -409,14 +441,14 @@ const MainPage2 = ({ hideHeader = false }) => {
             <div className="flex w-full items-stretch gap-3 px-1">
               {/* 최근 등록 옷들 */}
               <div className="flex-1 w-0 min-w-0">
-                <RecentlyAddedClothes 
+                <RecentlyAddedClothes
                   userClothes={userClothes}
-                  onClothClick={setSelectedClothDetail} 
+                  onClothClick={setSelectedClothDetail}
                 />
               </div>
-              
+
               {/* 옷장 현황 파이 차트 */}
-              <div 
+              <div
                 className="flex-1 w-0 min-w-0 rounded-2xl p-3 shadow-soft border border-gold-light/20 flex flex-col justify-between"
                 style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(250,248,245,0.98) 100%)' }}
               >
@@ -424,7 +456,7 @@ const MainPage2 = ({ hideHeader = false }) => {
                   <span className="material-symbols-rounded text-gold text-lg md:text-2xl">checkroom</span>
                   옷장 현황
                   <span className="ml-1 text-[10px] md:text-xs font-medium text-charcoal-light bg-gold/10 px-2 py-0.5 rounded-full">
-                    {(userClothes.outerwear?.length || 0) + (userClothes.tops?.length || 0) + (userClothes.bottoms?.length || 0) + (userClothes.shoes?.length || 0)}벌
+                    {wardrobeStats.total}벌
                   </span>
                 </h4>
                 <div className="flex-1 min-h-[140px] md:min-h-[220px] -my-2">
@@ -440,10 +472,10 @@ const MainPage2 = ({ hideHeader = false }) => {
                       },
                     }}
                     data={[
-                      { id: '외투', label: '외투', value: userClothes.outerwear?.length || 0, color: '#D4AF37' },
-                      { id: '상의', label: '상의', value: userClothes.tops?.length || 0, color: '#B8860B' },
-                      { id: '하의', label: '하의', value: userClothes.bottoms?.length || 0, color: '#CD853F' },
-                      { id: '신발', label: '신발', value: userClothes.shoes?.length || 0, color: '#DAA520' },
+                      { id: '외투', label: '외투', value: wardrobeStats.outerwear, color: '#D4AF37' },
+                      { id: '상의', label: '상의', value: wardrobeStats.tops, color: '#B8860B' },
+                      { id: '하의', label: '하의', value: wardrobeStats.bottoms, color: '#CD853F' },
+                      { id: '신발', label: '신발', value: wardrobeStats.shoes, color: '#DAA520' },
                     ].filter(d => d.value > 0)}
                     margin={{ top: 20, right: 30, bottom: 20, left: 30 }}
                     innerRadius={0.5}

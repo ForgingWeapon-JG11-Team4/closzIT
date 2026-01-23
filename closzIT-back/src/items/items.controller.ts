@@ -11,15 +11,21 @@ export class ItemsController {
   async getItems(
     @Request() req,
     @Query('category') category?: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 20,
   ) {
     const userId = req.user.id;
-    return this.itemsService.getItemsByUser(userId, category);
+    return this.itemsService.getItemsByUser(userId, category, +page, +limit);
   }
 
   @Get('by-category')
-  async getItemsByCategory(@Request() req) {
+  async getItemsByCategory(
+    @Request() req,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 20,
+  ) {
     const userId = req.user.id;
-    return this.itemsService.getItemsGroupedByCategory(userId);
+    return this.itemsService.getItemsGroupedByCategory(userId, +page, +limit);
   }
 
   @Get('by-category/:userId')

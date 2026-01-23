@@ -29,11 +29,11 @@ const toPrismaEnum = (value: string): string => ENUM_MAPPINGS[value] || value;
 const toDbEnum = (value: string): string => REVERSE_ENUM_MAPPINGS[value] || value;
 
 // 배열 값 변환 (DB → Prisma)
-const toPrismaEnumArray = (values: string[] | undefined): string[] | undefined => 
+const toPrismaEnumArray = (values: string[] | undefined): string[] | undefined =>
   values?.map(toPrismaEnum);
 
 // 배열 값 변환 (Prisma → DB)
-const toDbEnumArray = (values: string[] | undefined): string[] | undefined => 
+const toDbEnumArray = (values: string[] | undefined): string[] | undefined =>
   values?.map(toDbEnum);
 
 @Injectable()
@@ -43,18 +43,24 @@ export class ItemsService {
     private s3Service: S3Service,
   ) { }
 
-  async getItemsByUser(userId: string, category?: string) {
+  async getItemsByUser(userId: string, category?: string, page: number = 1, limit: number = 20) {
     const where: any = { userId };
+    const skip = (page - 1) * limit;
 
     if (category) {
       where.category = category;
     }
+
+    // 전체 아이템 수 조회 (페이지네이션 메타데이터용)
+    const totalCount = await this.prisma.clothing.count({ where });
 
     const items = await this.prisma.clothing.findMany({
       where,
       orderBy: {
         createdAt: 'desc',
       },
+      skip,
+      take: limit,
       select: {
         id: true,
         imageUrl: true,
@@ -109,11 +115,55 @@ export class ItemsService {
       })
     );
 
-    return itemsWithPresignedUrls;
+    return {
+      items: itemsWithPresignedUrls,
+      meta: {
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    };
   }
 
-  async getItemsGroupedByCategory(userId: string) {
-    const items = await this.getItemsByUser(userId);
+  async getItemsGroupedByCategory(userId: string, page: number = 1, limit: number = 20) {
+    // 카테고리별 그룹화는 페이지네이션을 적용하기 어려우므로 (각 카테고리별로 몇 개씩 가져올지 애매함)
+    // 일단 전체를 가져와서 프론트에서 처리하거나, 각 카테고리별로 별도 호출이 필요함.
+    // 하지만 현재 요구사항은 "초기 로딩 개선"이므로, 일단 최근 등록순으로 limit만큼 가져오고
+    // 프론트엔드에서 카테고리별로 분류해서 보여주되, "더보기"가 필요할 수 있음을 인지해야 함.
+
+    // 수정 제안: getItemsGroupedByCategory는 "모든 카테고리의 최근 항목"을 가져오는 용도로 사용하고,
+    // 실제 전체 목록은 별도 API로 처리하는게 좋지만, 기존 로직 유지를 위해 다음과 같이 처리:
+    // "최근 N개의 아이템을 가져와서 분류" -> 이 경우 특정 카테고리 아이템이 아예 없을 수도 있음.
+
+    // 여기서는 getItemsByUser를 재사용하여 페이지네이션된 결과를 받아오고, 그것을 그룹화하여 반환.
+    // 프론트엔드에서는 이 결과를 "누적"하여 보여줘야 함.
+
+    // 1. 카테고리별 전체 개수 (통계용)
+    const counts = await this.prisma.clothing.groupBy({
+      by: ['category'],
+      where: { userId },
+      _count: { id: true },
+    });
+
+    const itemCounts = {
+      outerwear: 0,
+      tops: 0,
+      bottoms: 0,
+      shoes: 0,
+    };
+
+    counts.forEach(c => {
+      const cat = toDbEnum(c.category);
+      if (cat === 'Outer') itemCounts.outerwear = c._count.id;
+      else if (cat === 'Top') itemCounts.tops = c._count.id;
+      else if (cat === 'Bottom') itemCounts.bottoms = c._count.id;
+      else if (cat === 'Shoes') itemCounts.shoes = c._count.id;
+    });
+
+    // 2. 페이지네이션된 최근 아이템 (MainPage display & FittingRoom initial load)
+    const result = await this.getItemsByUser(userId, undefined, page, limit);
+    const items = result.items;
 
     const grouped = {
       outerwear: items.filter(item => item.category === 'Outer'),
@@ -122,7 +172,7 @@ export class ItemsService {
       shoes: items.filter(item => item.category === 'Shoes'),
     };
 
-    return grouped;
+    return { ...grouped, meta: result.meta, stats: itemCounts };
   }
 
   async getPublicItemsGroupedByCategory(userId: string) {
