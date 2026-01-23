@@ -18,6 +18,9 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { PostsService } from './posts.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { S3Service } from '../s3/s3.service';
+import sharp = require('sharp');
+
+const FEED_IMAGE_MAX_SIZE = 2048;
 
 @Controller('posts')
 @UseGuards(JwtAuthGuard)
@@ -26,6 +29,40 @@ export class PostsController {
     private readonly postsService: PostsService,
     private readonly s3Service: S3Service,
   ) { }
+
+  /**
+   * 이미지 버퍼를 적절한 크기로 리사이징합니다. (EXIF 회전 포함)
+   */
+  private async resizeImageBuffer(buffer: Buffer, maxSize: number): Promise<Buffer> {
+    try {
+      const image = sharp(buffer);
+      const metadata = await image.metadata();
+      const { width, height, format } = metadata;
+
+      if (!width || !height) return buffer;
+
+      const maxDimension = Math.max(width, height);
+      let pipeline = image.rotate(); // EXIF 기반 자동 회전
+
+      if (maxDimension > maxSize) {
+        pipeline = pipeline.resize({
+          width: width > height ? maxSize : undefined,
+          height: height >= width ? maxSize : undefined,
+          fit: 'inside',
+          withoutEnlargement: true,
+          kernel: sharp.kernel.lanczos3,
+        });
+      }
+
+      return await pipeline
+        .toFormat(format || 'jpeg', { quality: 90 })
+        .toBuffer();
+
+    } catch (error) {
+      console.error('[PostsController] Image resize failed, using original:', error);
+      return buffer;
+    }
+  }
 
   @Get('feed')
   async getFeed(
@@ -84,7 +121,11 @@ export class PostsController {
     // S3에 직접 업로드
     const postId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const s3Key = `users/${userId}/posts/${postId}.${file.mimetype.split('/')[1] || 'png'}`;
-    const imageUrl = await this.s3Service.uploadBuffer(file.buffer, s3Key, file.mimetype);
+
+    // 리사이징 + 회전 적용
+    const resizedBuffer = await this.resizeImageBuffer(file.buffer, FEED_IMAGE_MAX_SIZE);
+
+    const imageUrl = await this.s3Service.uploadBuffer(resizedBuffer, s3Key, file.mimetype);
 
     return this.postsService.createPost(userId, imageUrl, caption, clothingIds);
   }
