@@ -9,6 +9,10 @@ import { S3Service } from '../s3/s3.service';
 import { VtonCacheService } from '../vton-cache/vton-cache.service';
 import { GoogleGenAI } from '@google/genai';
 import FormData = require('form-data');
+import sharp = require('sharp');
+
+// FastAPI 전송 전 이미지 리사이징 최대 크기 (YOLO/SAM2 처리 효율화)
+const FASTAPI_MAX_IMAGE_SIZE = 2048;
 
 @Injectable()
 export class AnalysisService {
@@ -37,12 +41,63 @@ export class AnalysisService {
         }
     }
 
+    /**
+     * 이미지 버퍼를 적절한 크기로 리사이징합니다.
+     * - 긴 변이 maxSize를 초과할 경우에만 리사이징
+     * - Lanczos 알고리즘으로 고품질 리사이징 수행
+     * - 원본 비율 유지
+     */
+    private async resizeImageBuffer(buffer: Buffer, maxSize: number): Promise<Buffer> {
+        try {
+            const metadata = await sharp(buffer).metadata();
+            const { width, height, format } = metadata;
+
+            if (!width || !height) {
+                this.logger.warn('[AnalysisService] Could not read image dimensions, using original');
+                return buffer;
+            }
+
+            const maxDimension = Math.max(width, height);
+
+            // 긴 변이 제한을 초과하지 않으면 원본 반환
+            if (maxDimension <= maxSize) {
+                this.logger.log(`[AnalysisService] Image size OK: ${width}x${height} (no resize needed)`);
+                return buffer;
+            }
+
+            // 비율 유지하며 리사이징 (Lanczos 알고리즘: 고품질)
+            const resizedBuffer = await sharp(buffer)
+                .resize({
+                    width: width > height ? maxSize : undefined,
+                    height: height >= width ? maxSize : undefined,
+                    fit: 'inside',
+                    withoutEnlargement: true,
+                    kernel: sharp.kernel.lanczos3,
+                })
+                .toFormat(format || 'jpeg', { quality: 90 })
+                .toBuffer();
+
+            const resizedMetadata = await sharp(resizedBuffer).metadata();
+            this.logger.log(
+                `[AnalysisService] Image resized: ${width}x${height} → ${resizedMetadata.width}x${resizedMetadata.height} (${(buffer.length / 1024).toFixed(0)}KB → ${(resizedBuffer.length / 1024).toFixed(0)}KB)`
+            );
+
+            return resizedBuffer;
+        } catch (error) {
+            this.logger.error('[AnalysisService] Image resize failed, using original:', error.message);
+            return buffer;
+        }
+    }
+
     async analyzeImage(file: Express.Multer.File) {
         const startTime = Date.now();
-        this.logger.log(`[TIMING] Starting analysis for file: ${file.originalname}`);
+        this.logger.log(`[TIMING] Starting analysis for file: ${file.originalname}, size: ${(file.size / 1024).toFixed(0)}KB`);
+
+        // 큰 이미지 리사이징 (FastAPI로 전송 전)
+        const resizedBuffer = await this.resizeImageBuffer(file.buffer, FASTAPI_MAX_IMAGE_SIZE);
 
         const formData = new FormData();
-        formData.append('file', file.buffer, file.originalname);
+        formData.append('file', resizedBuffer, file.originalname);
 
         try {
             // 1. Call FastAPI
